@@ -1,3 +1,9 @@
+#|
+
+When playing and it's a user's turn, the history has an extra step at the end that 
+corresponds to the unplayed move! that's confusing.
+
+|#
 
 (module admin-gui mzscheme
   (require "gui.ss"
@@ -121,13 +127,16 @@
       (define dice '())
       
       (define/private (make-dice color parent)
-        (let ([p (new horizontal-panel% (parent parent) (stretchable-height #f))])
-          (set! dice
-                (cons (list color (list (new die% (parent p) (dim? #t))
-                                        (new die% (parent p) (dim? #t))
-                                        (new die% (parent p) (dim? #t))
-                                        (new die% (parent p) (dim? #t))))
-                      dice))))
+        (let* ([p (new horizontal-panel% (parent parent) (stretchable-height #f))]
+               [die-objects (list (new die% (parent p) (dim? #t))
+                                  (new die% (parent p) (dim? #t))
+                                  (new die% (parent p) (dim? #t))
+                                  (new die% (parent p) (dim? #t)))]
+               [dice-in-order
+                (case color
+                  [(yellow blue) (reverse die-objects)]
+                  [else die-objects])])
+          (set! dice (cons (list color dice-in-order) dice))))
       
       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       ;;
@@ -160,15 +169,22 @@
       
       (define/private (go-back)
         (reset-move)
-        (set! viewing-index (if (eq? viewing-index 'latest)
-                                (- (length history) 1)
-                                (- viewing-index 1)))
+        (set! viewing-index 
+              (cond
+                [(eq? viewing-index 'latest) (- (length history) 1)]
+                [(and this-move-color (zero? viewing-index)) 'latest]  ;; only go to latest when its time to show a move
+                [(zero? viewing-index) (- (length history) 1)]
+                [else (- viewing-index 1)]))
         (update-gui))
       (define/private (go-forw)
         (reset-move)
-        (set! viewing-index (if (= viewing-index (- (length history) 1))
-                                'latest
-                                (+ viewing-index 1)))
+        (set! viewing-index (cond
+                              [(eq? viewing-index 'latest) 0]
+                              [(and this-move-color (= viewing-index (- (length history) 1)))
+                               'latest]
+                              [(= viewing-index (- (length history) 1))
+                               0]
+                              [else (+ viewing-index 1)]))
         (update-gui))
       
       (define/private (reset-button-callback)
@@ -248,36 +264,35 @@
            (let-values ([(highlights move-candidates)
                          (find-roll-coordinates current-board current-dice this-move-color)])
              (send board-pasteboard set-highlighted-squares highlights move-candidates))]
-          [else
+          [(number? viewing-index)
            (let ([past (list-ref history viewing-index)])
-             (printf "past ~s\n" past)
              (clear-dice-except (past-color past))
              (update-players-dice (past-color past) (past-roll past))
              (send board-pasteboard set-board (past-board past))
-             (send board-pasteboard set-highlighted-squares '() '()))])
+             (send board-pasteboard set-highlighted-squares '() '()))]
+          [else (error 'update-gui "unknown viewing index ~e\n" viewing-index)])
         (reset-accept/move-buttons)
         (reset-forw-back-buttons))
       
       (define/private (reset-accept/move-buttons)
-        (let ([accept (cdr (assq this-move-color gui-player-accept-move-buttons))]
-              [reset (cdr (assq this-move-color gui-player-reset-move-buttons))])
-          (send reset enable (and (eq? viewing-index 'latest) (not (null? current-moves))))
-          (send accept enable 
-                (and (eq? viewing-index 'latest) 
-                     (with-handlers ([exn:bad-move? (lambda (x) 
-                                                      (set-bottom-message 
-                                                       (string-append 
-                                                        (format "~a is not done: " this-move-color)
-                                                        (exn-message x)))
-                                                      #f)])
-                       (take-turn this-move-color start-board start-dice current-moves)
-                       #t)))))
+        (when this-move-color
+          (let ([accept (cdr (assq this-move-color gui-player-accept-move-buttons))]
+                [reset (cdr (assq this-move-color gui-player-reset-move-buttons))])
+            (send reset enable (and (eq? viewing-index 'latest) (not (null? current-moves))))
+            (send accept enable 
+                  (and (eq? viewing-index 'latest) 
+                       (with-handlers ([exn:bad-move? (lambda (x) 
+                                                        (set-bottom-message 
+                                                         (string-append 
+                                                          (format "~a is not done: " this-move-color)
+                                                          (exn-message x)))
+                                                        #f)])
+                         (take-turn this-move-color start-board start-dice current-moves)
+                         #t))))))
       
       (define/private (reset-forw-back-buttons)
-        (send forw enable (not (eq? viewing-index 'latest)))
-        (send back enable (and (not (null? history))
-                               (not (eq? viewing-index 0)))))
-      
+        (send forw enable (not (null? history)))
+        (send back enable (not (null? history))))
       
       (define/private (set-bottom-message msg) (send bottom-msg set-label msg))
       
