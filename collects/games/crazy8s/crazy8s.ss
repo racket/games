@@ -365,9 +365,10 @@
       (define (stuck-game?)
 	(and (null? deck)
 	     (not (ormap (lambda (p)
-			   (ormap (lambda (c)
-				    (get-discard-card (list c)))
-				  (player-hand p)))
+                           (and (pair? (player-hand p))
+                                (ormap (lambda (c)
+                                         (get-discard-card (list c)))
+                                       (player-hand p))))
 			 players))))
       
       ;; Auto-player strategy: Choose which valid card to discard
