@@ -4,7 +4,8 @@
            (lib "unit.ss")
 	   (lib "class100.ss")
 	   (lib "list.ss")
-           (lib "getinfo.ss" "setup"))
+           (lib "getinfo.ss" "setup")
+	   "show-help.ss")
 
    (define game-mapping 
      (let ([games (let ([d (collection-path "games")])
@@ -63,6 +64,17 @@
      (send p change-children (lambda (l) (quicksort l pred))))
 
    (make-object grow-box-spacer-pane% hp)
+
+   (define show-games-help
+     (show-help '("games") "About PLT Games"))
+
+   (application-about-handler show-games-help)
+   (application-preferences-handler (lambda ()
+				      (message-box
+				       "Oops"
+				       "There aren't actually any preferences. This is just a test for Mac OS X"
+				       f
+				       '(ok))))
    
    (send f show #t))
 
