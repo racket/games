@@ -17,7 +17,7 @@
             (send f show #t)
             (let* ([frame (make-object f%)]
                    [t (make-object text%)]
-                   [c (make-object editor-canvas% frame t)])
+                   [c (new editor-canvas% [parent frame] [editor t] [style '(auto-hscroll)])])
               (send c min-width 500)
               (send c min-height 300)
               (send t auto-wrap (not verbatim?))
@@ -34,11 +34,23 @@
                            (send t insert #\newline)]
 			  [(regexp-match #rx"^[*][*].*[*][*]$" l)
 			   ;; Skip
-			   (loop)]
+			   (void)]
                           [(string=? l "")
 			   (unless (zero? (send t last-position))
 			     (send t insert #\newline)
 			     (send t insert #\newline))]
+                          [(and (regexp-match #rx"^-+$" l)
+				(= (string-length l) 
+				   (- (send t last-position)
+				      (send t paragraph-start-position (send t last-paragraph))
+				      1)))
+			   ;; Change previous line style to title
+			   (let ([end (send t last-position)])
+			     (send t change-style 
+				   (send (make-object style-delta% 'change-weight 'bold)
+					 set-delta-foreground
+					 "blue")
+				   (- end 1 (string-length l)) (- end 1)))]
                           [else
 			   (let ([l (regexp-replace #rx" +$" 
 						    (regexp-replace #rx"^ +" l "")
