@@ -1,6 +1,6 @@
 
 (let ([elaboration-time-files
-       (list "awk.ss" "compatm.ss" "constan.ss" "defstru.ss" 
+       (list "awk.ss" "compatm.ss" "defstru.ss" 
 	     "macro.ss" "macrox.ss" "match.ss"
 	     "shared.ss" "restarts.ss" "cmdlinem.ss"
 	     "spidey.ss" "synrule.ss" "trace.ss"
@@ -15,9 +15,8 @@
       [(name) "MzLib"]
       [(compile-prefix) '(begin
 			   (require-library "refer.ss")
-			   (require-library "mzlibs.ss")
-			   (require-library "constan.ss"))]
+			   (require-library "mzlibs.ss"))]
       [(compile-omit-files) (append elaboration-time-files
-				    (list "refer.ss" "letplsrc.ss" "sfunctor.ss"))]
+				    (list "refer.ss" "letplsrc.ss"))]
       [(compile-elaboration-zos) elaboration-time-files]
       [else (failure)])))
