@@ -73,7 +73,7 @@
 
 ; Size of buttons
 (define BUTTON-HEIGHT 16)
-(define BUTTON-WIDTH (* 2/3 cw))
+(define BUTTON-WIDTH cw)
 
 ; Cards are not movable
 (for-each
@@ -129,26 +129,16 @@
 (define player-2-border (make-border-region player-2-region))
 
 ; Player buttons
-(define hit-button
-  (make-button-region (region-x player-region) (- h MARGIN BUTTON-HEIGHT)
+(define (make-button title pos)
+  (make-button-region (+ (/ (- w (* 4 BUTTON-WIDTH) (* 3 MARGIN)) 2)
+			 (* pos (+ BUTTON-WIDTH MARGIN)))
+		      (- h MARGIN BUTTON-HEIGHT)
 		      BUTTON-WIDTH BUTTON-HEIGHT
-		      "Hit" void))
-(define stand-button
-  (make-button-region (- (+ (region-x player-region) (region-w player-region))
-			 BUTTON-WIDTH)
-		      (region-y hit-button)
-		      BUTTON-WIDTH BUTTON-HEIGHT
-		      "Stand" void))
-(define split-button
-  (make-button-region (+ (region-x hit-button) (region-w hit-button) MARGIN)
-		      (region-y hit-button)
-		      BUTTON-WIDTH BUTTON-HEIGHT
-		      "Split" void))
-(define double-button
-  (make-button-region (+ (region-x split-button) (region-w split-button) MARGIN)
-		      (region-y hit-button)
-		      BUTTON-WIDTH BUTTON-HEIGHT
-		      "Double" void))
+		      title void))
+(define hit-button (make-button "Hit" 1))
+(define stand-button (make-button "Stand" 2))
+(define split-button (make-button "Split" 0))
+(define double-button (make-button "Double" 3))
 
 ; Put the cards on the table
 (send t add-cards-to-region deck deck-region)
@@ -220,8 +210,9 @@
 		 [make-status
 		  (lambda (title continue)
 		    (let ([r (make-button-region 
-			      (/ (- w (* 3/2 cw)) 2) (- (/ (- h BUTTON-HEIGHT) 2) MARGIN)
-			      (* 3/2 cw) BUTTON-HEIGHT
+			      (/ (- w (* 2 cw)) 2) 
+			      (region-y hit-button)
+			      (* 2 cw) BUTTON-HEIGHT
 			      title #f)])
 		      (set-region-callback! r (lambda () 
 						(send t remove-region r)
