@@ -37,7 +37,10 @@ paint by numbers.
     (define UNKNOWN-BRUSH (send the-brush-list find-or-create-brush "GRAY" 'solid))
     (define ON-BRUSH (send the-brush-list find-or-create-brush "BLUE" 'solid))
     (define OFF-BRUSH (send the-brush-list find-or-create-brush "WHITE" 'solid))
-    (define LINES-PEN (send the-pen-list find-or-create-pen "BLACK" 1 'solid))
+    (define LINES/NUMBERS-PEN (send the-pen-list find-or-create-pen "BLACK" 1 'solid))
+
+    (define WHITE-PEN (send the-pen-list find-or-create-pen "WHITE" 1 'solid))
+    (define WHITE-BRUSH (send the-brush-list find-or-create-brush "WHITE" 'solid))
 
     (define paint-by-numbers-canvas%
       (class canvas% (parent row-numbers col-numbers)
@@ -84,6 +87,10 @@ paint by numbers.
 			     (send dc get-text-extent s)])
 		 width)))]
 
+	  [loc->string
+	   (lambda (x y)
+	     (format "(~a,~a)" x y))]
+
 	  [xy->grid
 	   (lambda (x y)
 	     (let* ([grid-width (/ (- canvas-width row-label-width) grid-x-size)]
@@ -96,7 +103,6 @@ paint by numbers.
 			(<= 0 y grid-y-size))
 		   (cons x y)
 		   #f)))]
-	  
 	  
 	  [grid->rect
 	   (lambda (x y)
@@ -115,6 +121,7 @@ paint by numbers.
 	   (lambda (i j)
 	     (let ([dc (get-dc)])
 	       (let-values ([(left top width height) (grid->rect i j)])
+		 (send dc set-pen LINES/NUMBERS-PEN)
 		 (send dc set-brush (vector-ref (vector-ref grid i) j))
 		 (send dc draw-rectangle left top width height))))]
 
@@ -146,27 +153,48 @@ paint by numbers.
 	    (on-paint))]
 	 [on-event
 	  (lambda (evt)
-	    (when (send evt button-down?)
-	      (let ([x (send evt get-x)]
-		    [y (send evt get-y)])
-		(let ([p (xy->grid x y)])
-		  (when p
+	    (let* ([x (send evt get-x)]
+		   [y (send evt get-y)]
+		   [p (xy->grid x y)])
+	      (cond
+	       [(or (send evt moving?)
+		    (send evt entering?)
+		    (send evt leaving?))
+		(let ([dc (get-dc)])
+		  (send dc set-pen WHITE-PEN)
+		  (send dc set-brush WHITE-BRUSH)
+		  (send dc draw-rectangle 0 0 row-label-width col-label-height)
+		  (when (and (not (send evt leaving?))
+			     p)
 		    (let* ([i (car p)]
 			   [j (cdr p)]
-			   [prev (vector-ref (vector-ref grid i) j)])
-		      (vector-set! (vector-ref grid i) j
-				   (cond
-				    [(eq? prev UNKNOWN-BRUSH) ON-BRUSH]
-				    [(eq? prev ON-BRUSH) OFF-BRUSH]
-				    [(eq? prev OFF-BRUSH) UNKNOWN-BRUSH]
-				    [else (error 'internal-error "unkown brush in board ~s~n" (vector-ref (vector-ref grid i) j))]))
-		      (paint-rect i j)))))))]
+			   [string (loc->string (+ i 1) (+ j 1))]
+			   [width (get-string-width string)]
+			   [height (get-string-height string)]
+			   [sx (- (/ row-label-width 2)
+				  (/ width 2))]
+			   [sy (- (/ col-label-height 2)
+				  (/ height 2))])
+		      (send dc draw-text string sx sy))))]
+	       [(send evt button-down?)
+		(when p
+		  (let* ([i (car p)]
+			 [j (cdr p)]
+			 [prev (vector-ref (vector-ref grid i) j)])
+		    (vector-set! (vector-ref grid i) j
+				 (cond
+				  [(eq? prev UNKNOWN-BRUSH) ON-BRUSH]
+				  [(eq? prev ON-BRUSH) OFF-BRUSH]
+				  [(eq? prev OFF-BRUSH) UNKNOWN-BRUSH]
+				  [else (error 'internal-error "unkown brush in board ~s~n" (vector-ref (vector-ref grid i) j))]))
+		    (paint-rect i j)))])))]
 
 	 [on-paint
 	  (lambda ()
 	    (let ([dc (get-dc)])
 	      (let-values ([(width height) (get-client-size)])
 
+		(send dc set-pen LINES/NUMBERS-PEN)
 		(let loop ([i grid-x-size])
 		  (cond
 		   [(zero? i) (void)]
@@ -232,10 +260,11 @@ paint by numbers.
 	  
 	  (let* ([dc (get-dc)])
 	    (set! row-label-width
-		  (apply max (map (lambda (x) (+ margin
-						 (get-string-width (get-row-label-string x))
-						 margin))
-				  row-numbers)))
+		  (max (get-string-width (loc->string grid-x-size grid-y-size))
+		       (apply max (map (lambda (x) (+ margin
+						      (get-string-width (get-row-label-string x))
+						      margin))
+				       row-numbers))))
 
 	    (let-values ([(width height descent ascent) (send dc get-text-extent "0123456789")])
 	      (set! row-label-height (+ margin margin height)))
