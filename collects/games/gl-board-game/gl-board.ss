@@ -78,7 +78,7 @@
              (set-space-draw! s d)))
          spaces))
       
-      ;; set-piece-draw: info (->) ->
+      ;; set-piece-draw: info (boolean ->) ->
       ;; Sets the drawing method of all pieces whose info is equal to piece to d.
       (define/public (set-piece-draw piece d)
         (for-each
@@ -95,6 +95,15 @@
 	  (if p
 	      (set-piece-enabled?! p (and on? #t))
 	      (raise-mismatch-error "no matching piece: " info))))
+      
+      ;; enabled?: info -> boolean
+      (define/public (enabled? info)
+        (let ((p (ormap (lambda (p)
+                          (and (equal? info (piece-info p)) p))
+                        pieces)))
+          (if p
+              (piece-enabled? p)
+              (raise-mismatch-error "no matching piece: " info))))
       
       ;; remove-piece: info ->
       ;; Removes all pieces whose info is equal? to p-i from this board.
@@ -151,7 +160,7 @@
       ;; draw-pieces : bool ->
       ;; Draws the pieces.  If select? is true, then names are loaded for selection
       ;; with each piece named after its index plus the number of spaces.
-      (define/private (draw-pieces select?)
+      (define/private (draw-pieces select? shadow?)
         (let loop ((i (length spaces))
                    (ps (if (and (piece? mouse-state) 
                                 dragging)
@@ -171,7 +180,7 @@
                   (gl-load-name i))
                 (gl-push-matrix)
                 (gl-translate (piece-x p) (piece-y p) (piece-z p))
-                ((piece-draw p))
+                ((piece-draw p) shadow?)
                 (gl-pop-matrix))
               (loop (add1 i)
                     (cdr ps))))))
@@ -188,7 +197,7 @@
            (gl-enable 'stencil-test)
            (gl-stencil-func 'always 1 1)
            (gl-stencil-op 'keep 'keep 'replace)
-           (draw-pieces #f)
+           (draw-pieces #f #f)
            (gl-disable 'stencil-test)
            
            ;; Very simple shadowing on the board, only blending the shadow
@@ -198,7 +207,6 @@
            ;; Once a pixel has been shadows, use saturating incr to set its
            ;; value to 1, preventing multi-shadowing.
 	   (gl-stencil-op 'keep 'keep 'incr)
-           (gl-disable 'lighting)
            (gl-disable 'depth-test)
 	   (gl-enable 'blend)
 	   (gl-blend-func 'dst-color 'zero)
@@ -207,10 +215,9 @@
            (gl-translate center-x center-y light-distance)
            (gl-mult-matrix shadow-projection)
            (gl-translate (- center-x) (- center-y) (- light-distance))
-           (draw-pieces #f)
+           (draw-pieces #f #t)
            (gl-enable 'depth-test)
 	   (gl-disable 'blend)
-           (gl-enable 'lighting)
 	   (gl-disable 'stencil-test)
            (gl-pop-matrix)
            (gl-flush)
@@ -252,7 +259,7 @@
           (gl-init-names)
           (gl-push-name 0)
           (draw-spaces #t)
-          (draw-pieces #t)
+          (draw-pieces #t #f)
           (gl-matrix-mode 'projection)
           (gl-pop-matrix)
           (gl-matrix-mode 'modelview)

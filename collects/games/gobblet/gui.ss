@@ -221,7 +221,12 @@
       (define (gui-add-piece gp)
 	(send gui-board add-piece 
 	      (+ (gui-piece-i gp) 0.5) (+ (gui-piece-j gp) 0.5) 0
-	      (lambda () (gl-call-list (gui-piece-dl gp)))
+	      (lambda (for-shadow?)
+                (when for-shadow?
+                  (gl-disable 'lighting))
+                (gl-call-list (gui-piece-dl gp))
+                (when for-shadow? 
+                  (gl-enable 'lighting)))
 	      gp))
 
       ;; Extra GUI controls ----------------------------------------

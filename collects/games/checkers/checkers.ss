@@ -7,25 +7,55 @@
            (lib "gl.ss" "sgl")
            (lib "array.ss" "srfi" "25")
            (lib "unit.ss")
-           "honu-bitmaps.ss"
-           (rename (lib "gl-frame.ss" "sgl" "examples")
-                   image->gl-vector image->gl-vector)
-           (rename (lib "gl-frame.ss" "sgl" "examples")
-                   bitmap->gl-vector bitmap->gl-vector))
+           "honu-bitmaps.ss")
   
   (provide game-unit)
 
-  (define dim-red (gl-float-vector .8 0.0 0.0 1.0))
-  (define gray (gl-float-vector 0.4 0.4 0.4 1.0))
-
   (define path (collection-path "games" "checkers"))
-  (define light-img (image->gl-vector (build-path path "light.jpg")))
-  (define dark-img (image->gl-vector (build-path path "dark.jpg")))
-  (define dark-color (gl-float-vector .4745 .3569 .2627 1))
-  (define light-color (gl-float-vector .7216 .6471 .5176 1))
   
-  (define dark-checker-img (bitmap->gl-vector honu-bitmap))
-  (define light-checker-img (bitmap->gl-vector honu-bitmap-down))
+  (define-struct image (width height rgba))
+  
+  (define (argb->rgba argb)
+    (let* ((a (car argb))
+           (rgb (cdr argb))
+           (length (bytes-length rgb))
+           (rgba (make-gl-ubyte-vector length)))
+      (let loop ((i 0))
+        (when (< i length)
+          (gl-vector-set! rgba (+ i 0) (bytes-ref rgb (+ i 1)))
+          (gl-vector-set! rgba (+ i 1) (bytes-ref rgb (+ i 2)))
+          (gl-vector-set! rgba (+ i 2) (bytes-ref rgb (+ i 3)))
+          (gl-vector-set! rgba (+ i 3) (bytes-ref a (+ i 0)))
+          (loop (+ i 4))))
+      rgba))
+  
+  (define (bitmap->argb bmp)
+    (let* ((width (send bmp get-width))
+           (height (send bmp get-height))
+           (rgb (make-bytes (* 4 width height)))
+           (a (make-bytes (* 4 width height)))
+           (dc (make-object bitmap-dc% bmp)))
+      (send dc get-argb-pixels 0 0 width height rgb #f)
+      (send dc get-argb-pixels 0 0 width height a #t)
+      (send dc set-bitmap #f)
+      (cons a rgb)))
+      
+  (define (bitmap->image bmp)
+    (make-image (send bmp get-width) (send bmp get-height)
+                (argb->rgba (bitmap->argb bmp))))
+
+  (define (file->image file)
+    (bitmap->image (make-object bitmap% file 'unknown #f)))
+  
+  (define light-square-img (file->image (build-path path "light.jpg")))
+  (define light-square-color (gl-float-vector .7216 .6471 .5176 1))
+  (define dark-square-img (file->image (build-path path "dark.jpg")))
+  (define dark-square-color (gl-float-vector .4745 .3569 .2627 1))
+  
+  (define light-checker-img (bitmap->image honu-bitmap-down))
+  (define light-checker-color (gl-float-vector .8 0.0 0.0 1.0))
+  (define dark-checker-img (bitmap->image honu-bitmap))
+  (define dark-checker-color (gl-float-vector 0.2 0.2 0.2 1.0))
   
   (define-struct space-info (x y light?))
   (define-struct piece-info (x y color king?) (make-inspector))
@@ -37,8 +67,8 @@
       (export add-space add-piece remove-piece move-piece set-turn show)
 
       (define (get-space-draw-fn space)
-        (let* ((x (if (space-info-light? space) light-square dark-square))
-               (list-id (if (send texture-box get-value) (car x) (cdr x)))
+        (let* ((list-id (get-square-dl (space-info-light? space)
+                                       (send texture-box get-value)))
                (sx (space-info-x space))
                (sy (space-info-y space)))
           (lambda ()
@@ -46,21 +76,21 @@
             (gl-translate sx sy 0)
             (gl-call-list list-id)
             (gl-pop-matrix))))
-        
       
       (define (add-space space)
         (send board add-space (get-space-draw-fn space) space))
 
       (define (get-piece-draw-fn piece glow?)
-        (let ((list-id (get-piece-dl (piece-info-color piece)
-                                     (piece-info-king? piece))))
+        (let ((list-id (get-checker-dl (eq? 'red (piece-info-color piece))
+                                       (piece-info-king? piece)
+                                       (send texture-box get-value))))
           (if glow?
-              (lambda ()
-                (gl-material-v 'front 'emission (gl-float-vector 0.1 0.1 0.1 1.0))
-                (gl-call-list list-id)
+              (lambda (for-shadow?)
+                (gl-material-v 'front 'emission (gl-float-vector 0.15 0.15 0.15 1.0))
+                (gl-call-list ((if for-shadow? cdr car) list-id))
                 (gl-material-v 'front 'emission (gl-float-vector 0.0 0.0 0.0 1.0)))
-              (lambda () 
-                (gl-call-list list-id)))))
+              (lambda (for-shadow?)
+                (gl-call-list ((if for-shadow? cdr car) list-id))))))
       
       (define add-piece
         (case-lambda
@@ -118,8 +148,13 @@
                 (for-each
                  (lambda (s)
                    (send board set-space-draw s
-                         (get-space-draw-fn s )))
+                         (get-space-draw-fn s)))
                  (send board get-spaces))
+                (for-each
+                 (lambda (p)
+                   (send board set-piece-draw p
+                         (get-piece-draw-fn p (send board enabled? p))))
+                 (send board get-pieces))
                 (send board refresh)))))
       (send texture-box set-value #t)
                 
@@ -145,14 +180,15 @@
                 (glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR)
                 (glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_S GL_CLAMP)
                 (glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_T GL_CLAMP)
-                (glTexImage2D GL_TEXTURE_2D 0 GL_RGB (car img) (cadr img) 0
-                              GL_RGB GL_UNSIGNED_BYTE (caddr img)))))
+                (glTexImage2D GL_TEXTURE_2D 0 GL_RGBA (image-width img) (image-height img) 0
+                              GL_RGBA GL_UNSIGNED_BYTE (image-rgba img)))))
       
-      (init-tex light-tex light-img)
-      (init-tex dark-tex dark-img)
+      (init-tex light-tex light-square-img)
+      (init-tex dark-tex dark-square-img)
       (init-tex dark-checker-tex dark-checker-img)
       (init-tex light-checker-tex light-checker-img)
       
+      #;
       (define-syntax (do-em stx)
         (syntax-case stx ()
           [(_ reverse? args ...)
@@ -161,42 +197,42 @@
                          (begin rev-args ...)
                          (begin args ...))))]))
       
-      (define (make-piece-dl real-color height tex)
+      (define (make-piece-dl color height tex shadow?)
         (send board with-gl-context
           (lambda ()
             (let ((list-id (gl-gen-lists 1)))
               (gl-quadric-draw-style q 'fill)
               (gl-quadric-normals q 'smooth)
               (gl-new-list list-id 'compile)
-              (gl-enable 'texture-2d)
-              (glBindTexture GL_TEXTURE_2D tex)
               
+              (when shadow?
+                (gl-disable 'lighting))
               ;(gl-material-v 'front 'specular (gl-float-vector 1.0 1.0 1.0 1.0))
               ;(gl-material 'front 'shininess 120.0)  
-              (gl-material-v 'front 'ambient-and-diffuse real-color)
-              
+              (gl-material-v 'front 'ambient-and-diffuse color)
+
               (gl-cylinder q .35 .35 height 25 1)
               (gl-push-matrix)
               (gl-translate 0.0 0.0 height)
               
-              (glTexEnvf GL_TEXTURE_ENV GL_TEXTURE_ENV_MODE GL_DECAL)
-              ;GL_MODULATE, GL_DECAL, GL_BLEND, or GL_REPLACE.
-              (gl-quadric-texture q #t)
+              (when (and tex (not shadow?))
+                (gl-enable 'texture-2d)
+                (glBindTexture GL_TEXTURE_2D tex)
+                (glTexEnvf GL_TEXTURE_ENV GL_TEXTURE_ENV_MODE GL_DECAL)
+                ;GL_MODULATE, GL_DECAL, GL_BLEND, or GL_REPLACE.
+                (gl-quadric-texture q #t))
               (gl-disk q 0.0 .35 25 1)
-              (gl-quadric-texture q #f)
-              (glTexEnvf GL_TEXTURE_ENV GL_TEXTURE_ENV_MODE GL_MODULATE)
+              (when (and tex (not shadow?))
+                (gl-quadric-texture q #f)
+                (glTexEnvf GL_TEXTURE_ENV GL_TEXTURE_ENV_MODE GL_MODULATE)
+                (gl-disable 'texture-2d))
               
               (gl-pop-matrix)
-              (gl-disable 'texture-2d)
+
+              (when shadow?
+                (gl-enable 'lighting))
               (gl-end-list)
               list-id))))
-
-      (define (get-piece-dl color king?)
-        (cond
-          ((eq? color 'red)
-           (if king? red-king red-piece))
-          (else
-           (if king? black-king black-piece))))
 
       (define (make-tex-square-dl tex)
         (send board with-gl-context
@@ -236,16 +272,33 @@
               (gl-end-list)
               list-id))))
       
-      
-      (define red-piece (make-piece-dl dim-red .2 light-checker-tex))
-      (define red-king (make-piece-dl dim-red .4 light-checker-tex))
-      (define black-piece (make-piece-dl gray .2 dark-checker-tex))
-      (define black-king (make-piece-dl gray .4 dark-checker-tex))
-
+      (define checkers
+        (map
+         (lambda (x)
+           (let ((color (if (car x) light-checker-color dark-checker-color))
+                 (height (if (cadr x) .4 .2))
+                 (tex (if (caddr x) (if (car x) light-checker-tex dark-checker-tex) #f)))
+             (cons x (cons (make-piece-dl color height tex #f)
+                           (make-piece-dl color height tex #t)))))
+         '((#f #f #f)
+           (#f #f #t)
+           (#f #t #f)
+           (#f #t #t)
+           (#t #f #f)
+           (#t #f #t)
+           (#t #t #f)
+           (#t #t #t))))
+      (define (get-checker-dl light? king? tex?)
+        (cdr (assoc (list light? king? tex?) checkers)))
+        
       (define dark-square (cons (make-tex-square-dl dark-tex)
-                                (make-square-dl dark-color)))
+                                (make-square-dl dark-square-color)))
       (define light-square (cons (make-tex-square-dl light-tex)
-                                 (make-square-dl light-color)))
+                                 (make-square-dl light-square-color)))
+      (define (get-square-dl light? tex?)
+        (let ((getter (if tex? car cdr)))
+          (getter (if light? light-square dark-square))))
+                         
       (define (show)
         (send f show #t))))
   
