@@ -250,6 +250,9 @@
 				   (stretchable-height #f)
 				   (stretchable-width #f)))
       (define arrows? (let ([f (make-object font% 12 'system)])
+			#f
+			;; Need version 299.28 for this:
+			#;
 			(and (send f screen-glyph-exists? #\u25C0 #t)
 			     (send f screen-glyph-exists? #\u25B6 #t))))
       (define backward-button
