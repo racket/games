@@ -65,7 +65,7 @@
              [bdc (make-object bitmap-dc% nb)])
         (send bdc draw-bitmap-section bitmap 0 0 0 0
               (- (send bitmap get-width) horizontal-cutoff)
-              (- (send bitmap get-width) vertical-cutoff))
+              (- (send bitmap get-height) vertical-cutoff))
         (send bdc set-bitmap #f)
         (values nb (send sw get-value) (send sh get-value)))))
 
@@ -315,7 +315,7 @@
     (inherit stretchable-width stretchable-height min-client-width min-client-height)
     (sequence
       (apply super-init args)
-      (randomize-board board hole-i hole-j)
+      ;(randomize-board board hole-i hole-j)
       (stretchable-width #f)
       (stretchable-height #f)
       (min-client-width (send bitmap get-width))
@@ -345,11 +345,11 @@
              (when bitmap
                (send p change-children (lambda (l) null))
                (set! slidey-canvas (make-object slidey-canvas% bitmap w h p))))]
-          [else (message-box "Slidey" (format "Could not open bitmap: ~a" fn))])))))
+          [else (message-box "Slidey" (format "Unrecognized image format: ~a" fn))])))))
 
 (define mb (make-object menu-bar% f))
 (define file-menu (make-object menu% "File" mb))
-(make-object menu-item% "Open Bitmap" file-menu (lambda (_1 _2) (change-bitmap)) #\o)
+(make-object menu-item% "Open Image" file-menu (lambda (_1 _2) (change-bitmap)) #\o)
 (make-object menu-item% "Close Window" file-menu (lambda (_1 _2) (send f show #f)) #\w)
 
 (send f show #t)
