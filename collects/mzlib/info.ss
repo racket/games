@@ -3,11 +3,12 @@
   (case request
     [(name) "MzLib"]
     [(compile-prefix) '(begin
+			 (require-library "refer.ss")
 			 (require-library "mzlibs.ss")
 			 (require-library "constan.ss"))]
-    [(compile-omit-files) 
+    [(compile-omit-files)
      (list "awk.ss" "compatm.ss" "constan.ss" "defstru.ss" 
-	   "macro.ss" "macrox.ss" "match.ss" 
+	   "macro.ss" "macrox.ss" "match.ss"                   "macroxr.ss"
 	   "letplus.ss" "letplsrc.ss" "refer.ss" "shared.ss"
 	   "spidey.ss" "synrule.ss" "trace.ss" "sfunctor.ss"
 	   "mzlibs.ss" "cores.ss"
