@@ -23,7 +23,7 @@
 			      '(0.3 0.45 0.65 0.8)))
 
       ;; Auto-play:
-      (define smart? (get-preference 'gobblet:auto-play-smart? (lambda () #t)))
+      (define smart? (get-preference 'gobblet:auto-play-smart? (lambda () #f)))
       (define timeout (let ([v (get-preference 'gobblet:auto-play-timeout (lambda () #f))])
 			(if (and (number? v) (real? v))
 			    v
