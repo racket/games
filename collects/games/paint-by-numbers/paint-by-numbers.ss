@@ -40,28 +40,29 @@ paint by numbers.
     (define LINES-PEN (send the-pen-list find-or-create-pen "BLACK" 1 'solid))
 
     (define paint-by-numbers-canvas%
-      (class canvas% (parent horiz-numbers vert-numbers)
+      (class canvas% (parent row-numbers col-numbers)
 	(inherit get-dc get-client-size)
 	(private
 	  [canvas-width 200]
 	  [canvas-height 200]
 	  
-	  [grid-size (length horiz-numbers)]
+	  [grid-x-size (length col-numbers)]
+	  [grid-y-size (length row-numbers)]
 	  [margin 2]
-	  [horiz-label-width 10]
-	  [horiz-label-height 10]
-	  [vert-label-width 10]
-	  [vert-label-height 10]
+	  [row-label-width 10]
+	  [row-label-height 10]
+	  [col-label-width 10]
+	  [col-label-height 10]
 
-	  [get-horiz-label-string
+	  [get-row-label-string
 	   (lambda (l)
 	     (let ([s (format "~a" l)])
 	       (substring s 1 (- (string-length s) 1))))]
-	  [get-vert-label-strings
+	  [get-col-label-strings
 	   (lambda (l)
 	     (map number->string l))]
 
-	  [grid (build-vector grid-size (lambda (i) (make-vector grid-size UNKNOWN-BRUSH)))]
+	  [grid (build-vector grid-x-size (lambda (i) (make-vector grid-y-size UNKNOWN-BRUSH)))]
 	  
 
 	  [get-string-height
@@ -85,26 +86,26 @@ paint by numbers.
 
 	  [xy->grid
 	   (lambda (x y)
-	     (let* ([grid-width (/ (- canvas-width horiz-label-width) grid-size)]
-		    [grid-height (/ (- canvas-height vert-label-height) grid-size)]
-		    [xp (- x horiz-label-width)]
-		    [yp (- y vert-label-height)]
+	     (let* ([grid-width (/ (- canvas-width row-label-width) grid-x-size)]
+		    [grid-height (/ (- canvas-height col-label-height) grid-y-size)]
+		    [xp (- x row-label-width)]
+		    [yp (- y col-label-height)]
 		    [x (inexact->exact (floor (/ xp grid-width)))]
 		    [y (inexact->exact (floor (/ yp grid-height)))])
-	       (if (and (<= 0 x grid-size)
-			(<= 0 y grid-size))
+	       (if (and (<= 0 x grid-x-size)
+			(<= 0 y grid-y-size))
 		   (cons x y)
 		   #f)))]
 	  
 	  
 	  [grid->rect
 	   (lambda (x y)
-	     (let* ([grid-width (- canvas-width horiz-label-width)]
-		    [grid-height (- canvas-height vert-label-height)]
-		    [left (+ horiz-label-width (* x (/ grid-width grid-size)))]
-		    [top (+ vert-label-height (* y (/ grid-height grid-size)))]
-		    [width (/ grid-width grid-size)]
-		    [height (/ grid-height grid-size)])
+	     (let* ([grid-width (- canvas-width row-label-width)]
+		    [grid-height (- canvas-height col-label-height)]
+		    [left (+ row-label-width (* x (/ grid-width grid-x-size)))]
+		    [top (+ col-label-height (* y (/ grid-height grid-y-size)))]
+		    [width (/ grid-width grid-x-size)]
+		    [height (/ grid-height grid-y-size)])
 	       (values left top width height)))])
 	
 	
@@ -166,10 +167,10 @@ paint by numbers.
 	    (let ([dc (get-dc)])
 	      (let-values ([(width height) (get-client-size)])
 
-		(let loop ([i grid-size])
+		(let loop ([i grid-x-size])
 		  (cond
 		   [(zero? i) (void)]
-		   [else (let loop ([j grid-size])
+		   [else (let loop ([j grid-y-size])
 			   (cond
 			    [(zero? j) (void)]
 			    [else (paint-rect (- i 1) (- j 1))
@@ -177,14 +178,15 @@ paint by numbers.
 			 (loop (- i 1))]))
 
 		
-		(let ([square-width (/ (- canvas-width horiz-label-width) grid-size)]
-		      [longest-strs (apply max (map length vert-numbers))])
-		  (let loop ([l vert-numbers]
+		(let ([square-width (/ (- canvas-width row-label-width) grid-x-size)]
+		      [longest-strs (apply max (map length col-numbers))])
+		  (let loop ([l col-numbers]
 			     [n 0])
 		    (cond
 		     [(null? l) (void)]
 		     [else 
-		      (let ([strs (get-vert-label-strings (car l))])
+		      (let ([strs (get-col-label-strings (car l))])
+
 			(let loop ([ss strs]
 				   [line (- longest-strs (length strs))])
 			  (cond
@@ -192,8 +194,8 @@ paint by numbers.
 			   [else
 			    (let* ([s (car ss)]
 				   [str-width (get-string-width s)]
-				   [str-height (send dc get-char-height)]
-				   [x (+ horiz-label-width
+				   [str-height (get-string-height s)]
+				   [x (+ row-label-width
 					 (* n square-width)
 					 (- (/ square-width 2)
 					    (/ str-width 2)))]
@@ -203,22 +205,21 @@ paint by numbers.
 				    (+ line 1)))])))
 		      (loop (cdr l) (+ n 1))])))
 
-		(let ([square-height (/ (- canvas-height vert-label-height) grid-size)])
-		  (let loop ([l horiz-numbers]
+		(let ([square-height (/ (- canvas-height col-label-height) grid-y-size)])
+		  (let loop ([l row-numbers]
 			     [n 0])
 		    (cond
 		     [(null? l) (void)]
 		     [else
-		      (let* ([str (get-horiz-label-string (car l))]
+		      (let* ([str (get-row-label-string (car l))]
 			     [str-height (get-string-height str)]
 			     [str-ascent (get-string-ascent str)]
 			     [str-width (get-string-width str)]
-			     [y (+ horiz-label-height
+			     [y (+ col-label-height
 				   (* n square-height)
 				   (- (/ square-height 2)
-				      (/ str-height 2))
-				   str-height)]
-			     [x (- horiz-label-width str-width margin)])
+				      (/ str-height 2)))]
+			     [x (- row-label-width str-width margin)])
 			(send dc draw-text str x y))
 		      (loop (cdr l)
 			    (+ n 1))])))
@@ -227,35 +228,35 @@ paint by numbers.
 	
 	(inherit min-width min-height)
 	(sequence
-	  (unless (= (length horiz-numbers) (length vert-numbers))
-	    (error 'paint-by-numbers-canvas% 
-		   "specifiation lists are not the same length ~e ~e" 
-		   horiz-numbers vert-numbers))
 	  (super-init parent)
 	  
 	  (let* ([dc (get-dc)])
-	    (set! horiz-label-width
-		  (apply max (map (lambda (x) (+ margin (get-string-width (get-horiz-label-string x)) margin))
-				  horiz-numbers)))
+	    (set! row-label-width
+		  (apply max (map (lambda (x) (+ margin
+						 (get-string-width (get-row-label-string x))
+						 margin))
+				  row-numbers)))
 
 	    (let-values ([(width height descent ascent) (send dc get-text-extent "0123456789")])
-	      (set! horiz-label-height (+ margin margin height)))
+	      (set! row-label-height (+ margin margin height)))
 
-	    (set! vert-label-height
+	    (set! col-label-height
 		  (apply max
 			 (map (lambda (l)
-				(let ([strs (get-vert-label-strings l)])
-				  (+ (* (- (length strs) 1) margin)
-				     (apply + (map get-string-height strs)))))
-			      vert-numbers)))
-	    (set! vert-label-width
+				(let* ([strs (get-col-label-strings l)]
+				       [margin (* (- (length strs) 1) margin)]
+				       [height (apply + (map get-string-height strs))])
+				  (+ margin height)))
+			      col-numbers)))
+	    (set! col-label-width
 		  (apply max
 			 (map (lambda (l)
-				(apply max (map get-string-width (get-vert-label-strings l))))
-			      vert-numbers))))
+				(apply max (map (lambda (x) (+ margin (get-string-width x) margin))
+						(get-col-label-strings l))))
+			      col-numbers))))
 	  
-	  (min-width (inexact->exact (+ horiz-label-width (* grid-size vert-label-width))))
-	  (min-height (inexact->exact (+ vert-label-height (* grid-size horiz-label-height)))))))))
+	  (min-width (inexact->exact (+ row-label-width (* grid-x-size col-label-width))))
+	  (min-height (inexact->exact (+ col-label-height (* grid-y-size row-label-height)))))))))
 
 (define MAIN
   (unit/sig ()
@@ -302,12 +303,15 @@ paint by numbers.
 							    
     (define (set-problem problem)
       (send frame change-children (lambda (x) (list choice)))
-      (make-object paint-by-numbers-canvas%
-	frame
-	(problem-rows problem)
-	(problem-cols problem)))
+      (let ([rows (problem-rows problem)]
+	    [cols (problem-cols problem)])
+	(make-object message%
+	  (format "The board is ~a cells wide and ~a cells tall" (length cols) (length rows))
+	  frame)
+	(make-object paint-by-numbers-canvas% frame rows cols)))
 
     (set-problem (car problems))
+    (send choice set-selection 0)
 
     (send frame show #t)))
 
@@ -319,3 +323,5 @@ paint by numbers.
     [G : GUI^ (GUI F M)]
     [MN : () (MAIN G M)])
    (export)))
+
+(yield (make-semaphore))
