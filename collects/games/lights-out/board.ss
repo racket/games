@@ -1,13 +1,13 @@
-(unit/sig lights-out:board^
-  (import mzlib:function^
-	  mred^)
+(module board mzscheme
+  (require (lib "mred.ss" "mred")
+           (lib "class.ss")
+           (lib "etc.ss")
+           "boards.ss")
 
-  (define-struct board (name board))
-  
-  (define boards
-    (map (lambda (x) (apply make-board x))
-	 (require-library "boards.ss" "games" "lights-out")))
-  
+  (provide
+   new-board      ;; : (-> board)  querys user
+   random-board)  ;; : (num -> board)
+
   (define (new-board)
     (letrec ([dialog (make-object dialog% "New Board")]
 	     [mode 'prebuilt]
