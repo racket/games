@@ -7,6 +7,8 @@
            (lib "array.ss" "srfi" "25")
            (lib "unit.ss"))
   
+  (provide game-unit)
+
   (define red (gl-float-vector 1.0 0.0 0.0 1.0))
   (define dim-red (gl-float-vector .8 0.0 0.0 1.0))
   (define gray (gl-float-vector 0.2 0.2 0.2 1.0))
@@ -222,12 +224,12 @@
                     (set! must-jump #f)))))))))
       ))
               
-  (define-values/invoke-unit (show)
+  (define game-unit
    (compound-unit 
      (import)
      (link 
       (VIEW (checkers-view@ (MODEL move)))
-      (MODEL (checkers-model@ (VIEW add-space add-piece remove-piece move-piece set-turn jump-seq))))
-     (export (VIEW show))))
-  (show)
+      (MODEL (checkers-model@ (VIEW add-space add-piece remove-piece move-piece set-turn jump-seq)))
+      (SHOW ((unit (import show) (export) (show)) (VIEW show))))
+     (export)))
   )
