@@ -98,25 +98,11 @@ possible to remap single click (instead of double click)?
                     (send table remove-cards (stack-cards stack)))
                   stacks)
         
-        ;; restore state as copies of old snips
-        (let ([mk-card-copy
-                (lambda (x)
-                  (let ([card (send x copy)])
-                    (send card user-can-move #f)
-                    (send card user-can-flip #f)
-                    card))])
-           (set! draw-pile (map mk-card-copy (state-draw-pile state)))
-           (for-each (lambda (stack cards) 
-                       (set-stack-cards! stack (map mk-card-copy cards)))
-                     stacks
-                     (state-stacks state)))
-        
-        '(begin
-          (set! draw-pile (state-draw-pile state))
-          (for-each (lambda (stack cards) 
-                      (set-stack-cards! stack cards))
-                    stacks
-                    (state-stacks state)))
+        ;; restore old state
+        (set! draw-pile (state-draw-pile state))
+        (for-each (lambda (stack cards) (set-stack-cards! stack cards))
+                  stacks
+                  (state-stacks state))
         
         ;; restore GUI
         (for-each (lambda (draw-pile-card)
