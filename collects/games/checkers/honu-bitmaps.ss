@@ -386,9 +386,9 @@
       pth))
   
   (define honu-bitmap
-    (make-honu-bitmap "darkgray" "black" "black" "firebrick" "firebrick" "blue" "blue" (* pi 1/2 8/10) 0 143))
+    (make-honu-bitmap "black" "black" "black" "firebrick" "firebrick" "blue" "blue" (* pi 1/2 8/10) 0 143))
   (define honu-bitmap-down
-    (make-honu-bitmap "red" "black" "black" "red" "red" "blue" "blue" (* pi -1/2 12/10) 265 116))
+    (make-honu-bitmap "black" "black" "black" "red" "red" "blue" "blue" (* pi -1/2 12/10) 265 116))
   #|
   (define dx 0)
   (define dy 0)
