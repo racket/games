@@ -345,9 +345,9 @@
         (let* ([index->player
                 (lambda (i)
                   (case i
-                    [(0) agressive-player%]
-                    [(1) best-player%]
-                    [(2) careful-player%]
+                    [(0) best-player%]
+                    [(1) polite-player%]
+                    [(2) reckless-player%]
                     [(3) gui-player%]))]
                [players (vector (index->player 0)
                                 (index->player 0)
@@ -370,9 +370,9 @@
                                (new radio-box%
                                     (parent panel)
                                     (label #f)
-                                    (choices '("Agressive Annie"
-                                               "Balanced Bob"
-                                               "Careful Charlie"
+                                    (choices '("Killer Kelly"
+                                               "Polite Polly"
+                                               "Reckless Renee"
                                                "You"))
                                     (callback
                                      (lambda (rb y)
@@ -528,16 +528,20 @@
               (send s release-from-owner)
               (loop n))))
         (let-values ([(w h) (get-size)])
-          (set-min-width w)
-          (set-min-height h)
-          (for-each-piece/position 
-           board w h
-           (lambda (pawn x y coord)
-             (insert (new coordinate-snip%
-                          (id (pawn-id pawn))
-                          (coord coord))
-                     x 
-                     y))))
+          (let ([pawn-size (get-piece-size w h)])
+            (set-min-width w)
+            (set-min-height h)
+            (for-each-piece/position 
+             board w h
+             (lambda (pawn x y coord)
+               (insert (new coordinate-snip%
+                            (color (pawn-color pawn))
+                            (id (pawn-id pawn))
+                            (coord coord)
+                            (w pawn-size)
+                            (h pawn-size))
+                       x 
+                       y)))))
         (end-edit-sequence))
       
       (define/private (get-size)
@@ -550,18 +554,39 @@
       (super-new)
       (inherit set-selection-visible)
       (set-selection-visible #f)))
+
+  (define (pawn-drawn-color c)
+    (case c
+      [(yellow) "yellow"]
+      [(green) "limegreen"]
+      [(red) "orangered"]
+      [(blue) "royalblue"]))
   
   (define coordinate-snip%
     (class snip%
       (define/override (draw dc x y left top right bottom dx dy draw-caret)
-        (send dc draw-ellipse x y 10 10))
-      (init-field id)
-      (init-field coord)
+        (let ([old-pen (send dc get-pen)]
+              [old-brush (send dc get-brush)])
+          (send dc set-pen (send the-pen-list find-or-create-pen "black" 1 'solid))
+          (send dc set-brush (send the-brush-list find-or-create-brush (pawn-drawn-color color) 'solid))
+          (send dc draw-ellipse x y w h)
+          (send dc set-pen old-pen)
+          (send dc set-brush old-brush)))
+      (define/override (get-extent dc x y wb hb descent space lspace rspace)
+        (set-box/f! wb w)
+        (set-box/f! hb h)
+        (set-box/f! descent 0)
+        (set-box/f! space 0)
+        (set-box/f! lspace 0)
+        (set-box/f! rspace 0))
+      (init-field id coord color w h)
       (define/public (get-coord) coord)
       (define/public (get-pawn-id) id)
       (super-new)
       (inherit set-snipclass)
       (set-snipclass coordinate-snipclass)))
+  
+  (define (set-box/f! b v) (when (box? b) (set-box! b v)))
   
   (define coordinate-snipclass
     (new

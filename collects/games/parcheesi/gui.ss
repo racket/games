@@ -14,6 +14,7 @@
            find-main-coordinates
            find-home-row-coordinates
            get-cell-size
+           get-piece-size
            
            (struct home-row-c (count color))
            (struct main-c (count))
