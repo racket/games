@@ -34,7 +34,7 @@ paint by numbers.
   (import mzlib:function^
 	  mred^)
 
-  (define UNKNOWN-BRUSH (send the-brush-list find-or-create-brush "GRAY" 'solid))
+  (define UNKNOWN-BRUSH (send the-brush-list find-or-create-brush "DARK GRAY" 'solid))
   (define ON-BRUSH (send the-brush-list find-or-create-brush "BLUE" 'solid))
   (define OFF-BRUSH (send the-brush-list find-or-create-brush "WHITE" 'solid))
   (define LINES/NUMBERS-PEN (send the-pen-list find-or-create-pen "BLACK" 1 'solid))

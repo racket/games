@@ -299,7 +299,45 @@
 	[on-close
 	 (lambda ()
 	   (semaphore-post semaphore))])))
-   
+
+   (define find-largest-connected-region
+     (let ([biggest-so-far 0]
+	   [tests 0])
+       (lambda ()
+	 (let ([answer 0])
+	   (let loop ([i 20])
+	     (cond
+	      [(zero? i) (void)]
+	      [else
+	       (let loop ([j 10])
+		 (cond
+		  [(zero? j) (void)]
+		  [else (set! answer
+			      (max
+			       answer
+			       (length
+				(send canvas find-same-colors
+				      (- i 1) (- j 1)))))
+			(loop (- j 1))]))
+	       (loop (- i 1))]))
+	   (set! biggest-so-far (max biggest-so-far (calc-score answer)))
+	   (set! tests (+ tests 1))
+	   (printf "tests: ~a sofar: ~a largest connected region: ~a score ~a~n"
+		   tests
+		   biggest-so-far
+		   answer
+		   (calc-score answer))))))
+
+   (define (new-game-callback redraw?)
+     (set! game-over? #f)
+     (set! board (build-board))
+     (unless (= score 0)
+       (set! score 0)
+       (send message set-label "0"))
+     (send this-message set-label "")
+     (when redraw?
+       (send canvas on-paint)))
+
    (define frame (make-object same-frame% "Same"))
    (define panel (make-object vertical-panel% frame))
    (define canvas (make-object same-canvas% panel))
@@ -308,16 +346,13 @@
    (define message (make-object message% "0" hp))
    (make-object message% "This Score: " hp)
    (define this-message (make-object message% "0" hp))
-   (define button (make-object button% "New Game" hp
-			       (lambda x
-				 (set! game-over? #f)
-				 (set! board (build-board))
-				 (unless (= score 0)
-				   (set! score 0)
-				   (send message set-label "0"))
-				 (send this-message set-label "")
-				 (send canvas on-paint))))
-   
+   (define button (make-object button% "New Game" hp (lambda x (new-game-callback #t))))
+   '(make-object button% "Run Scores" hp (lambda x
+					  (let loop ()
+					    (new-game-callback #f)
+					    (find-largest-connected-region)
+					    (loop))))
+
    (define help-button (make-object button% "Help"
 				    hp
 				    (let* ([f #f]
