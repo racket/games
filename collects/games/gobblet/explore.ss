@@ -9,7 +9,7 @@
   (define-syntax (log-printf stx)
     (syntax-case stx ()
       [(_ n i arg ...)
-       (<= (syntax-e #'n) 0)
+       (<= (syntax-e #'n) 2)
        #'(begin
 	   (when (i  . < . 100)
 	     (printf arg ...))
@@ -23,7 +23,7 @@
 
       (define delay-loss? #t)
 
-      (define learn? #f)
+      (define learn? #t)
       (define MEMORY-FILE (and learn?
 			       (build-path (find-system-path 'addon-dir)
 					   (format "gobblet-memory-~a.ss" BOARD-SIZE))))
@@ -436,24 +436,27 @@
 	    (hash-table-for-each init-memory (lambda (k v) (hash-table-put! memory k v)))
 	    (let ([t (thread
 		      (lambda ()
-			(let loop ([steps 1])
+			(let loop ([steps 1][max-depth 2])
 			  (set! result
 				(let ([v (multi-step-minmax steps
-							    one-step-depth
+							    (min max-depth one-step-depth)
 							    3 ; span
 							    0 ; indent 
 							    memory init-memory canonicalize 
 							    rate-board canned-moves
 							    me board)])
-				  (log-printf 1 0 "> ~a Result: ~a~n" 
-					      steps
+				  (log-printf 1 0 "> ~a/~a Result: ~a~n" 
+					      steps (min max-depth one-step-depth)
 					      (play->string v))
 				  v))
 			  (semaphore-post once-sema)
-			  (unless (or (= steps max-steps)
+			  (unless (or (and (= steps max-steps)
+					   (one-step-depth . <= . max-depth))
 				      ((car result) . = . +inf.0)
 				      ((car result) . = . -inf.0))
-			    (loop (add1 steps))))
+			    (if (one-step-depth . <= . max-depth)
+				(loop (add1 steps) 2)
+				(loop steps (add1 max-depth)))))
 			(semaphore-post result-sema)))])
 	      (sync/timeout timeout result-sema)
 	      (semaphore-wait once-sema)

@@ -27,12 +27,22 @@
      [ROBOT : () ((unit/sig ()
 		    (import config^ explore^ model^ heuristics^)
 
+		    (define init-board (move empty-board 
+					     (list-ref red-pieces 2) #f #f 0 0
+					     (lambda (b)
+					       (move b
+						     (list-ref yellow-pieces 2) #f #f 0 1
+						     (lambda (b) b)
+						     void))
+					     void))
+		    (define init-who 'red)
+
 		    ;; Play-a-game test
 		    (let go ()
 		      (sleep 1)
-		      ;; (random-seed 12)
-		      (let loop ([board empty-board]
-				 [who 'red]
+		      (random-seed 12)
+		      (let loop ([board init-board]
+				 [who init-who]
 				 [who-moved "no one"]
 				 [history null])
 			(cond

@@ -80,6 +80,9 @@
       (#9(18 0 0 9 9 18 0) 1 #f 2 4)
       (#9(23 15 0 0 9 0 0 6 0) 2 4 7 3))
     ;; --------------------------------------------------
+    ;; More extensive playbook identifies moves to
+    ;; an immediate win, which is helpful to extend
+    ;; lookahead by one more
     '((#9(18 18 0 6 9 3 3 16 0) 1 5 2 1)
       (#9(0 0 1 2 9 15 0 18 21) 2 5 6 1)
       (#9(18 9 0 0 9 0 3 18 3) 1 8 2 1)
