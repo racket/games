@@ -569,7 +569,9 @@
 		 (map player-hand (if drag-mode? opponents players)))
 	  deck))
 	;; Your cards stay home:
-	(for-each (lambda (c) (send c home-region (player-r you)))
+	(for-each (lambda (c) 
+		    (send c home-region (player-r you))
+		    (send c user-can-move drag-mode?))
 		  (player-hand you))
       
 	;; Initial discard
