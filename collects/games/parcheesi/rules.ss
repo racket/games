@@ -107,22 +107,18 @@
           
           (li ,(heading "Individual Die Rolls")
               "Each die roll should be thought of as an individual \"mini-move\". "
-              "That is, when a player rolls a 3 and a 4, for example, the player may move "
-              "one pawn 3 squares and another pawn 4 squares. This may be the same pawn, but "
+              "That is, when a player rolls a 1 and a 6, for example, the player may move "
+              "one pawn 1 squares and another pawn 6 squares. This may be the same pawn, but "
               "this is not the same as moving that pawn 7 squares directly. "
-              "For example, in the following board, if red has a 3 and a 4, red cannot move, "
+              "For example, in the following board, if red has a 1 and a 6, red cannot move, "
               "even though the spot seven spaces away is safe to land on. "
               (center
                ,(moves-make-image/link (list (make-enter-piece (make-pawn 'green 0))
                                              (make-enter-piece (make-pawn 'green 1))
-                                             (make-move-piece-main (make-pawn 'green 0) 5 23)
-                                             (make-move-piece-main (make-pawn 'green 1) 5 23)
-                                             (make-enter-piece (make-pawn 'green 2))
-                                             (make-enter-piece (make-pawn 'green 3))
-                                             (make-move-piece-main (make-pawn 'green 2) 5 22)
-                                             (make-move-piece-main (make-pawn 'green 3) 5 22)
+                                             (make-move-piece-main (make-pawn 'green 0) 5 24)
+                                             (make-move-piece-main (make-pawn 'green 1) 5 29)
                                              (make-enter-piece (make-pawn 'red 0))
-                                             (make-move-piece-main (make-pawn 'red 0) 22 2))
+                                             (make-move-piece-main (make-pawn 'red 0) 22 6))
                                        "individual-die-rolls")))
           
           (li ,(heading "Bop")
@@ -267,7 +263,7 @@
   (define dummy-snipclass (new snip-class%))
   
   (define (heading name)
-    `(font ((color "forestgreen") (size "+2")) ,name))
+    `(font ((color "forestgreen") (size "+2")) (b ,name)))
   
   (define (moves-make-image/link moves name)
     (let-values ([(board bonuses) (make-moves (new-board) moves)])

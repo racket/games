@@ -47,14 +47,6 @@
       (safety . "purple")
       (track-background . "light blue")))
   
-  #;
-  (define (pawn-drawn-color c)
-    (case c
-      [(yellow) "yellow"]
-      [(green) "green"]
-      [(red) "deeppink" #;"orangered"]
-      [(blue) "royalblue"]))
-  
   (define (pawn-drawn-color c)
     (let* ([clr-str (assq c colors)]
            [color-obj (make-object color% (cdr clr-str))]
@@ -362,7 +354,7 @@
              [size (get-piece-size w h)]
              [old-pen (send dc get-pen)]
              [old-brush (send dc get-brush)])
-         (send dc set-pen (send the-pen-list find-or-create-pen  "black" 1 'transparent))
+         (send dc set-pen (send the-pen-list find-or-create-pen  "black" 1 'solid))
          (send dc set-brush (send the-brush-list find-or-create-brush (pawn-drawn-color (pawn-color pawn)) 'solid))
          (send dc draw-ellipse (+ dx x) (+ dy y) size size)
          (send dc set-font font)
