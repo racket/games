@@ -36,7 +36,7 @@
 
   (define gl-board%
     (class canvas%
-      (inherit with-gl-context swap-gl-buffers refresh get-width get-height focus)
+      (inherit with-gl-context swap-gl-buffers refresh get-width get-height get-dc focus)
       
       ;; min-x, max-x, min-y, max-y, lift: real
       ;; move: info gl-double-vector ->
@@ -46,7 +46,7 @@
       ;; when a space is clicked on, and when a space is dragged to another space.
       ;; move is given the info of the piece or space selected, and coordinates
       ;; it is moved to.
-      (init-field min-x max-x min-y max-y lift (move void))
+      (init-field min-x max-x min-y max-y lift (move void) (who "this game"))
       
       (define spaces null)
       (define pieces null)
@@ -350,6 +350,18 @@
 	(send cfg set-stencil-size 1)
 	(super-new (style '(no-autoclear)) (gl-config cfg)))
       
+      (unless (send (get-dc) get-gl-context)
+	(message-box "Error"
+		     (format (string-append
+			      "~a requires OpenGL, but there was an error initializing"
+			      " the OpenGL context. Probably OpenGL is not supported by" 
+			      " the current display, or it was disabled when PLT Scheme was"
+			      " configured and compiled.")
+			     who)
+		     #f
+		     '(ok stop))
+	(exit))
+
       ;; initial setup
       (with-gl-context
        (lambda ()

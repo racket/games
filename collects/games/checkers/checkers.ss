@@ -98,7 +98,8 @@
       
       (define f (new frame% (label "Checkers") (width 800) (height 600)))
       (define board
-        (new gl-board% (parent f) (min-x 0.0) (max-x 8.0) (min-y 0.0) (max-y 8.0)
+        (new gl-board% (parent f) (who "Checkers")
+	     (min-x 0.0) (max-x 8.0) (min-y 0.0) (max-y 8.0)
              (lift .35)
              (move internal-move)))
       (define hp (new horizontal-pane% (parent f) (stretchable-height #f)))

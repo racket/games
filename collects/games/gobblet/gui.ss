@@ -103,7 +103,7 @@
 
       (define f (new frame% (label "Gobblet") (width 800) (height 600)))
       (define gui-board
-	(new gl-board% (parent f) 
+	(new gl-board% (parent f)  (who "Gobblet")
 	     (min-x (if JR? (- 1 BOARD-SIZE) -1)) (max-x (if JR? (sub1 (* 2 BOARD-SIZE)) (add1 BOARD-SIZE)))
 	     (min-y 0) (max-y BOARD-SIZE)
 	     (lift 1.2)
