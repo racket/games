@@ -90,7 +90,8 @@
 			 (if (zero? neighbor-bomb-count)
 			     #f
 			     (number->string neighbor-bomb-count))
-			 (vector-ref DIGIT-COLORS neighbor-bomb-count))]))])))
+			 (vector-ref DIGIT-COLORS neighbor-bomb-count))]))])
+    (sequence (super-init))))
 
 ; Class for a tile with a bomb underneath
 (define tile:bomb%
