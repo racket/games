@@ -1,4 +1,4 @@
-
+(require-library "errortrace.ss" "errortrace")
 (define paint-by-numbers-loading-frame (make-object frame% "Paint By Numbers"))
 (let ([p (make-object horizontal-panel% paint-by-numbers-loading-frame)])
   (make-object message% "Loading, please wait." p)
