@@ -53,10 +53,16 @@
                                 [new : paint-by-numbers:problem-set^]
                                 paint-by-numbers:problem^)
                         
+                        (define (expand-problem pbm)
+                          (make-problem (problem-name pbm)
+                                        (problem-rows pbm)
+                                        (problem-cols pbm)
+                                        (expand-solution (problem-solution pbm))))
+  
                         (define problemss 
                           (if (null? new:problems)
                               old:problemss
-                              (cons new:problems old:problemss)))
+                              (cons (map expand-problem new:problems) old:problemss)))
                         (define set-names
                           (if (null? new:problems)
                               old:set-names
@@ -67,6 +73,20 @@
       (export
        (open combine))))
   
+  ;; expand-solution : (union #f (listof string[row])) -> 
+  ;;                   (union #f (vectorof (vectorof (union 'on 'off 'unknown))))
+  (define (expand-solution sol)
+    (and sol (apply vector (map expand-row sol))))
+  ;; expand-row : string -> (vectorof (union 'on 'off 'unknown))
+  (define (expand-row str)
+    (list->vector (map expand-char (string->list str))))
+  ;; expand-char : char -> (union 'on 'off 'unknown)
+  (define (expand-char c)
+    (case c
+      [(#\x) 'on]
+      [(#\space) 'off]
+      [(#\U) 'unknown]))
+
   (provide-signature-elements paint-by-numbers:all-problems^)
   
   (define-values/invoke-unit/sig paint-by-numbers:all-problems^
