@@ -312,7 +312,7 @@
                                            (> ax bx)))))))
       (send t add-region clean-button)
       (define (remap v)
-        ;; So tat black and red suits are interleaved
+        ;; So that black and red suits are interleaved
         (case v [(2) 1][(1) 2][else v]))
       (define (card< a b)
         (or (< (remap (send a get-suit-id))
@@ -324,12 +324,13 @@
                   (and (< (send a get-value)
                           (send b get-value))
                        (not (= 8 (send b get-value))))))))
-      (send t add-region
-	    (make-button-region (+ (region-x clean-button) PASS-W MARGIN)
-				(region-y clean-button)
-				PASS-W BUTTON-HEIGHT
-				"Sort" (lambda ()
-                                         (sort-hand! card<))))
+      (when drag-mode?
+        (send t add-region
+              (make-button-region (+ (region-x clean-button) PASS-W MARGIN)
+                                  (region-y clean-button)
+                                  PASS-W BUTTON-HEIGHT
+                                  "Sort" (lambda ()
+                                           (sort-hand! card<)))))
       
       ;; Card setup: Deal the cards
       (for-each (lambda (player)
