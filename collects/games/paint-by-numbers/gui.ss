@@ -382,13 +382,16 @@ paint by numbers.
 	    (set! row-label-height (+ y-margin height y-margin)))
 
 	  (set! col-label-height
-		(apply max
-		       (map (lambda (l)
-			      (let* ([strs (get-col-label-strings l)]
-				     [margins (* (- (length strs) 1) y-margin)]
-				     [height (apply + (map get-string-height strs))])
-				(+ margins height)))
-			    col-numbers)))
+		(max
+		 (get-string-height "(0,0)")
+		 (apply max
+			(map (lambda (l)
+			       (let* ([strs (get-col-label-strings l)]
+				      [margins (* (max 0 (- (length strs) 1)) y-margin)]
+				      [height (apply + (map get-string-height strs))])
+				 (+ margins height)))
+			     col-numbers))))
+
 	  (set! col-label-width
 		(apply max
 		       (map (lambda (l)
