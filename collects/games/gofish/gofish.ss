@@ -45,7 +45,7 @@
       (send t create-status-line)
       (send t show #t)
       (send t set-double-click-action #f)
-      (send t set-button-action 'left 'drag/one)
+      (send t set-button-action 'left 'drag-raise/one)
       (send t set-button-action 'middle 'drag/one)
       (send t set-button-action 'right 'drag/one)
       

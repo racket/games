@@ -8,7 +8,9 @@
 
 	   PRETTY-CARD-SEP-AMOUNT
 	   
+	   white-brush
 	   hilite-brush
+	   black-pen
 	   no-pen
 	   black-color
 	   nice-font)
@@ -21,10 +23,20 @@
   (define black-color
     (make-object color% "black"))
 
+  (define white-brush
+    (send the-brush-list
+	  find-or-create-brush
+	  "white" 'solid))
+
   (define hilite-brush
     (send the-brush-list
 	  find-or-create-brush
 	  black-color 'hilite))
+
+  (define black-pen
+    (send the-pen-list
+	  find-or-create-pen
+	  black-color 1 'solid))
 
   (define no-pen
     (send the-pen-list

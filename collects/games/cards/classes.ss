@@ -129,32 +129,34 @@
 		  (let-values ([(sx sy sw sh) (get-region-box region)])
 		    ((region-paint-callback region) dc (+ dx sx) (+ dy sy) sw sh)))
 		(when (region-label region)
-		  (let-values ([(sx sy sw sh) (get-region-box region)])
-		    (send dc draw-rectangle (+ dx sx) (+ dy sy) sw sh)
-		    (let ([text (region-label region)])
-		      (if (string? text)
-			  (let ([old-f (send dc get-font)])
-			    (send dc set-font nice-font)
-			    (let-values ([(x y d a) (send dc get-text-extent text)])
-			      (send dc draw-text text
-				    (+ dx sx (/ (- sw x) 2))
-				    (if (region-button? region)
-					(+ dy sy (/ (- sh y) 2))
-					(+ dy sy 5))))
-			    (send dc set-font old-f))
-			  (send dc draw-bitmap text
-				(+ dx sx (/ (- sw (send text get-width)) 2))
-				(+ dy sy (/ (- sh (send text get-height)) 2))
-				'solid black-color
-				(send text get-loaded-mask))))
-		    (when (region-hilite? region)
-		      (let ([old-b (send dc get-brush)]
-			    [old-p (send dc get-pen)])
+		  (let ([old-b (send dc get-brush)]
+			[old-p (send dc get-pen)])
+		    (let-values ([(sx sy sw sh) (get-region-box region)])
+		      (send dc set-pen black-pen)
+		      (send dc set-brush white-brush)
+		      (send dc draw-rectangle (+ dx sx) (+ dy sy) sw sh)
+		      (let ([text (region-label region)])
+			(if (string? text)
+			    (let ([old-f (send dc get-font)])
+			      (send dc set-font nice-font)
+			      (let-values ([(x y d a) (send dc get-text-extent text)])
+				(send dc draw-text text
+				      (+ dx sx (/ (- sw x) 2))
+				      (if (region-button? region)
+					  (+ dy sy (/ (- sh y) 2))
+					  (+ dy sy 5))))
+			      (send dc set-font old-f))
+			    (send dc draw-bitmap text
+				  (+ dx sx (/ (- sw (send text get-width)) 2))
+				  (+ dy sy (/ (- sh (send text get-height)) 2))
+				  'solid black-color
+				  (send text get-loaded-mask))))
+		      (when (region-hilite? region)
 			(send dc set-brush hilite-brush)
 			(send dc set-pen no-pen)
-			(send dc draw-rectangle (+ dx sx 1) (+ dy sy 1) (- sw 2) (- sh 2))
-			(send dc set-brush old-b)
-			(send dc set-pen old-p))))))
+			(send dc draw-rectangle (+ dx sx 1) (+ dy sy 1) (- sw 2) (- sh 2))))
+		    (send dc set-brush old-b)
+		    (send dc set-pen old-p))))
 	      regions)))])
       (augment
 	[after-select
