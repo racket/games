@@ -5,6 +5,7 @@
 	   (lib "class100.ss")
 	   (lib "list.ss")
            (lib "getinfo.ss" "setup")
+	   (lib "bitmap-label.ss" "mrlib")
 	   "show-help.ss")
 
    (define game-mapping 
@@ -44,7 +45,10 @@
 	    [dir (with-handlers ([void (lambda (x) #f)])
 		   (collection-path "games" collect))])
        (when dir
-	 (make-object button% name p
+	 (make-object button% 
+		      ((bitmap-label-maker name (build-path dir (format "~a.png" collect)))
+		       p)
+		      p
 		      (lambda (b e)
 			(let ([game-unit (dynamic-wind
                                           begin-busy-cursor
