@@ -75,14 +75,19 @@
 		      (lambda ()
 			;; Try just one chunk of lookaheads, then loop
 			;; for more ambitious searches (if there's time)
-			(let loop ([steps 1][max-depth 2])
+			(let loop ([steps (if (= timeout +inf.0)
+					      max-steps
+					      1)]
+				   [max-depth (if (= timeout +inf.0)
+						  one-step-depth
+						  2)])
 			  (set! result
 				;; ======== Here's where we get a move ============
 				(let ([v (multi-step-minmax
-					  1; steps ; steps
-					  1 ; 3 ; span
+					  steps
+					  3 ; span
 					  (make-config 
-					   5 ; (min max-depth one-step-depth)
+					   (min max-depth one-step-depth)
 					   memory canonicalize rate-board canned-moves)
 					  0 ; indent 
 					  init-memory
@@ -234,7 +239,7 @@
       ;; ...state and search params... -> (values (listof (cons num plan)) xform)
       ;; Minimax search up to the given max-depth, returning up to span
       ;; choices of move.
-      (define (minmax depth span config me my-pieces his-pieces board last-to-i last-to-j)
+      (define (minmax depth span config me board last-to-i last-to-j)
 	(set! hit-count (add1 hit-count))
 	(let* ([board-key+xform ((config-canonicalize config) board me)]
 	       [board-key (car board-key+xform)]
@@ -275,12 +280,12 @@
 			   (if (found-win? choices)
 			       choices
 			       (try-all-enters choices depth span config
-					       me my-pieces his-pieces board xform))]
+					       me board xform))]
 			  [choices
 			   (if (found-win? choices)
 			       choices
 			       (try-all-moves choices depth span config
-					      me my-pieces his-pieces board xform))]
+					      me board xform))]
 			  [choices (if (null? choices)
 				       ;; No moves! We lose
 				       '((-inf.0))
@@ -299,28 +304,26 @@
 
       ;; try-all-enters : ... -> (listof (cons num plan))
       ;; Try moving each available off-board piece onto each board position
-      (define (try-all-enters choices depth span config me my-pieces his-pieces board xform)
-	(let loop ([enters (pick-enters my-pieces)]
+      (define (try-all-enters choices depth span config me board xform)
+	(let loop ([enters (pick-enters board me)]
 		   [choices choices])
 	  (if (null? enters)
 	      choices
 	      ;; For this piece....
 	      (let ([p (list-ref (if (eq? me 'red) red-pieces yellow-pieces) 
-				 (caar enters))]
-		    ;; my-pieces remain off the board after trying this one
-		    [my-pieces (cdar enters)])
+				 (car enters))])
 		(loop (cdr enters)
 		      ;; ... try every target position:
 		      (fold-board/choices
 		       span choices
 		       (lambda (i j)
 			 (try-move depth config 
-				   board me my-pieces his-pieces 
+				   board me
 				   p #f #f i j xform))))))))
       
       ;; try-all-moves : ... -> (listof (cons num plan))
       ;; Try moving each on-board piece onto each other board position
-      (define (try-all-moves choices depth span config me my-pieces his-pieces board xform)
+      (define (try-all-moves choices depth span config me board xform)
 	;; From each source...
 	(fold-board/choices
 	 span choices
@@ -334,7 +337,7 @@
 		  span choices
 		  (lambda (to-i to-j)
 		    (try-move depth config 
-			      board me my-pieces his-pieces
+			      board me 
 			      (car l) from-i from-j to-i to-j xform)))
 		 ;; Can't move from here:
 		 null)))))
@@ -342,7 +345,7 @@
       ;; Try the move, and if it's ok, call `minmax' with the other
       ;; player and invert the result
       (define (try-move depth config 
-			board me my-pieces his-pieces 
+			board me
 			p from-i from-j to-i to-j xform)
 	(move board p from-i from-j to-i to-j
 	      (lambda (new-board)
@@ -351,7 +354,7 @@
 		;; Min-max recur for other player:
 		(let-values ([(his-choices sxform)
 			      (minmax (add1 depth) 1 config
-				      (other me) his-pieces my-pieces new-board
+				      (other me) new-board
 				      to-i to-j)])
 		  #;
 		  (when (zero? depth) (show-recur (piece-size p) from-i from-j to-i to-j his-choices))
@@ -365,34 +368,22 @@
 		;; Move isn't ok
 		null)))
 
-      ;; pick-enters: stacks -> (listof (cons piece stack))
-      ;; where stacks is (listof (listof piece))
-      ;; Keep the stacks in order, too.
-      (define (pick-enters my-pieces)
-	(let loop ([avail-pieces my-pieces]
-		   [keep-pieces null]
+      ;; pick-enters: board -> (listof num)
+      (define (pick-enters board me)
+	(let loop ([avail-pieces (available-off-board board me)]
 		   [played-sizes null])
 	  (cond
 	   [(null? avail-pieces) null]
 	   [(memq (caar avail-pieces) played-sizes)
 	    (loop (cdr avail-pieces)
-		  (cons (car avail-pieces) keep-pieces)
 		  played-sizes)]
 	   [else
-	    (cons (cons 
-		   ;; piece to move:
-		   (caar avail-pieces)
-		   ;; pieces that remain off the board after trying this one
-		   (append 
-		    (reverse keep-pieces)
-		    (if (null? (cdar avail-pieces))
-			null
-			(list (cdar avail-pieces)))
-		    (cdr avail-pieces)))
-		  ;; Try pieces from other stacks:
-		  (loop (cdr avail-pieces)
-			(cons (car avail-pieces) keep-pieces)
-			(cons (caar avail-pieces) played-sizes)))])))
+	    (cons 
+	     ;; piece to move:
+	     (caar avail-pieces)
+	     ;; Try pieces from other stacks:
+	     (loop (cdr avail-pieces)
+		   (cons (caar avail-pieces) played-sizes)))])))
 
       ;; Like `fold-board', but auto combines choices and
       ;;  handles shortcut for known immediate wins
@@ -450,8 +441,6 @@
 				  span)
 			      config
 			      me
-			      (available-off-board board me)
-			      (available-off-board board (other me))
 			      board #f #f)])
 	  (log-printf 2 indent "~a>> Done ~a ~a ~a ~a+~a [~a secs]~n" 
 		      (make-string indent #\space) 

@@ -222,8 +222,8 @@
 
       
       ;; - - - - - - - - - - - - - - - - - -
-
-      ;; available-off-board : board sym -> (list-of (list-of piece))
+      
+      ;; available-off-board : board sym -> (list-of (list-of num))
       ;;  Returns pieces available to move onto the board. The pieces
       ;;  are grouped where moving one piece is disallowed or
       ;;  not sensible until another piece (earlier in the same set)
