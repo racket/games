@@ -1,6 +1,16 @@
-(unit/sig cards:constants^
-  (import mred^)
 
+(module constants mzscheme
+  (require (lib "class.ss")
+	   (lib "mred.ss" "mred"))
+
+  (provide ANIMATION-STEPS
+	   ANIMATION-TIME
+
+	   PRETTY-CARD-SEP-AMOUNT
+	   
+	   red-brush
+	   nice-font)
+  
   (define ANIMATION-STEPS 5)
   (define ANIMATION-TIME 0.3)
 
@@ -15,3 +25,4 @@
     (send the-font-list
 	  find-or-create-font
 	  12 'decorative 'normal 'bold)))
+

@@ -1,6 +1,10 @@
-(unit/sig cards:make-cards^
-  (import [mred : mred^]
-	  [card-class : cards:card-class^])
+
+(module make-cards mzscheme
+  (require (lib "class.ss")
+	   (prefix mred: (lib "mred.ss" "mred"))
+	   (prefix card-class: "card-class.ss"))
+  
+  (provide back deck-of-cards)
 
   (define (get-bitmap file)
     (make-object mred:bitmap% file 'gif))
@@ -17,15 +21,14 @@
       bm))
 
   (define tmpframe
-    (let* ([f (make-object mred:frame% "Please Wait")])
-      (make-object mred:message% "Loading cards..." f)
-      (send f stretchable-height #f)
-      (send f stretchable-width #f)
-      (send f center 'both)
-      (send f show #t)
-      f))
-  (mred:flush-display)
-  (mred:yield)
+    (parameterize ([mred:current-eventspace (mred:make-eventspace)])
+      (let* ([f (make-object mred:frame% "Please Wait")])
+	(make-object mred:message% "Loading cards..." f)
+	(send f stretchable-height #f)
+	(send f stretchable-width #f)
+	(send f center 'both)
+	(send f show #t)
+	f)))
 
   (define here 
     (let ([cp (collection-path "games" "cards")])

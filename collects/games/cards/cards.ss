@@ -1,12 +1,18 @@
 
-(require-relative-library "sig.ss")
+(module cards mzscheme
+  (require "main.ss"
+	   "utils.ss"
+	   "region.ss")
 
-(require-library "macro.ss")
+  (provide make-region
+	   region? region-x region-y region-w region-h 
+	   region-label region-callback region-interactive-callback
+	   set-region-callback!
+	   set-region-interactive-callback!
+	   make-button-region
 
-(require-library "functio.ss")
+	   make-deck
+	   make-table
 
-(define-values/invoke-unit/sig cards^
-  (require-relative-library "cardr.ss")
-  #f
-  mred^
-  mzlib:function^)
+	   shuffle-list))
+

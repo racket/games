@@ -1,7 +1,13 @@
-(unit/sig cards:region-local^
-  (import)
 
-  (rename (create-region make-region))
+(module region mzscheme
+  (provide (rename create-region make-region)
+	   region? region-x region-y region-w region-h 
+	   region-label region-callback region-interactive-callback
+	   region-button? region-hilite? region-decided-start? region-can-select?
+	   set-region-hilite?! set-region-decided-start?! set-region-can-select?!
+	   set-region-callback!
+	   set-region-interactive-callback!
+	   make-button-region)
 
   (define-struct region (x y w h label callback interactive-callback button? hilite? decided-start? can-select?))
 

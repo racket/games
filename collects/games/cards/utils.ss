@@ -1,5 +1,6 @@
-(unit/sig cards:util^
-  (import)
+
+(module utils mzscheme
+  (provide shuffle-list)
 
   (define shuffle-list 
    (lambda (l c)

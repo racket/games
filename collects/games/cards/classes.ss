@@ -1,13 +1,20 @@
-(unit/sig cards:classes^
-  (import [mred : mred^]
-	  [util : cards:util^]
-	  cards:region-local^
-	  cards:constants^
-	  mzlib:function^
-	  cards:make-cards^)
+
+(module classes mzscheme
+  (require (lib "class.ss")
+	   (lib "class100.ss")
+	   (prefix mred: (lib "mred.ss" "mred"))
+	   (lib "list.ss")
+	   (lib "etc.ss")
+	   (prefix util: "utils.ss")
+	   "constants.ss"
+	   "make-cards.ss"
+	   "region.ss")
+
+  (provide pasteboard%
+	   table%)
 
   (define pasteboard%
-    (class mred:pasteboard% ()
+    (class100 mred:pasteboard% ()
       (inherit begin-edit-sequence end-edit-sequence get-admin
 	       invalidate-bitmap-cache
 	       find-next-selected-snip find-first-snip find-snip
@@ -21,7 +28,7 @@
 	      [super-on-interactive-move on-interactive-move] 
 	      [super-interactive-adjust-move interactive-adjust-move]
 	      [super-after-interactive-move after-interactive-move])
-      (private 
+      (private-field
 	[select-one? #t]
 	[select-backward? #f]
 	[raise-to-front? #f]
@@ -36,7 +43,8 @@
 	[dragging? #f]
 	[bg-click? #f]
 	[click-base #f]
-	[regions null]
+	[regions null])
+      (private
 	[get-snip-bounds
 	 (lambda (s)
 	   (let ([xbox (box 0)]
@@ -152,7 +160,7 @@
 		 (begin
 		   (begin-edit-sequence)
 		   (let ([l (make-overlapping-list s (list s) select-backward?)])
-		     (for-each add-selected l))
+		     (for-each (lambda (i) (add-selected i)) l))
 		   (when raise-to-front?
 		     (let loop ([snip (find-next-selected-snip #f)][prev #f])
 		       (when snip
@@ -374,9 +382,8 @@
 	(super-init)
 	(set-selection-visible #f))))
 
-  
   (define table%
-    (class mred:frame% (title w h)
+    (class100 mred:frame% (title w h)
       (inherit reflow-container)
       (override
 	[on-close
@@ -416,7 +423,7 @@
 	   (position-cards cards x y offset move-cards-callback))]
 	[move-cards-to-region
 	 (lambda (cards region)
-	   (position-cards-in-region cards region (ivar pb move-to)))]
+	   (position-cards-in-region cards region (lambda (c x y) (send pb move-to c x y))))]
 	[remove-card
 	 (lambda (card)
 	   (remove-cards (list card)))]
@@ -503,15 +510,17 @@
 	 (case-lambda 
 	  [() animate?]
 	  [(on?) (set! animate? (and on? #t))])])
-      (private
+      (private-field
 	[add-cards-callback
 	 (lambda (card x y)
 	   (send pb insert card #f x y))]
         [move-cards-callback
 	 (lambda (card x y)
-	   (send pb move-to card x y))]
+	   (send pb move-to card x y))])
+      (private-field
 	[animate? #t]
-	[in-sequence 0]
+	[in-sequence 0])
+      (private
         [position-cards
 	 (lambda (cards x y offset set)
 	   (let ([positions (let loop ([l cards][n 0])
@@ -587,7 +596,7 @@
 				 set)))))])
       (sequence
 	(super-init title))
-      (private
+      (private-field
         [c (make-object mred:editor-canvas% this #f '(no-vscroll no-hscroll))]
 	[pb (make-object pasteboard%)])
       (sequence
