@@ -268,8 +268,10 @@
          (lambda ()
            (setup-view/proj)))
         (refresh))
-          
-      (super-new (style '(no-autoclear)))
+      
+      (let ([cfg (new gl-config%)])
+	(send cfg set-multisample-size 4)
+	(super-new (style '(no-autoclear)) (gl-config cfg)))
       
       ;; initial setup
       (with-gl-context
