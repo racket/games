@@ -36,38 +36,36 @@ yet defined.
 	    mzlib:pretty-print^
 	    (argv))
 
-    (define time-limit 300) ;; in seconds
-
-    (define hattori-count 30)
+    (define time-limit (* 5 60)) ;; in seconds
 
     (define problems-dir (collection-path "games" "paint-by-numbers"))
     (define input-file (build-path problems-dir "raw-problems.ss"))
     (define hattori-input-file (build-path problems-dir "raw-hattori.ss"))
     
     (define hattori-sets
-      (reverse
-       (let ([set-size 2]
+      (let* ([set-size 30]
 	     [raw-hattori
-	      (call-with-input-file hattori-input-file (compose eval read))])
-	 (let o-loop ([n (length raw-hattori)])
-	   (cond
-	    [(zero? n) null]
-	    [else 
-	     (let ([first n]
-		   [last (if (< n set-size)
-			     0
-			     (- n set-size))])
-	       (let i-loop ([i first]
-			    [set null])
-		 (cond
-		  [(= i last) (cons 
-			       (list (format "Hattori ~a - ~a" (+ last 1) first)
-				     (format "h~a-~a" first (+ last 1))
-				     set)
-			       (o-loop last))]
-		  [else (i-loop (- i 1)
-				(cons (list-ref raw-hattori (- i 1))
-				      set))])))])))))
+	      (call-with-input-file hattori-input-file (compose eval read))]
+	     [hattori-count (length raw-hattori)])
+	(let o-loop ([n 0])
+	  (cond
+	   [(= n (- hattori-count 1)) null]
+	   [else 
+	    (let ([first n]
+		  [last (if (< (+ n set-size) hattori-count)
+			    (+ n set-size)
+			    (- hattori-count 1))])
+	      (let i-loop ([i first]
+			   [set null])
+		(cond
+		 [(= i last) (cons 
+			      (list (format "Hattori ~a - ~a" (+ first 1) last)
+				    (format "h~a-~a" (+ first 1) last)
+				    (reverse set))
+			      (o-loop last))]
+		 [else (i-loop (+ i 1)
+			       (cons (list-ref raw-hattori i)
+				     set))])))]))))
 
     (define games-set 
       (list "Games Magazine"
@@ -213,7 +211,7 @@ yet defined.
 	     (printf "skipping ~s~n" set-name)
 	     (call-with-output-file output-file
 	       (lambda (port)
-		 (printf "building ~s~n" set-name)
+		 (printf "Building ~s~n" set-name)
 		 (parameterize ([current-output-port port])
 		   (pretty-print
 		    `(unit/sig paint-by-numbers:problem-set^
