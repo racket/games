@@ -1,166 +1,164 @@
-(require-library "macro.ss")
-(require-library "letplsrc.ss")
-(require-library "function.ss")
-
-(require-library "errortrace.ss" "errortrace")
-
-(invoke-unit/sig
- (unit/sig ()
-   (import mred^ mzlib:function^)
-   
-   (define board-width 20)
-   (define board-height 10)
-   (define cell-size 30)
-   (define colors (map (lambda (x) (make-object color% x)) (list "blue" "red" "magenta" "yellow" "cyan")))
-   (define pens (map (lambda (x) (make-object pen% x 1 'solid)) colors))
-   (define brushes (map (lambda (x) (make-object brush% x 'solid)) colors))
-   (define xor-pens (map (lambda (x) (make-object pen% x 1 'xor)) colors))
-   (define xor-brushes (map (lambda (x) (make-object brush% x 'xor)) colors))
-   (define white-pen (make-object pen% "white" 1 'solid))
-   (define white-brush (make-object brush% "white" 'solid))
-   
-   ;; build-board : (-> (vectorof (vectorof (vector (union num #f) boolean))))
-   ;   this represents the board. Each entry is the color index of
-   ;   the piece and a node to mark for the depth-first traversal.
-   ;   #f for the color index indicates an eliminated piece.
-   (define (build-board)
-     (build-vector
-      board-width
-      (lambda (i)
-	(build-vector
-	 board-height
-	 (lambda (j)
-	   (vector
-	    (begin
-	      (if (= j (- board-height 1))
-		  (- (length colors) 1)
-		  (modulo i (- (length colors) 1)))
-	      (random (length colors)))
-	    #f))))))
-
-   (define board (build-board))
-
-   (define game-over? #f)
-
-   (define score 0)
-   (define (calc-score n)
-     (cond
-       [(= n 2) 2]
-       [else (- (* (- n 1) (- n 1)) (- n 3))]))
-   
-   (define same-canvas%
-     (class-asi canvas%
-       (inherit get-dc get-size)
-       (private
-	 [width #f]
-	 [height #f]
-	 [x-step #f]
-	 [y-step #f])
-       (public
-	 [draw-cell
-	  (lambda (dc highlight? i j)
-	    (let ([index (vector-ref (vector-ref (vector-ref board i) j) 0)]
-		  [x (* i x-step)]
-		  [y (* j y-step)])
-	      (cond
-		[highlight?
-		 (send dc set-pen white-pen)
-		 (send dc set-brush white-brush)
-		 (send dc draw-ellipse x y x-step y-step)
-		 (when index
-		   (send dc set-pen (list-ref pens index))
-		   (send dc set-brush (list-ref brushes index))
-		   (send dc draw-ellipse 
-			 (floor (+ x (/ x-step 4)))
-			 (floor (+ y (/ y-step 4)))
-			 (floor (/ x-step 2))
-			 (floor (/ y-step 2))))]
-		[else
-		 (if index
-		     (begin (send dc set-pen (list-ref pens index))
-			    (send dc set-brush (list-ref brushes index)))
-		     (begin (send dc set-pen white-pen)
-			    (send dc set-brush white-brush)))
-		 (send dc draw-ellipse x y x-step y-step)])))]
-	 
-	 [draw-line
-	  (lambda (dc i)
-	    (let ([show-turned? (> (length turned) 1)])
-	      (let loop ([j board-height])
-		(cond
+(module same mzscheme
+  (require (lib "etc.ss")
+           (lib "class.ss")
+           (lib "class100.ss")
+           (lib "mred.ss" "mred")
+           (lib "list.ss")
+           "../show-help.ss")
+  
+  (define board-width 20)
+  (define board-height 10)
+  (define cell-size 30)
+  (define colors (map (lambda (x) (make-object color% x)) (list "blue" "red" "magenta" "yellow" "cyan")))
+  (define pens (map (lambda (x) (make-object pen% x 1 'solid)) colors))
+  (define brushes (map (lambda (x) (make-object brush% x 'solid)) colors))
+  (define xor-pens (map (lambda (x) (make-object pen% x 1 'xor)) colors))
+  (define xor-brushes (map (lambda (x) (make-object brush% x 'xor)) colors))
+  (define white-pen (make-object pen% "white" 1 'solid))
+  (define white-brush (make-object brush% "white" 'solid))
+  
+  ;; build-board : (-> (vectorof (vectorof (vector (union num #f) boolean))))
+  ;   this represents the board. Each entry is the color index of
+  ;   the piece and a node to mark for the depth-first traversal.
+  ;   #f for the color index indicates an eliminated piece.
+  (define (build-board)
+    (build-vector
+     board-width
+     (lambda (i)
+       (build-vector
+        board-height
+        (lambda (j)
+          (vector
+           (begin
+             (if (= j (- board-height 1))
+                 (- (length colors) 1)
+                 (modulo i (- (length colors) 1)))
+             (random (length colors)))
+           #f))))))
+  
+  (define board (build-board))
+  
+  (define game-over? #f)
+  
+  (define score 0)
+  (define (calc-score n)
+    (cond
+      [(= n 2) 2]
+      [else (- (* (- n 1) (- n 1)) (- n 3))]))
+  
+  (define same-canvas%
+    (class100-asi canvas%
+      (inherit get-dc get-size)
+      (private-field
+        [width #f]
+        [height #f]
+        [x-step #f]
+        [y-step #f])
+      (public
+        [draw-cell
+         (lambda (dc highlight? i j)
+           (let ([index (vector-ref (vector-ref (vector-ref board i) j) 0)]
+                 [x (* i x-step)]
+                 [y (* j y-step)])
+             (cond
+               [highlight?
+                (send dc set-pen white-pen)
+                (send dc set-brush white-brush)
+                (send dc draw-ellipse x y x-step y-step)
+                (when index
+                  (send dc set-pen (list-ref pens index))
+                  (send dc set-brush (list-ref brushes index))
+                  (send dc draw-ellipse 
+                        (floor (+ x (/ x-step 4)))
+                        (floor (+ y (/ y-step 4)))
+                        (floor (/ x-step 2))
+                        (floor (/ y-step 2))))]
+               [else
+                (if index
+                    (begin (send dc set-pen (list-ref pens index))
+                           (send dc set-brush (list-ref brushes index)))
+                    (begin (send dc set-pen white-pen)
+                           (send dc set-brush white-brush)))
+                (send dc draw-ellipse x y x-step y-step)])))]
+        
+        [draw-line
+         (lambda (dc i)
+           (let ([show-turned? (> (length turned) 1)])
+             (let loop ([j board-height])
+               (cond
 		 [(zero? j) (void)]
 		 [else
 		  (draw-cell dc (and show-turned? (member (list i (- j 1)) turned)) i (- j 1))
 		  (loop (- j 1))]))))]
-	 
-	 [find-same-colors
-	  (lambda (i j)
-	    (let* ([index (vector-ref (vector-ref (vector-ref board i) j) 0)]
-		   [ans
-		    (let loop ([i i]
-			       [j j]
-			       [ps null])
-		      (cond
-			[(not (and (<= 0 i) (< i board-width)
-				   (<= 0 j) (< j board-height)))
-			 ps]
-			[(vector-ref (vector-ref (vector-ref board i) j) 1) ps]
-			[(not (vector-ref (vector-ref (vector-ref board i) j) 0)) ps]
-			[(= index (vector-ref (vector-ref (vector-ref board i) j) 0))
-			 (let ([v (vector-ref (vector-ref board i) j)])
-			   (vector-set! v 1 #t)
-			   (loop (+ i 1)
-				 j
-				 (loop (- i 1)
-				       j
-				       (loop i
-					     (- j 1)
-					     (loop i
-						   (+ j 1)
-						   (cons (list v i j) ps))))))]
-			[else ps]))])
-	      (for-each (lambda (p) (vector-set! (first p) 1 #f)) ans)
-	      ans))])
-
-       (public
-	 [get-game-over-size
-	  (lambda (dc)
-	    (let ([border 5])
-	      (let-values ([(text-width text-height d l) (send dc get-text-extent game-over)])
-		(let ([x (- (/ width 2) (/ text-width 2))]
-		      [y (- (/ height 2) (/ text-height 2))])
-		  (values x y text-width text-height border)))))]
-
-	 [paint-game-over
-	  (lambda (dc)
-	    (send dc set-font font)
-	    (let-values ([(x y text-width text-height border) (get-game-over-size dc)])
-	      (send dc set-pen white-pen)
-	      (send dc set-brush white-brush)
-	      (send dc draw-rectangle
-		    (- x border) (- y border)
-		    (+ text-width border border)
-		    (+ text-height border border))
-	      (send dc draw-text game-over x y)))])
-	      
-
-       (private
-	 [game-over "Game Over"]
-	 [font (make-object font% 24 'decorative 'normal 'normal #f)]
-	 [turned null])
-       
-       (private
-	 [recalc/draw-turned
-	  (lambda (i j)
-	    (set! turned (map (lambda (xx) (list (second xx) (third xx))) (find-same-colors i j)))
-	    (cond
+        
+        [find-same-colors
+         (lambda (i j)
+           (let* ([index (vector-ref (vector-ref (vector-ref board i) j) 0)]
+                  [ans
+                   (let loop ([i i]
+                              [j j]
+                              [ps null])
+                     (cond
+                       [(not (and (<= 0 i) (< i board-width)
+                                  (<= 0 j) (< j board-height)))
+                        ps]
+                       [(vector-ref (vector-ref (vector-ref board i) j) 1) ps]
+                       [(not (vector-ref (vector-ref (vector-ref board i) j) 0)) ps]
+                       [(= index (vector-ref (vector-ref (vector-ref board i) j) 0))
+                        (let ([v (vector-ref (vector-ref board i) j)])
+                          (vector-set! v 1 #t)
+                          (loop (+ i 1)
+                                j
+                                (loop (- i 1)
+                                      j
+                                      (loop i
+                                            (- j 1)
+                                            (loop i
+                                                  (+ j 1)
+                                                  (cons (list v i j) ps))))))]
+                       [else ps]))])
+             (for-each (lambda (p) (vector-set! (first p) 1 #f)) ans)
+             ans))])
+      
+      (public
+        [get-game-over-size
+         (lambda (dc)
+           (let ([border 5])
+             (let-values ([(text-width text-height d l) (send dc get-text-extent game-over)])
+               (let ([x (- (/ width 2) (/ text-width 2))]
+                     [y (- (/ height 2) (/ text-height 2))])
+                 (values x y text-width text-height border)))))]
+        
+        [paint-game-over
+         (lambda (dc)
+           (send dc set-font font)
+           (let-values ([(x y text-width text-height border) (get-game-over-size dc)])
+             (send dc set-pen white-pen)
+             (send dc set-brush white-brush)
+             (send dc draw-rectangle
+                   (- x border) (- y border)
+                   (+ text-width border border)
+                   (+ text-height border border))
+             (send dc draw-text game-over x y)))])
+      
+      
+      (private-field
+        [game-over "Game Over"]
+        [font (make-object font% 24 'decorative 'normal 'normal #f)]
+        [turned null])
+      
+      (private
+        [recalc/draw-turned
+         (lambda (i j)
+           (set! turned (map (lambda (xx) (list (second xx) (third xx))) (find-same-colors i j)))
+           (cond
 	     [(> (length turned) 1)
 	      (send this-message set-label (number->string (calc-score (length turned))))
 	      (for-each (lambda (p) (draw-cell (get-dc) #t (first p) (second p))) turned)]
 	     [else
 	      (send this-message set-label "")]))])
-
-       (override
+      
+      (override
 	[on-size
 	 (lambda (w h)
 	   (set! width w)
@@ -185,11 +183,11 @@
 			 (when (> (length turned) 1)
 			   (for-each (lambda (p) (draw-cell (get-dc) #f (first p) (second p))) turned))
 			 (recalc/draw-turned i j))]
-		       [else
-			(when (> (length turned) 1)
-			  (for-each (lambda (p) (draw-cell (get-dc) #f (first p) (second p))) turned))
-			(set! turned null)
-			(send this-message set-label "")])]
+                      [else
+                       (when (> (length turned) 1)
+                         (for-each (lambda (p) (draw-cell (get-dc) #f (first p) (second p))) turned))
+                       (set! turned null)
+                       (send this-message set-label "")])]
 		   [(send evt button-up?)
 		    (when (and (<= 0 i) (< i board-width)
 			       (<= 0 j) (< j board-height))
@@ -255,11 +253,11 @@
 				      [(= i board-width) (void)]
 				      [else (draw-line (get-dc) i)
 					    (loop (+ i 1))])))
-
+                                
 				;; update `small' balls
 				(recalc/draw-turned i j)
 				)))
-
+                          
 			  (set! game-over?
 				(not
 				 (let loop ([i board-width]
@@ -281,8 +279,8 @@
 						     (> (length (find-same-colors (sub1 i) (sub1 j))) 1)))]))))])))) 
 			  (when game-over?
 			    (paint-game-over (get-dc))))))]
-		     
-		     [else (void)])))]
+                   
+                   [else (void)])))]
 	
 	[on-paint
 	 (lambda ()
@@ -301,84 +299,82 @@
 		       (loop (- i 1))]))
 	     (when game-over?
 	       (paint-game-over dc))))])))
-   
-   (define semaphore (make-semaphore 0))
-   (define same-frame%
-     (class-asi frame%
-       (override
+  
+  (define semaphore (make-semaphore 0))
+  (define same-frame%
+    (class100-asi frame%
+      (override
 	[on-close
 	 (lambda ()
 	   (semaphore-post semaphore))])))
-
-   (define find-largest-connected-region
-     (let ([biggest-so-far 0]
-	   [tests 0])
-       (lambda ()
-	 (let ([answer 0])
-	   (let loop ([i 20])
-	     (cond
+  
+  (define find-largest-connected-region
+    (let ([biggest-so-far 0]
+          [tests 0])
+      (lambda ()
+        (let ([answer 0])
+          (let loop ([i 20])
+            (cond
 	      [(zero? i) (void)]
 	      [else
 	       (let loop ([j 10])
 		 (cond
-		  [(zero? j) (void)]
-		  [else (set! answer
-			      (max
-			       answer
-			       (length
-				(send canvas find-same-colors
-				      (- i 1) (- j 1)))))
-			(loop (- j 1))]))
+                   [(zero? j) (void)]
+                   [else (set! answer
+                               (max
+                                answer
+                                (length
+                                 (send canvas find-same-colors
+                                       (- i 1) (- j 1)))))
+                         (loop (- j 1))]))
 	       (loop (- i 1))]))
-	   (set! biggest-so-far (max biggest-so-far (calc-score answer)))
-	   (set! tests (+ tests 1))
-	   (printf "tests: ~a sofar: ~a largest connected region: ~a score ~a~n"
-		   tests
-		   biggest-so-far
-		   answer
-		   (calc-score answer))))))
-
-   (define (new-game-callback redraw?)
-     (set! game-over? #f)
-     (set! board (build-board))
-     (unless (= score 0)
-       (set! score 0)
-       (send message set-label "0"))
-     (send this-message set-label "")
-     (when redraw?
-       (send canvas on-paint)))
-
-   (define frame (make-object same-frame% "Same"))
-   (define panel (make-object vertical-panel% frame))
-   (define canvas (make-object same-canvas% panel))
-   (define hp (make-object horizontal-panel% panel))
-   (make-object message% "Total Score: " hp)
-   (define message (make-object message% "0" hp))
-   (make-object message% "This Score: " hp)
-   (define this-message (make-object message% "0" hp))
-   (define button (make-object button% "New Game" hp (lambda x (new-game-callback #t))))
-   '(make-object button% "Run Scores" hp (lambda x
+          (set! biggest-so-far (max biggest-so-far (calc-score answer)))
+          (set! tests (+ tests 1))
+          (printf "tests: ~a sofar: ~a largest connected region: ~a score ~a~n"
+                  tests
+                  biggest-so-far
+                  answer
+                  (calc-score answer))))))
+  
+  (define (new-game-callback redraw?)
+    (set! game-over? #f)
+    (set! board (build-board))
+    (unless (= score 0)
+      (set! score 0)
+      (send message set-label "0"))
+    (send this-message set-label "")
+    (when redraw?
+      (send canvas on-paint)))
+  
+  (define frame (make-object same-frame% "Same"))
+  (define panel (make-object vertical-panel% frame))
+  (define canvas (make-object same-canvas% panel))
+  (define hp (make-object horizontal-panel% panel))
+  (make-object message% "Total Score: " hp)
+  (define message (make-object message% "0" hp))
+  (make-object message% "This Score: " hp)
+  (define this-message (make-object message% "0" hp))
+  (define button (make-object button% "New Game" hp (lambda x (new-game-callback #t))))
+  '(make-object button% "Run Scores" hp (lambda x
 					  (let loop ()
 					    (new-game-callback #f)
 					    (find-largest-connected-region)
 					    (loop))))
-
-   (define help-button (make-object button% "Help"
-				    hp
-				    (let ([show-help
-					   ((require-library "show-help.ss" "games")
-					    (list "games" "same")
-					    "Same Help")])
-				      (lambda (_1 _2)
-					(show-help)))))
-
-   (send message stretchable-width #t)
-   (send this-message stretchable-width #t)
-   (send hp stretchable-height #f)
-   (send canvas min-width (* board-width cell-size))
-   (send canvas min-height (* board-height cell-size))
-   
-   (send frame show #t)
-   (yield semaphore))
- mred^ mzlib:function^)
-
+  
+  (define help-button (make-object button% "Help"
+                        hp
+                        (let ([show-help
+                               (show-help
+                                (list "games" "same")
+                                "Same Help")])
+                          (lambda (_1 _2)
+                            (show-help)))))
+  
+  (send message stretchable-width #t)
+  (send this-message stretchable-width #t)
+  (send hp stretchable-height #f)
+  (send canvas min-width (* board-width cell-size))
+  (send canvas min-height (* board-height cell-size))
+  
+  (send frame show #t)
+  (yield semaphore))
