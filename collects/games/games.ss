@@ -38,9 +38,9 @@
    (send f stretchable-width #f)
    (send f stretchable-height #f)
 
-   (define p (make-object horizontal-panel% main))
+   (define main-horizontal-panel (make-object horizontal-panel% main))
 
-   (define (game-button p desc)
+  (define (game-button p desc)
      (let* ([collect (car desc)]
 	    [file (cadr desc)]
 	    [name (caddr desc)]
@@ -72,7 +72,7 @@
 	 (let* ([set (list-ref (car l) 3)]
 		[p (new group-box-panel%
 			[label set]
-			[parent p])])
+			[parent main-horizontal-panel])])
 	   (let xloop ([here (list (car l))]
 		       [l (cdr l)])
 	     (if (and (pair? l)
@@ -85,7 +85,12 @@
    (for-each (lambda (p)
 	       (let ([pred (lambda (x y) (<= (send x min-width) (send y min-width)))])
 		 (send p change-children (lambda (l) (quicksort l pred)))))
-	     (send p get-children))
+	     (send main-horizontal-panel get-children))
+  
+  (send main-horizontal-panel change-children
+        (lambda (l) (quicksort l
+                               (lambda (x y) (< (length (send x get-children))
+                                                (length (send y get-children)))))))
 
    ; (make-object grow-box-spacer-pane% hp)
 

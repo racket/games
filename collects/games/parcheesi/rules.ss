@@ -1,13 +1,11 @@
 (module rules mzscheme
-  (provide parcheesi-rules)
+  (provide show-rules)
   
   (require "board.ss"
            "moves.ss"
-           ;"util.ss"
            "gui.ss"
 
            (lib "class.ss")
-           (lib "etc.ss")
            (lib "xml.ss" "xml")
            (lib "htmltext.ss" "browser")
            (lib "mred.ss" "mred"))
@@ -53,7 +51,7 @@
               "For example, if green rolls 1 and a 4 on the first turn, the board looks like this: "
               (center
                ,(moves-make-image/link (list (make-enter-piece (make-pawn 'green 0)))
-                                 "enter")))
+                                       "enter")))
           (li ,(heading "Normal Move")
               "With the exception of doubles, when a player rolls the dice, the player moves "
               "their pieces by the numbers indicated by the pips. Pieces move in the "
@@ -62,22 +60,22 @@
               "a 5 and a 3 on the first move, the board looks like this:"
               (center
                ,(moves-make-image/link (list (make-enter-piece (make-pawn 'green 0))
-                                       (make-move-piece-main (make-pawn 'green 0) 5 3))
-                                 "simple-move"))
+                                             (make-move-piece-main (make-pawn 'green 0) 5 3))
+                                       "simple-move"))
               "then, if green rolls a 4 and a 6 on their next move (and the other players don't enter) "
               "green might first move the 4, resulting in the board on the left "
               "and then move the 6, resulting in the board on the right."
               (center
                ,(moves-make-image/link (list (make-enter-piece (make-pawn 'green 0))
-                                       (make-move-piece-main (make-pawn 'green 0) 5 3)
-                                       (make-move-piece-main (make-pawn 'green 0) 8 4))
-                                 "simple-move2")
+                                             (make-move-piece-main (make-pawn 'green 0) 5 3)
+                                             (make-move-piece-main (make-pawn 'green 0) 8 4))
+                                       "simple-move2")
                nbsp nbsp nbsp nbsp
                ,(moves-make-image/link (list (make-enter-piece (make-pawn 'green 0))
                                              (make-move-piece-main (make-pawn 'green 0) 5 3)
                                              (make-move-piece-main (make-pawn 'green 0) 8 4)
                                              (make-move-piece-main (make-pawn 'green 0) 12 6))
-                                 "simple-move3")))
+                                       "simple-move3")))
           (li ,(heading "Double Bonus")
               "When a player rolls doubles and all of their pieces are out of the starting area, "
               "the player moves by the tops and bottoms of the dice. That is, if the player "
@@ -105,8 +103,8 @@
                                              (make-enter-piece (make-pawn 'red 0))
                                              (make-enter-piece (make-pawn 'red 1))
                                              (make-move-piece-main (make-pawn 'red 0) 22 4))
-                                 "blockade")))
-
+                                       "blockade")))
+          
           (li ,(heading "Individual Die Rolls")
               "Each die roll should be thought of as an individual \"mini-move\". "
               "That is, when a player rolls a 3 and a 4, for example, the player may move "
@@ -125,7 +123,7 @@
                                              (make-move-piece-main (make-pawn 'green 3) 5 22)
                                              (make-enter-piece (make-pawn 'red 0))
                                              (make-move-piece-main (make-pawn 'red 0) 22 2))
-                                 "individual-die-rolls")))
+                                       "individual-die-rolls")))
           
           (li ,(heading "Bop")
               "If a pawn is by itself on a light blue square "
@@ -140,12 +138,12 @@
                ,(moves-make-image/link (list (make-enter-piece (make-pawn 'green 0))
                                              (make-move-piece-main (make-pawn 'green 0) 5 20)
                                              (make-enter-piece (make-pawn 'red 0)))
-                                 "bop-before")
+                                       "bop-before")
                nbsp nbsp nbsp nbsp
                ,(moves-make-image/link (list (make-enter-piece (make-pawn 'red 0))
                                              (make-move-piece-main (make-pawn 'red 0) 22 3)
                                              (make-move-piece-main (make-pawn 'red 0) 25 20))
-                                 "bop-after")))
+                                       "bop-after")))
           
           
           (li ,(heading "Safety")
@@ -180,12 +178,12 @@
               (center
                ,(moves-make-image/link (list (make-enter-piece (make-pawn 'green 0))
                                              (make-move-piece-main (make-pawn 'green 0) 5 60))
-                                 "enter-home-before")
+                                       "enter-home-before")
                nbsp nbsp nbsp nbsp
                ,(moves-make-image/link (list (make-enter-piece (make-pawn 'green 0))
                                              (make-move-piece-main (make-pawn 'green 0) 5 60)
                                              (make-move-piece-main (make-pawn 'green 0) 65 7))
-                                 "enter-home-after")))
+                                       "enter-home-after")))
           
           (li ,(heading "Home")
               "Pawns must enter home by an exact count. "
@@ -195,7 +193,7 @@
                ,(moves-make-image/link (list (make-enter-piece (make-pawn 'green 0))
                                              (make-move-piece-main (make-pawn 'green 0) 5 60)
                                              (make-move-piece-main (make-pawn 'green 0) 65 10))
-                                 "going-home")))
+                                       "going-home")))
           
           (li ,(heading "Home Bonus")
               "When a piece moves home, the player whose piece moved home gets a bonus "
@@ -208,7 +206,7 @@
                                              (make-enter-piece (make-pawn 'green 1))
                                              (make-move-piece-main (make-pawn 'green 0) 5 60)
                                              (make-move-piece-main (make-pawn 'green 0) 65 10))
-                                 "home-bonus-before")
+                                       "home-bonus-before")
                nbsp nbsp nbsp
                ,(moves-make-image/link (list (make-enter-piece (make-pawn 'green 0))
                                              (make-enter-piece (make-pawn 'green 1))
@@ -217,8 +215,8 @@
                                              (make-move-piece-home (make-pawn 'green 0) 6 1)
                                              (make-move-piece-main (make-pawn 'green 1) 5 10)
                                              (make-move-piece-main (make-pawn 'green 1) 15 2))
-                                 "home-bonus-after")))
-                    
+                                       "home-bonus-after")))
+          
           (li ,(heading "Cell Occupancy")
               "Each square in the main ring and in the home rows can only have zero, one or two pawns on it. "
               "If it contains two pawns, those pawns must be the same color (and would form a blockade, as above)")
@@ -243,9 +241,14 @@
                 (send t insert (new board-snip% (board (hash-table-get table name))) start start #f)
                 (loop (cdr starts) (cdr ends)))])))
 
+  (define scroll-step-pixels 12)
+  
   (define board-snip%
     (class snip%
       (init-field board)
+      (define/override (find-scroll-step y) (inexact->exact (quotient y scroll-step-pixels)))
+      (define/override (get-num-scroll-steps) (quotient board-size scroll-step-pixels))
+      (define/override (get-scroll-step-offset step) (* step scroll-step-pixels))
       (define/override (get-extent dc x y w h descent space lspace rspace)
         (set-box/f! w board-size)
         (set-box/f! h board-size)
@@ -269,32 +272,4 @@
   (define (moves-make-image/link moves name)
     (let-values ([(board bonuses) (make-moves (new-board) moves)])
       (hash-table-put! table name board)
-      `(pre ,(format " !!~a:: " name))))
-  
-  #;
-  (define (moves-make-image/link moves name)
-    (let-values ([(board bonuses) (make-moves (new-board) moves)])
-      (board-make-image/link board name)))
-  
-  (define (board-make-image/link board name)
-    (let* ([large-short-name (string-append name "-large.png")]
-           [large-name (build-path (this-expression-source-directory) "board" large-short-name)]
-           [small-short-name (string-append name ".png")]
-           [small-name (build-path (this-expression-source-directory) "board" small-short-name)])
-      (unless (file-exists? large-name)
-        (build-image board large-name 800))
-      (unless (file-exists? small-name)
-        (build-image board small-name 300))
-      `(a ((href ,(string-append "board/" large-short-name)))
-          (img ((src ,(string-append "board/" small-short-name)))))))
-  
-  (define (build-image board name size)
-    (printf "building ~s\n" name)
-    (let* ([bitmap (make-object bitmap% size size)]
-           [bdc (make-object bitmap-dc% bitmap)])
-      (draw-board board bdc size size 0 0 #t)
-      (send bdc set-bitmap #f)
-      (send bitmap save-file name 'png)))
-
-  (show-rules)
-  )
+      (format " !!~a:: " name))))

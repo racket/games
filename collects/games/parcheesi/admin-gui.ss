@@ -6,8 +6,10 @@
            "admin.ss"
            "board.ss"
 	   "moves.ss"
+           "rules.ss"
            "best-players.ss"
 	   "../show-help.ss"
+           (lib "framework.ss" "framework")
            (lib "class.ss")
            (lib "list.ss")
            (lib "mred.ss" "mred"))
@@ -17,7 +19,8 @@
   ;; move-candidate = (make-move-candidate coordinate move (listof number))
   (define-struct move-candidate (move dice) (make-inspector))
   
-  (define-struct past (board color roll))
+  (define-struct past (board color roll) (make-inspector))
+  (print-struct #t)
   
   (define gui-game%
     (class* object% (game<%>)
@@ -54,9 +57,6 @@
           (define color #f)
           (define/public (start-game _color)
             (set! color _color)
-            (queue-callback
-             (lambda ()
-               (add-gui-player-controls color)))
             "Human")
           (define/public (do-move board roll)
             (let ([chan (make-channel)])
@@ -118,73 +118,45 @@
                                       (parent right-vp)
                                       (stretchable-height #f)))
       
-      (define/private (make-dice parent)
+      (define dice '())
+      
+      (define/private (make-dice color parent)
         (let ([p (new horizontal-panel% (parent parent) (stretchable-height #f))])
-          (list (new die% (parent p) (dim? #t))
-                (new die% (parent p) (dim? #t))
-                (new die% (parent p) (dim? #t))
-                (new die% (parent p) (dim? #t)))))
+          (set! dice
+                (cons (list color (list (new die% (parent p) (dim? #t))
+                                        (new die% (parent p) (dim? #t))
+                                        (new die% (parent p) (dim? #t))
+                                        (new die% (parent p) (dim? #t))))
+                      dice))))
       
-      (define dice #f)
+      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+      ;;
+      ;;  controlling the players
+      ;;
       
-      (define (make-all-dice)
-        (set! dice
-              (list (list 'green (make-dice  green-player-panel))
-                    (list 'red (make-dice red-player-panel))
-                    (list 'yellow (reverse (make-dice yellow-player-panel)))
-                    (list 'blue (reverse (make-dice blue-player-panel))))))
-      
-      (define/private (make-player-control-panel parent ah aw)
-        (new vertical-panel% 
-             (stretchable-height #f)
-             (parent parent)
-             (alignment `(,aw ,ah))))
-      
-      (define gui-player-control-panels
-        (list (cons 'green (make-player-control-panel green-player-panel 'top 'left))
-              (cons 'red (make-player-control-panel red-player-panel 'bottom 'left))
-              (cons 'yellow (make-player-control-panel yellow-player-panel 'top 'right))
-              (cons 'blue (make-player-control-panel blue-player-panel 'bottom 'right))))
+      (define/private (add-gui-player-controls color parent-panel)
+        (let* ([accept-move-button (new button%
+                                        (label "Done")
+                                        (parent parent-panel)
+                                        (callback (lambda (x y) (accept-move))))]
+               [reset-move-button (new button%
+                                       (label "Reset")
+                                       (parent parent-panel)
+                                       (callback (lambda (x y) (reset-button-callback))))]
+               [bp-panel (new horizontal-panel% 
+                              (parent parent-panel)
+                              (stretchable-height #f)
+                              (stretchable-width #f))])
+          (send accept-move-button enable #f)
+          (send reset-move-button enable #f)
+          (make-dice color parent-panel)
+          (set! gui-player-accept-move-buttons
+                (cons (cons color accept-move-button) gui-player-accept-move-buttons))
+          (set! gui-player-reset-move-buttons
+                (cons (cons color reset-move-button) gui-player-reset-move-buttons))))
       
       (define gui-player-accept-move-buttons '())
       (define gui-player-reset-move-buttons '())
-      (define gui-player-back-buttons '())
-      (define gui-player-forw-buttons '())
-      
-      (define/private (add-gui-player-controls color)
-        (let* ([parent-panel (cdr (assq color gui-player-control-panels))]
-               [children (send parent-panel get-children)])
-          (when (null? children)
-            (let* ([accept-move-button (new button%
-                                            (label "Done")
-                                            (parent parent-panel)
-                                            (callback (lambda (x y) (accept-move))))]
-                   [reset-move-button (new button%
-                                           (label "Reset")
-                                           (parent parent-panel)
-                                           (callback (lambda (x y) (reset-button-callback))))]
-                   [bp-panel (new horizontal-panel% 
-                                  (parent parent-panel)
-                                  (stretchable-height #f)
-                                  (stretchable-width #f))]
-                   [back (new button%
-                              (label "<")
-                              (parent bp-panel)
-                              (callback (lambda (x y) (go-back))))]
-                   [forw (new button%
-                              (label ">")
-                              (parent bp-panel)
-                              (callback (lambda (x y) (go-forw))))])
-              (send accept-move-button enable #f)
-              (send reset-move-button enable #f)
-              (set! gui-player-back-buttons 
-                    (cons (cons color back) gui-player-back-buttons))
-              (set! gui-player-forw-buttons 
-                    (cons (cons color forw) gui-player-forw-buttons))
-              (set! gui-player-accept-move-buttons
-                    (cons (cons color accept-move-button) gui-player-accept-move-buttons))
-              (set! gui-player-reset-move-buttons
-                    (cons (cons color reset-move-button) gui-player-reset-move-buttons))))))
       
       (define/private (go-back)
         (reset-move)
@@ -264,7 +236,6 @@
               (update-gui)))))
       
       (define/private (update-gui)
-        (update-players-dice this-move-color current-dice)
         (cond
           [(eq? viewing-index 'latest)
            (dim-dice-except this-move-color)
@@ -279,6 +250,7 @@
              (send board-pasteboard set-highlighted-squares highlights move-candidates))]
           [else
            (let ([past (list-ref history viewing-index)])
+             (printf "past ~s\n" past)
              (clear-dice-except (past-color past))
              (update-players-dice (past-color past) (past-roll past))
              (send board-pasteboard set-board (past-board past))
@@ -302,11 +274,9 @@
                        #t)))))
       
       (define/private (reset-forw-back-buttons)
-        (let ([forw (cdr (assq this-move-color gui-player-forw-buttons))]
-              [back (cdr (assq this-move-color gui-player-back-buttons))])
-          (send forw enable (not (eq? viewing-index 'latest)))
-          (send back enable (and (not (null? history))
-                                 (not (eq? viewing-index 0))))))
+        (send forw enable (not (eq? viewing-index 'latest)))
+        (send back enable (and (not (null? history))
+                               (not (eq? viewing-index 0)))))
       
       
       (define/private (set-bottom-message msg) (send bottom-msg set-label msg))
@@ -343,83 +313,112 @@
       ;;
       ;;  player choice gui
       ;;
+
+      (define/private (index->player i) 
+        (case i
+          [(0) best-player%]
+          [(1) polite-player%]
+          [(2) reckless-player%]
+          [(3) gui-player%]))
       
-      (define (get-players)
-        (let* ([index->player
-                (lambda (i)
-                  (case i
-                    [(0) best-player%]
-                    [(1) polite-player%]
-                    [(2) reckless-player%]
-                    [(3) gui-player%]))]
-               [players (vector (index->player 0)
-                                (index->player 0)
-                                (index->player 0)
-                                (index->player 0))]
-               [color-order '((green . 0) (red . 1) (blue . 2) (yellow . 3))]
-               [semaphore (make-semaphore 0)]
-               [saved-msg (car (send bottom-panel get-children))]
-               [start-game (new button% 
-                                (parent bottom-panel)
+      (define players (vector (index->player 0)
+                              (index->player 0)
+                              (index->player 0)
+                              (index->player 0)))
+      
+      (define/private (add-choose-player-controls color parent-panel)
+        (let ([color-order '((green . 0) (red . 1) (blue . 2) (yellow . 3))])
+          (new radio-box%
+               (parent parent-panel)
+               (label #f)
+               (choices '("Amazing Grace"
+                          "Polite Polly"
+                          "Reckless Renee"
+                          "You"))
+               (callback
+                (lambda (rb y)
+                  (vector-set! players
+                               (cdr (assq color color-order))
+                               (index->player
+                                (send rb get-selection))))))))
+      
+      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+      ;;
+      ;;  put all the gui elements together
+      ;;
+      
+      (define/private (make-player-control-panel parent color ah aw)
+        (let* ([parent 
+                (new panel:single% 
+                     (stretchable-height #f)
+                     (parent parent))]
+               [choose-player-panel (new vertical-panel% 
+                                         (parent parent)
+                                         (style '(border))
+                                         (alignment `(,aw ,ah))
+                                         (stretchable-width #f)
+                                         (stretchable-height #f))]
+               [control-player-panel (new vertical-panel% 
+                                          (parent parent)
+                                          (style '(border))
+                                          (alignment `(,aw ,ah))
+                                          (stretchable-width #f)
+                                          (stretchable-height #f))])
+          (add-gui-player-controls color control-player-panel)
+          (add-choose-player-controls color choose-player-panel)
+          (list color parent choose-player-panel control-player-panel)))
+      
+      (define gui-player-control-panels
+        (list (make-player-control-panel green-player-panel 'green 'top 'left)
+              (make-player-control-panel red-player-panel 'red 'bottom 'left)
+              (make-player-control-panel yellow-player-panel 'yellow 'top 'right)
+              (make-player-control-panel blue-player-panel 'blue 'bottom 'right)))
+      
+      (define/private (get-player-panel color i)
+        (let ([e (assq color gui-player-control-panels)])
+          (unless e
+            (error 'get-player-panel "bad color ~e" color))
+          (list-ref e i)))
+      (define/private (get-player-parent-panel c) (get-player-panel c 1))
+      (define/private (get-choose-player-panel c) (get-player-panel c 2))
+      (define/private (get-control-player-panel c) (get-player-panel c 3))
+
+      (define sbf-panel (new panel:single% 
+                             (parent bottom-panel) 
+                             (stretchable-width #f)
+                             (stretchable-height #f)
+                             (alignment '(right center))))
+      
+      (define start-button (new button%
                                 (label "Start Game")
-                                (callback 
+                                (parent sbf-panel)
+                                (callback
                                  (lambda (x y)
-                                   (semaphore-post semaphore))))]
-	       [help (new button%
-			  (parent bottom-panel)
-			  (label "Help")
-			  (callback
-			   (let ([sh (show-help (list "games" "parcheesi")
-						"Parcheesi Help")])
-			     (lambda (x y)
-			       (sh)))))]
-               [radio-boxes
-                (map (lambda (player-control-panel)
-                       (let* ([color (car player-control-panel)]
-                              [panel (cdr player-control-panel)]
-                              [radio-box
-                               (new radio-box%
-                                    (parent panel)
-                                    (label #f)
-                                    (choices '("Amazing Grace"
-                                               "Polite Polly"
-                                               "Reckless Renee"
-                                               "You"))
-                                    (callback
-                                     (lambda (rb y)
-                                       (vector-set! players
-                                                    (cdr (assq color color-order))
-                                                    (index->player
-                                                     (send rb get-selection))))))]
-                              [mk-button
-                               (lambda (label player%)
-                                 (new button%
-                                      (label label)
-                                      (parent panel)
-                                      (callback
-                                       (lambda (x y)
-                                         (vector-set! players
-                                                      (cdr (assq color color-order))
-                                                      (new player%))
-                                         (send panel change-children (lambda (l) '()))))))])
-                         radio-box))
-                    gui-player-control-panels)])
-          (send bottom-panel change-children (lambda (l) (list start-game help)))
-          (yield semaphore)
-          (make-all-dice)
-          (for-each (lambda (player-control-panel)
-                      (let ([panel (cdr player-control-panel)])
-                        (send panel change-children (lambda (l) '()))))
-                    gui-player-control-panels)
-          (send bottom-panel change-children (lambda (l) (list saved-msg)))
-          (map (lambda (x) (new x)) (vector->list players))))
-      
+                                   (for-each (lambda (color)
+                                               (send (get-player-parent-panel color)
+                                                     active-child
+                                                     (get-control-player-panel color)))
+                                             '(red blue green yellow))
+                                   (send sbf-panel active-child bf-panel)
+                                   (start-game)))))
+      (define bf-panel (new horizontal-panel% (parent sbf-panel) (stretchable-width #f) (stretchable-height #f)))
+      (define back (new button%
+                        (label "<")
+                        (parent bf-panel)
+                        (callback (lambda (x y) (go-back)))))
+      (define forw (new button%
+                        (label ">")
+                        (parent bf-panel)
+                        (callback (lambda (x y) (go-forw)))))
+      (define rules-button (new button% (parent bottom-panel) (label "Rules") (callback (lambda (x y) (show-rules)))))
+
       (super-new)
       (send frame show #t)
       
       ;; start the game
-      (for-each (lambda (player) (send the-game register player)) (get-players))
-      (thread (lambda () (send the-game start)))))
+      (define/private (start-game)
+        (for-each (lambda (player%) (send the-game register (new player%))) (vector->list players))
+        (thread (lambda () (send the-game start))))))
   
   (define board-pasteboard%
     (class pasteboard%

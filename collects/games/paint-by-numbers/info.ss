@@ -1,6 +1,7 @@
 (module info (lib "infotab.ss" "setup")
   (define name "Paint by Numbers")
   (define game "paint-by-numbers.ss")
+  (define game-set "Puzzles")
   (define compile-omit-files '(
 			       ;; Skipped because it's huge - lots
 			       ;; of data-encoding units
