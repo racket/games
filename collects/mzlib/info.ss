@@ -8,7 +8,7 @@
 			 (require-library "constan.ss"))]
     [(compile-omit-files)
      (list "awk.ss" "compatm.ss" "constan.ss" "defstru.ss" 
-	   "macro.ss" "macrox.ss" "match.ss"                   "macroxr.ss"
+	   "macro.ss" "macrox.ss" "match.ss"                   "macroxr.ss" ; goes away after zodiac is fixed
 	   "letplus.ss" "letplsrc.ss" "refer.ss" "shared.ss"
 	   "spidey.ss" "synrule.ss" "trace.ss" "sfunctor.ss"
 	   "mzlibs.ss" "cores.ss"
