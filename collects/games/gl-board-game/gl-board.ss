@@ -109,7 +109,7 @@
       
       ;; Transformation used to draw shadows.
       (define shadow-projection 
-        (let ((ld (- light-distance (* .0001 eye-distance))))
+        (let ((ld light-distance))
           (gl-double-vector ld 0 0 0
                             0 ld 0 0 
                             0 0 ld 0
@@ -122,64 +122,81 @@
       ;; The mouse's location while dragging
       (define dragging #f)
       
-      ;; draw : bool bool bool ->
-      ;; Draws the scene.  If select? is true, then names are loaded for selection
-      ;; with each space getting named after its index in the spaces list, and 
-      ;; each piece by its index plus the number of spaces.
-      (define/private (draw select? spaces? pieces?)
-        (when spaces?
-          (gl-normal 0.0 0.0 1.0)
-          (let loop ((i 0)
-                     (s spaces))
-            (unless (null? s)
-              (when select?
-                (gl-load-name i))
-              ((space-draw (car s)))
+      ;; draw-spaces : bool ->
+      ;; Draws the board.  If select? is true, then names are loaded for selection
+      ;; with each space named after its index in the spaces list.
+      (define/private (draw-spaces select?)
+        (gl-normal 0.0 0.0 1.0)
+        (let loop ((i 0)
+                   (s spaces))
+          (unless (null? s)
+            (when select?
+              (gl-load-name i))
+            ((space-draw (car s)))
+            (loop (add1 i)
+                  (cdr s)))))
+      
+      ;; draw-pieces : bool ->
+      ;; Draws the pieces.  If select? is true, then names are loaded for selection
+      ;; with each piece named after its index plus the number of spaces.
+      (define/private (draw-pieces select?)
+        (let loop ((i (length spaces))
+                   (ps (if (and (piece? mouse-state) 
+                                dragging)
+                           (cons (make-piece (gl-vector-ref dragging 0)
+                                             (gl-vector-ref dragging 1)
+                                             (gl-vector-ref dragging 2)
+                                             (piece-draw mouse-state)
+                                             (piece-info mouse-state)
+                                             #f)
+                                 pieces)
+                           pieces)))
+          (unless (null? ps)
+            (let ((p (car ps)))
+              (unless (and dragging (eq? mouse-state p))  ;; Don't draw the dragged piece
+                ;; in its home location.
+                (when select?
+                  (gl-load-name i))
+                (gl-push-matrix)
+                (gl-translate (piece-x p) (piece-y p) (piece-z p))
+                ((piece-draw p))
+                (gl-pop-matrix))
               (loop (add1 i)
-                    (cdr s)))))
-        (when pieces?
-          (let loop ((i (length spaces))
-                     (ps (if (and (piece? mouse-state) 
-				  dragging)
-                             (cons (make-piece (gl-vector-ref dragging 0)
-                                               (gl-vector-ref dragging 1)
-                                               (gl-vector-ref dragging 2)
-                                               (piece-draw mouse-state)
-                                               (piece-info mouse-state)
-					       #f)
-                                   pieces)
-                             pieces)))
-            (unless (null? ps)
-              (let ((p (car ps)))
-                (unless (and dragging (eq? mouse-state p))  ;; Don't draw the dragged piece
-                                                            ;; in its home location.
-                  (when select?
-                    (gl-load-name i))
-                  (gl-push-matrix)
-                  (gl-translate (piece-x p) (piece-y p) (piece-z p))
-                  ((piece-draw p))
-                  (gl-pop-matrix))
-                (loop (add1 i)
-                      (cdr ps)))))))
+                    (cdr ps))))))
       
       (define/override (on-paint)
         (with-gl-context
          (lambda ()
            (gl-clear 'color-buffer-bit 'depth-buffer-bit 'stencil-buffer-bit)
-           (draw #f #t #t)
-           ;; Very simple shadowing on the board
+
+           (draw-spaces #f)
+
+           ;; draw the board, putting 1 in the stencil buffer for each exposed
+           ;; pixel of a piece.
+           (gl-enable 'stencil-test)
+           (gl-stencil-func 'always 1 1)
+           (gl-stencil-op 'keep 'keep 'replace)
+           (draw-pieces #f)
+           (gl-disable 'stencil-test)
+           
+           ;; Very simple shadowing on the board, only blending the shadow
+           ;; with pixels stenciled to 0, i.e. avoid the pieces.
 	   (gl-enable 'stencil-test)
 	   (gl-stencil-func 'equal 0 1)
+           ;; Once a pixel has been shadows, use saturating incr to set its
+           ;; value to 1, preventing multi-shadowing.
 	   (gl-stencil-op 'keep 'keep 'incr)
+           (gl-disable 'lighting)
+           (gl-disable 'depth-test)
+	   (gl-enable 'blend)
+	   (gl-blend-func 'dst-color 'zero)
+           (gl-color 0.5 0.5 0.5)
            (gl-push-matrix)
            (gl-translate center-x center-y light-distance)
            (gl-mult-transpose-matrix shadow-projection)
            (gl-translate (- center-x) (- center-y) (- light-distance))
-           (gl-disable 'lighting)
-	   (gl-enable 'blend)
-	   (gl-blend-func 'src-alpha 'one-minus-src-alpha)
-           (gl-color 0.2 0.2 0.2 0.5)
-           (draw #f #f #t)
+           (draw-pieces #f)
+           (gl-enable 'depth-test)
 	   (gl-disable 'blend)
            (gl-enable 'lighting)
 	   (gl-disable 'stencil-test)
@@ -222,7 +239,8 @@
           (gl-matrix-mode 'modelview)
           (gl-init-names)
           (gl-push-name 0)
-          (draw #t #t #t)
+          (draw-spaces #t)
+          (draw-pieces #t)
           (gl-matrix-mode 'projection)
           (gl-pop-matrix)
           (gl-matrix-mode 'modelview)
