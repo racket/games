@@ -22,8 +22,9 @@ The col and row type specs are in sig.ss and the solution type is:
 
 (require (lib "etc.ss")
          (lib "list.ss")
+         (lib "file.ss")
          (lib "pretty.ss")
-         (prefix solve: "solve.ss"))
+         (prefix solve: "../solve.ss"))
 
 (if (eq? (vector) argv)
     (fprintf (current-error-port) "pass any command line argument to skip the solver~n~n")
@@ -110,9 +111,9 @@ The col and row type specs are in sig.ss and the solution type is:
         output-file
         (call-with-input-file (build-path problems-dir input-file) (compose eval read))))
 
-(define games-set (build-set "Games Magazine" "games" "raw-problems" "raw-problems.ss"))
+(define games-set (build-set "Games Magazine" "games" "raw-problems/raw-problems.ss"))
 
-(define misc-set (build-set "Misc" "misc" "raw-problems" "raw-misc.ss"))
+(define misc-set (build-set "Misc" "misc" "raw-problems/raw-misc.ss"))
 
 (define kajitani-sets
   (call-with-input-file (build-path (collection-path "games" "paint-by-numbers") "raw-problems" "raw-kajitani.ss")
@@ -222,7 +223,7 @@ The col and row type specs are in sig.ss and the solution type is:
               [k
                (thread
                 (lambda ()
-                  (let ([check-interval 1]) ;; in seconds
+                  (let ([check-interval 10]) ;; in seconds
                     (let loop ()
                       (sleep check-interval)
                       (update-memory-display)
@@ -271,7 +272,7 @@ The col and row type specs are in sig.ss and the solution type is:
          [problems (caddr set)])
      (for-each sanity-check problems)
      (if (file-exists? output-file)
-         (printf "skipping ~s (~a)~n" set-name output-file)
+         (printf "skipping ~s (~a)~n" set-name (normalize-path output-file))
          (call-with-output-file output-file
            (lambda (port)
              (printf "Building ~s~n" set-name)
