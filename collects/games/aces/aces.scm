@@ -27,20 +27,26 @@ possible to remap single click (instead of double click)?
    (define draw-pile null)
 
    (define card-height (send (car (make-deck)) card-height))
-   (define region-width (send (car (make-deck)) card-width))
+   (define card-width (send (car (make-deck)) card-width))
    (define region-height (send table table-height))
 
    (define-struct stack (x y cards))
 
    (define (get-x-offset n)
-     (+ (quotient region-width 2)
-	(* n region-width)))
+     (let* ([table-width (send table table-width)]
+            [stack-spacing 7]
+            [num-stacks 5]
+            [all-stacks-width
+             (+ (* num-stacks card-width)
+                (* (- num-stacks 1) stack-spacing))])
+       (+ (- (/ table-width 2) (/ all-stacks-width 2))
+          (* n (+ card-width stack-spacing)))))
 
    (define draw-pile-region
-     (make-button-region 
+     (make-button-region
       (get-x-offset 0)
       0
-      region-width
+      card-width
       card-height
       #f
       #f))
@@ -100,7 +106,7 @@ possible to remap single click (instead of double click)?
      (send table add-cards-to-region draw-pile draw-pile-region)
 
      (for-each (lambda (card) 
-		 ;;(send card user-can-move #f)
+		 (send card user-can-move #f)
 		 (send card user-can-flip #f))
 	       deck))
 
