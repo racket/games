@@ -258,6 +258,9 @@
 
 (printf "Loading cards~n")
 
+(define (here file)
+  (build-path (current-load-relative-directory) file))
+
 (define cards
   (let sloop ([suite 4])
     (if (zero? suite)
@@ -267,10 +270,12 @@
 	  (if (zero? value)
 	      (sloop (sub1 suite))
 	      (cons (make-object card:image-snip%
-				 (format "card-~a-~a.gif"
-					 (sub1 value)
-					 (sub1 suite))
-				 "back.gif")
+				 (here 
+				  (format "card-~a-~a.gif"
+					  (sub1 value)
+					  (sub1 suite)))
+				 (here
+				  "back.gif"))
 		    (vloop (sub1 value))))))))
 
 (send f show #t)
