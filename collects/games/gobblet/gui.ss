@@ -14,8 +14,10 @@
       (import config^ model^ restart^)
 
       ;; Configuration ------------------------------
+
+      (define JR? (= BOARD-SIZE 3))
       
-      (define PIECE-SIZES (if (= BOARD-SIZE 3)
+      (define PIECE-SIZES (if JR?
 			      '(0.4 0.6 0.75)
 			      '(0.3 0.45 0.65 0.8)))
       
@@ -100,8 +102,8 @@
       (define f (new frame% (label "Gobblet") (width 800) (height 600)))
       (define gui-board
 	(new gl-board% (parent f) 
-	     (min-x (- 1 BOARD-SIZE)) (max-x (sub1 (* 2 BOARD-SIZE)))
-	     (min-y (- 1 BOARD-SIZE)) (max-y (sub1 (* 2 BOARD-SIZE)))
+	     (min-x (if JR? (- 1 BOARD-SIZE) -1)) (max-x (if JR? (sub1 (* 2 BOARD-SIZE)) (add1 BOARD-SIZE)))
+	     (min-y 0) (max-y BOARD-SIZE)
 	     (lift 1.2)
 	     (move gui-move)))
 
@@ -170,25 +172,31 @@
 				(make-piece-dl yellow size))
 			      PIECE-SIZES))
 
-      ;; GUI piece records, with each pieces at its initial place:
+      ;; GUI piece records, with each piece at its initial place:
       (define gui-pieces
 	(let loop ([red-dls red-dls][yellow-dls yellow-dls]
 		   [red-pieces red-pieces][yellow-pieces yellow-pieces]
-		   [sizes PIECE-SIZES][j 0])
+		   [sizes PIECE-SIZES][z 0])
 	  (if (null? red-dls)
 	      null
 	      (append
 	       (let ([sz (car sizes)])
-		 (let loop ([di (- BOARD-SIZE 2)])
-		   (if (negative? di)
+		 (let loop ([dw (if JR?
+				    (- BOARD-SIZE 2)
+				    (- BOARD-SIZE 1.5))])
+		   (if (negative? dw)
 		       null
 		       (list*
-			(make-gui-piece (car red-pieces) (car red-dls) (- di BOARD-SIZE -1) j)
-			(make-gui-piece (car yellow-pieces) (car yellow-dls) (+ BOARD-SIZE di) j)
-			(loop (sub1 di))))))
+			(make-gui-piece (car red-pieces) (car red-dls) 
+					(if JR? (- dw BOARD-SIZE -1) -1)
+					(if JR? z dw))
+			(make-gui-piece (car yellow-pieces) (car yellow-dls) 
+					(if JR? (+ BOARD-SIZE dw) BOARD-SIZE)
+					(if JR? z dw))
+			(loop (sub1 dw))))))
 	       (loop (cdr red-dls) (cdr yellow-dls) 
 		     (cdr red-pieces) (cdr yellow-pieces) 
-		     (cdr sizes) (+ j 1))))))
+		     (cdr sizes) (+ z 1))))))
       
       ;; Places a gui-piece at its location on the board:
       (define (gui-add-piece gp)
