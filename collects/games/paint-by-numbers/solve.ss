@@ -96,7 +96,7 @@
             ; (type: tally-row (list-of (union 'off 'on 'unknown 'maybe-off 'maybe-on 'mixed)))
             ; (type: try-row (list-of (union 'maybe-off 'maybe-on 'unknown)))
             (define try-row? (listof (symbols 'maybe-off 'maybe-on 'unknown)))
-            (define try-batch? (listof (or/f number? (listof try-row?))))
+            (define try-batch? (listof (union number? (listof try-row?))))
             
             ;    
             ; (type: board (list-of board-row))
@@ -336,7 +336,7 @@
             If the number of possibilities grows larger than the threshold, the search is
             aborted.
 	    
-	    (num num ((list-of num) -> try-row) (try-row -> bool) num -> (or/f (list-of try-row) #f))
+	    (num num ((list-of num) -> try-row) (try-row -> bool) num -> (union (list-of try-row) #f))
 	    |#
 	    
 	    (define (build-possibles things total-bins row-formulator line-checker threshold)
@@ -476,7 +476,7 @@
             If skip-unknowns is #t, rows whose content is entirely unknown will be 
             skipped, and #f returned for that row.
 	    effect: updates the progress bar
-	    ((list-of (list-of num)) num (list-of board-row) (-> void) boolean -> (or/f (list-of try-row) #f))
+	    ((list-of (list-of num)) num (list-of board-row) (-> void) boolean -> (union (list-of try-row) #f))
 	    |#
 	    
 	    (define (memoize-tries info-list line-length board-rows old-tries threshold)
@@ -515,7 +515,7 @@
 	    take a board-line list and a list of possibles, and trim it down by 
 	    checking each try-list against the appropriate board-line
 	    
-	    ((list-of board-row) (list-of (or/f (list-of try-row) #f)) -> (list-of (or/f (list-of try-row) #f)))
+	    ((list-of board-row) (list-of (union (list-of try-row) #f)) -> (list-of (union (list-of try-row) #f)))
 	    |#
 	    
 	    (define (batch-try board-line-list try-list-list-list)
