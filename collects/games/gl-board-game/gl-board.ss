@@ -127,10 +127,13 @@
       ;; Either #f or the currently selected piece.
       (define mouse-state #f)
       
+      ;; dragging-correction : (union #f 3-element-gl-double-vector)
+      (define dragging-correction #f)
+      
       ;; dragging : (union #f 3-element-gl-double-vector)
       ;; The mouse's location while dragging
       (define dragging #f)
-      
+            
       ;; draw-spaces : bool ->
       ;; Draws the board.  If select? is true, then names are loaded for selection
       ;; with each space named after its index in the spaces list.
@@ -282,34 +285,48 @@
           (interpolate z
                        (gl-un-project x real-y 0.0 m p v)
                        (gl-un-project x real-y 1.0 m p v))))
-                                      
+              
+      (define/private (drag x y)
+        (with-gl-context
+         (lambda ()
+           (set! dragging
+                 (gl-double-vector- (screen->world x y lift)
+                                    dragging-correction))))
+        (refresh))
+
+      (define/private (start-dragging x y)
+        (with-gl-context
+         (lambda ()
+           (let ((v (pick x y)))
+             (when (and (piece? v) (piece-enabled? v))
+               (set! mouse-state v)
+               (set! dragging-correction
+                     (gl-double-vector-
+                      (screen->world x y lift)
+                      (gl-double-vector (piece-x v) (piece-y v) lift)))
+               (drag x y))))))
+      
+      (define/private (stop-dragging x y)
+        (move (get-info mouse-state) dragging)
+        (set! mouse-state #f)
+        (set! dragging-correction #f)
+        (set! dragging #f)
+        (refresh))
+      
       (define/override (on-event e)
         (cond
           ((send e button-down? 'left)
-           (with-gl-context
-            (lambda ()
-	      (let ([v (pick (send e get-x) (send e get-y))])
-		(when (and (piece? v) (piece-enabled? v))
-		  (set! mouse-state v)
-		  (set! dragging (screen->world (send e get-x) (send e get-y) lift))
-		  (refresh))))))
+           (start-dragging (send e get-x) (send e get-y)))
           ((and mouse-state
                 (or (send e button-up? 'left)
-                    (and (send e moving?) (not (and (send e dragging?) (send e get-left-down))))))
-           (move (get-info mouse-state)
-                 (if dragging
-                     dragging
-                     (with-gl-context 
-                      (lambda ()
-                        (screen->world (send e get-x) (send e get-y) 0.0)))))
-           (set! mouse-state #f)
-           (set! dragging #f)
-           (refresh))
+                    (and (send e moving?)
+                         (not (and (send e dragging?) (send e get-left-down))))))
+           (stop-dragging (send e get-x) (send e get-y)))
           ((and (send e dragging?) (send e get-left-down))
-           (with-gl-context
-            (lambda ()
-              (set! dragging (screen->world (send e get-x) (send e get-y) lift))))
-           (refresh))))
+           (unless dragging
+             (start-dragging (send e get-x) (send e get-y)))
+           (when dragging
+             (drag (send e get-x) (send e get-y))))))
       
       (define/override (on-char e)
         (case (send e get-key-code)
