@@ -244,7 +244,7 @@
 			      continue)]
 		       [else (update-money! (if double? 4 2))
 			     (done "Push" continue)])
-		      (semaphore-wait continue)))]
+		      (wx:yield continue)))]
 		 ; Done with the first hand of a split
 		 [finish-split
 		  (lambda (p player-region player-wait-region player-border)
@@ -395,7 +395,7 @@
 						     stand-button
 						     switch)))))))
 		  ; Wait until the player is done
-		  (semaphore-wait continue)
+		  (wx:yield continue)
 		  ; No more player actions; get rid of the buttons
 		  (send t remove-region hit-button)
 		  (send t remove-region stand-button)
