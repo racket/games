@@ -5,7 +5,7 @@
   (define doc-sub-collections
     (list "cards" "paint-by-numbers" "same" "lights-out" "aces" 
 	  "memory" "pousse" "crazy8s"
-          "gcalc"))
+          "gcalc" "parcheesi"))
   (define blurb 
     (list "Demos a few small "
 	  '(a ((MZSCHEME "
