@@ -41,35 +41,24 @@
               (gl-pop-matrix)
               (gl-end-list)
               (send board add-space (lambda () (gl-call-list list-id)) space)))))
-          
+      
       (define add-piece
         (case-lambda
           ((piece) (add-piece piece #f))
           ((piece glow?)
-           (send board with-gl-context
-             (lambda ()
-               (let ((list-id (gl-gen-lists 1))
-                     (height (if (piece-info-king? piece) .4 .2))
-                     (real-color (if (eq? (piece-info-color piece) 'red) dim-red gray)))
-                 (gl-quadric-draw-style q 'fill)
-                 (gl-quadric-normals q 'smooth)
-                 (gl-new-list list-id 'compile)
-                 (when glow?
-                   (gl-material-v 'front 'emission (gl-float-vector 0.2 0.2 0.2 1.0)))
-                 ;(gl-material-v 'front 'specular (gl-float-vector 1.0 1.0 1.0 1.0))
-                 ;(gl-material 'front 'shininess 120.0)  
-                 (gl-material-v 'front 'ambient-and-diffuse real-color)
-                 (gl-cylinder q .35 .35 height 15 1)
-                 (gl-push-matrix)
-                 (gl-translate 0.0 0.0 height)
-                 (gl-disk q 0.0 .35 15 1)
-                 (when glow?
-                   (gl-material-v 'front 'emission (gl-float-vector 0.0 0.0 0.0 1.0)))
-                 (gl-pop-matrix)
-                 (gl-end-list)
+           (let ((list-id (get-piece-dl (piece-info-color piece)
+                                        (piece-info-king? piece))))
+             (send board with-gl-context
+               (lambda ()
                  (send board add-piece (+ .5 (piece-info-x piece)) (+ .5 (piece-info-y piece)) 0.0
-                       (lambda () (gl-call-list list-id))
-                       piece)))))))
+                       (if glow?
+                           (lambda ()
+                             (gl-material-v 'front 'emission (gl-float-vector 0.2 0.2 0.2 1.0))
+                             (gl-call-list list-id)
+                             (gl-material-v 'front 'emission (gl-float-vector 0.0 0.0 0.0 1.0)))
+                           (lambda () 
+                             (gl-call-list list-id)))
+                     piece)))))))
           
       (define (move-piece from to-x to-y)
         (remove-piece from)
@@ -115,6 +104,36 @@
       (define q
         (send board with-gl-context
           (lambda () (gl-new-quadric))))
+      
+      (define (get-piece-dl color king?)
+        (cond
+          ((eq? color 'red)
+           (if king? red-king red))
+          (else
+           (if king? black-king black))))
+      
+      (define (make-piece-dl real-color height)
+        (send board with-gl-context
+          (lambda ()
+            (let ((list-id (gl-gen-lists 1)))
+              (gl-quadric-draw-style q 'fill)
+              (gl-quadric-normals q 'smooth)
+              (gl-new-list list-id 'compile)
+              ;(gl-material-v 'front 'specular (gl-float-vector 1.0 1.0 1.0 1.0))
+              ;(gl-material 'front 'shininess 120.0)  
+              (gl-material-v 'front 'ambient-and-diffuse real-color)
+              (gl-cylinder q .35 .35 height 25 1)
+              (gl-push-matrix)
+              (gl-translate 0.0 0.0 height)
+              (gl-disk q 0.0 .35 25 1)
+              (gl-pop-matrix)
+              (gl-end-list)
+              list-id))))
+
+      (define red (make-piece-dl dim-red .2))
+      (define red-king (make-piece-dl dim-red .4))
+      (define black (make-piece-dl gray .2))
+      (define black-king (make-piece-dl gray .4))
       
       (define (show)
         (send f show #t))))
