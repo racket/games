@@ -46,7 +46,7 @@ yet defined.
     
     (define hattori-sets
       (reverse
-       (let ([set-size 3]
+       (let ([set-size 2]
 	     [raw-hattori
 	      (call-with-input-file hattori-input-file (compose eval read))])
 	 (let o-loop ([n (length raw-hattori)])
@@ -61,8 +61,8 @@ yet defined.
 			    [set null])
 		 (cond
 		  [(= i last) (cons 
-			       (list (format "Hattori ~a - ~a" first last)
-				     (format "h~a-~a" first last)
+			       (list (format "Hattori ~a - ~a" (+ last 1) first)
+				     (format "h~a-~a" first (+ last 1))
 				     set)
 			       (o-loop last))]
 		  [else (i-loop (- i 1)
@@ -217,7 +217,7 @@ yet defined.
 		 (parameterize ([current-output-port port])
 		   (pretty-print
 		    `(unit/sig paint-by-numbers:problem-set^
-			       (import)
+			       (import paint-by-numbers:problem^)
 
 			       (define set-name ,set-name)
 

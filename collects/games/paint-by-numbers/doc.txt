@@ -18,3 +18,7 @@ key (shift, command, meta, or alt depending on the platform) to toggle a
 square between white and gray. For some puzzles, hints are
 available. Choose the Nongram|Show Mistakes menu item to receive the
 hints. This will turn all incorrectly colored squares red.
+
+Thanks to Shoichiro Hattori for his puzzles! Visit him on the web at: 
+http://www.ask.ne.jp/~hattori/puzzle/menu.html
+
