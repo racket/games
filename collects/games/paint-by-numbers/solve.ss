@@ -56,7 +56,7 @@
             ; (board num num -> (union 'on 'off 'unknown))
             
 	    (define (board-ref board row col)
-              (list-ref (list-ref board row)))
+              (list-ref (list-ref board row) col))
 	    
 	    ; extract-rows : returns the board as a list of rows
             ; (board -> board)
