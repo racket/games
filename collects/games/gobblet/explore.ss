@@ -15,7 +15,7 @@
   (define-syntax (log-printf stx)
     (syntax-case stx ()
       [(_ n i arg ...)
-       (<= (syntax-e #'n) 10)
+       (<= (syntax-e #'n) 0) ; adjust this number for print levels
        #'(begin
 	   (when (i  . < . 100)
 	     (printf arg ...))
@@ -96,7 +96,6 @@
 					      steps (min max-depth one-step-depth)
 					      (play->string v))
 				  v))
-			  (exit)
 			  ;; We have at least one result, now.
 			  (semaphore-post once-sema)
 			  ;; If we could learn more by searching deeper, then
@@ -409,14 +408,36 @@
 					   (list (cons (+ i j) plan)))))
 
 	;; pick-enters
-	(test null (pick-enters null))
-	(test '((2 . ((1)))) (pick-enters '((2 1))))
-	(test '((2 . ((1) (2 1)))) (pick-enters '((2 1) (2 1))))
-	(test '((1 . ((2 1))) (2 . ((1) (1)))) (pick-enters '((1) (2 1))))
-	(test '((3 . ((2 1) (1) (2 1))) (1 . ((3 2 1) (2 1))) (2 . ((3 2 1) (1) (1)))) 
-	      (pick-enters '((3 2 1) (1) (2 1))))
+	(let* ([one-red (move empty-board (list-ref red-pieces (sub1 BOARD-SIZE)) #f #f 0 0 values void)]
+	       [two-red (move one-red (list-ref red-pieces (- BOARD-SIZE 2)) #f #f 1 1 values void)]
+	       [three-red (move two-red (list-ref red-pieces (sub1 BOARD-SIZE)) #f #f 2 2 values void)]
+	       [place-all (lambda (l)
+			    (cdr
+			     (fold-board (lambda (i j l+b)
+					   (if (null? (car l+b))
+					       l+b
+					       (cons (cdr (car l+b))
+						     (move (cdr l+b) (caar l+b) #f #f i j values void))))
+					 (cons l empty-board))))])
+	  (test (if (= BOARD-SIZE 3) '(2 1 0) '(3))
+		(pick-enters empty-board 'red))
+	  (test (if (= BOARD-SIZE 3) '(2 1 0) '(3 2))
+		(pick-enters one-red 'red))
+	  (test (if (= BOARD-SIZE 3) '(2 1 0) '(3 1))
+		(pick-enters two-red 'red))
+	  (test (if (= BOARD-SIZE 3) '(1 0) '(3 2 1))
+		(pick-enters three-red 'red))
 
-	)
+	  (let ([all-red-pieces (apply append (vector->list (make-vector (sub1 BOARD-SIZE) red-pieces)))])
+	    (test null (pick-enters (place-all all-red-pieces) 'red))
+	    (test '(2) (pick-enters (place-all (remq (list-ref red-pieces 2) 
+						     all-red-pieces))
+				    'red))
+	    (test (if (= BOARD-SIZE 3) '(1 0) '(1))
+		  (pick-enters (place-all (remq (list-ref red-pieces 0)
+						(remq (list-ref red-pieces 1) 
+						      all-red-pieces)))
+			       'red)))))
       
       ;; ------------------------------------------------------------
       ;;  Multi-step minmax (non-exhaustive):
