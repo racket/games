@@ -310,3 +310,6 @@
 		 (send t set-status-text PLAYER-2-NAME)
 		 (simulate-player player-2 player-1 loop))))))
       (check-done loop)))
+
+;; Done
+(yield (make-semaphore 0))
