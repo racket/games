@@ -12,7 +12,8 @@
        ("blackjack" "blackjack.ss" "Blackjack" #t)
        ("ginrummy" "ginrummy.ss" "Gin Rummy" #t)
        ("mines" "mines.ss" "Minesweeper" #f)
-       ("pousse" "pousse.ss" "Pousse" #f)))
+       ("pousse" "pousse.ss" "Pousse" #f)
+       ("aces" "aces.scm" "Aces" #t)))
    
    (define f (make-object (class frame% (name)
 			    (override
