@@ -31,5 +31,5 @@ A friendly robot should take 30 seconds or less to select a move.
 
 A program player is loaded into the game via the "Setup..." dialog,
 which has an "Add a Program Player..." button for selecting an
-implementation file. Loading the selected file should produce a
-function, as described above.
+implementation file. The selected file should contain a module definition
+that exports a `robot' function, as described above.
