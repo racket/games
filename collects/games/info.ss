@@ -1,5 +1,6 @@
 (module info (lib "infotab.ss" "setup")
   (define name "Games")
+  (define doc.txt "doc.txt")
   (define mred-launcher-libraries (list "games.ss"))
   (define mred-launcher-names (list "Games"))
   (define doc-sub-collections
