@@ -14,4 +14,4 @@
   (define nice-font
     (send wx:the-font-list
 	  find-or-create-font
-	  12 wx:const-decorative wx:const-default wx:const-bold)))
+	  12 wx:const-decorative wx:const-normal wx:const-bold)))
