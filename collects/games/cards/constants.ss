@@ -8,7 +8,9 @@
 
 	   PRETTY-CARD-SEP-AMOUNT
 	   
-	   red-brush
+	   hilite-brush
+	   no-pen
+	   black-color
 	   nice-font)
   
   (define ANIMATION-STEPS 5)
@@ -16,10 +18,18 @@
 
   (define PRETTY-CARD-SEP-AMOUNT 5)
 
-  (define red-brush
+  (define black-color
+    (make-object color% "black"))
+
+  (define hilite-brush
     (send the-brush-list
 	  find-or-create-brush
-	  "RED" 'solid))
+	  black-color 'hilite))
+
+  (define no-pen
+    (send the-pen-list
+	  find-or-create-pen
+	  black-color 1 'transparent))
 
   (define nice-font
     (send the-font-list
