@@ -4,7 +4,7 @@
 ;; board = (vector-of (vector-of (union #f (make-loc n1 n2))))
 
 ;; need to make sure that the bitmap divides nicely
-(define bitmap (make-object bitmap% (build-path (collection-path "games" "slidey") "11.JPG")))
+(define bitmap (make-object bitmap% (build-path (current-load-relative-directory) "11.JPG")))
 (define board-width 6)
 (define board-height 5)
 
@@ -103,10 +103,14 @@
 
 (define line-brush (send the-brush-list find-or-create-brush "black" 'transparent))
 (define line-pen (send the-pen-list find-or-create-pen "white" 1 'solid))
+(define mistake-brush (send the-brush-list find-or-create-brush "black" 'transparent))
+(define mistake-pen (send the-pen-list find-or-create-pen "red" 1 'solid))
 (define pict-brush (send the-brush-list find-or-create-brush "black" 'solid))
 (define pict-pen (send the-pen-list find-or-create-pen "black" 1 'solid))
 (define white-brush (send the-brush-list find-or-create-brush "white" 'solid))
 (define white-pen (send the-pen-list find-or-create-pen "white" 1 'solid))
+
+(define solved? #f)
 
 (define slidey-canvas%
   (class canvas% args
@@ -129,7 +133,6 @@
              [else (void)])))])
     (inherit get-client-size get-dc)
     (private
-      [solved? #f]
       [check-end-condition
        (lambda ()
          (let ([answer #t])
@@ -205,8 +208,15 @@
                    (send dc set-pen pict-pen)
                    (send dc set-brush pict-brush)
                    (send dc draw-bitmap-section bitmap xd yd xs ys wd hd)
-                   (send dc set-pen line-pen)
-                   (send dc set-brush line-brush)
+                   (if (and (send show-mistakes get-value)
+                            (not (= i (loc-x indicies)))
+                            (not (= j (loc-y indicies))))
+                       (begin
+                         (send dc set-pen mistake-pen)
+                         (send dc set-brush mistake-brush))
+                       (begin
+                         (send dc set-pen line-pen)
+                         (send dc set-brush line-brush)))
                    (send dc draw-rectangle xd yd wd hd))
                  (begin
                    (send dc set-pen white-pen)
@@ -221,8 +231,12 @@
       (min-client-height (send bitmap get-height)))))
 
 (define f (make-object frame% "slidey"))
-(make-object slidey-canvas% f)
-(make-object grow-box-spacer-pane% f)
+(define slidey-canvas (make-object slidey-canvas% f))
+
+(define bp (make-object horizontal-panel% f))
+(define show-mistakes
+  (make-object check-box% "Show misplaced pieces" bp (lambda ___ (unless solved? (send slidey-canvas on-paint)))))
+(make-object grow-box-spacer-pane% bp)
 
 (randomize-board)
 (send f show #t)
