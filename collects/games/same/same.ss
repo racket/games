@@ -135,14 +135,16 @@
 		  [val i (inexact->exact (floor (* (/ x width) board-width)))]
 		  [val j (inexact->exact (floor (* (/ y height) board-height)))])
 		 (cond
-		   [(send evt moving?)
+		   [(or (send evt moving?)
+			(send evt entering?)
+			(send evt leaving?))
 		    (cond
-		      [(and (<= 0 i board-width)
-			    (<= 0 j board-height))
+		      [(and (<= 0 i) (< i board-width)
+			    (<= 0 j) (< j board-height))
 		       (unless (member (list i j) turned)
 			 (when (> (length turned) 1)
 			   (for-each (lambda (p) (draw-cell (get-dc) #f (first p) (second p))) turned))
-			 (set! turned (map (lambda (x) (list (second x) (third x))) (find-same-colors i j)))
+			 (set! turned (map (lambda (xx) (list (second xx) (third xx))) (find-same-colors i j)))
 			 (cond
 			   [(> (length turned) 1)
 			    (send this-message set-label (number->string (calc-score (length turned))))
@@ -155,8 +157,8 @@
 			(set! turned null)
 			(send this-message set-label "")])]
 		   [(send evt button-up?)
-		    (when (and (<= 0 i board-width)
-			       (<= 0 j board-height))
+		    (when (and (<= 0 i) (< i board-width)
+			       (<= 0 j) (< j board-height))
 		      (when (> (length turned) 1)
 			(for-each (lambda (p) (draw-cell (get-dc) #f (first p) (second p))) turned))
 		      (set! turned null)
