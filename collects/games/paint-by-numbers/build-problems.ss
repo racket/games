@@ -71,15 +71,18 @@ yet defined.
 	    output-file
 	    (call-with-input-file (build-path problems-dir input-file) (compose eval read))))
 
-    (define games-set (build-set "Games Magazine"
-				 "games"
-				 "raw-problems.ss"))
+    (define games-set (build-set "Games Magazine" "games" "raw-problems.ss"))
 
-    (define misc-set (build-set "Misc"
-				"misc"
-				"raw-misc.ss"))
+    (define misc-set (build-set "Misc" "misc" "raw-misc.ss"))
 
-    (define sets (cons games-set (cons misc-set hattori-sets)))
+    (define kajitani-sets
+      (call-with-input-file (build-path (collection-path "games" "paint-by-numbers") "raw-kajitani.ss")
+	read))
+
+    (define sets (append (list games-set)
+			 (list misc-set)
+			 kajitani-sets
+			 hattori-sets))
 
     (define (sum-list l) (apply + l))
     (define (sum-lists ls) (sum-list (map sum-list ls)))
@@ -202,7 +205,7 @@ yet defined.
 	(when (null? rows)
 	  (error 'build-problems.ss
 		 "problem ~a doesn't have any rows" name))
-	(unless (= (sum-lists (second problem)) (sum-lists (third problem)))
+	(unless (= (sum-lists cols) (sum-lists rows))
 	  (error 'build-problems.ss
 		 "problem ~a: sum of the column lists is not the same as the sum of the row lists"
 		 name))))
