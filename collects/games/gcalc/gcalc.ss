@@ -15,10 +15,10 @@
   (define-struct custom (name getter setter type description))
   (define-syntax defcustom
     (syntax-rules ()
-      ((_ var default type description)
+      [(_ var default type description)
        (begin (define var default)
               (add-custom! 'var (lambda () var) (lambda (v) (set! var v))
-                           type description)))))
+                           type description))]))
   (define game-unit
     (unit (import) (export)
 
@@ -39,12 +39,12 @@
   (map (lambda (c)
          (list
           (car c)
-          (cond ((null? (cdr c)) (instantiate pen% ("WHITE" 1 'transparent)))
-                ((eq? (car c) 'black) LT-PEN)
-                (else DK-PEN))
+          (cond [(null? (cdr c)) (instantiate pen% ("WHITE" 1 'transparent))]
+                [(eq? (car c) 'black) LT-PEN]
+                [else DK-PEN])
           (if (null? (cdr c))
             (instantiate brush% ("BLACK" 'transparent))
-            (instantiate brush% ((apply make-object color% (cdr c)) 'solid)))))
+            (instantiate brush% [(apply make-object color% (cdr c)) 'solid]))))
        '((transparent)
          (black         0   0   0)
          (dk-gray      64  64  64)
@@ -78,10 +78,10 @@
 
 (define SHOW-CELL-SIZE 600)
 
-(define BG-PEN/BRUSH  (list (instantiate pen%   ("BLACK" 1 'solid))
-                            (instantiate brush% ("GRAY" 'solid))))
-(define XOR-PEN/BRUSH (list (instantiate pen%   ("BLACK" 0 'xor))
-                            (instantiate brush% ("BLACK" 'xor))))
+(define BG-PEN/BRUSH  (list (instantiate pen%   ["BLACK" 1 'solid])
+                            (instantiate brush% ["GRAY" 'solid])))
+(define XOR-PEN/BRUSH (list (instantiate pen%   ["BLACK" 0 'xor])
+                            (instantiate brush% ["BLACK" 'xor])))
 
 (define DOUBLE-MILISECS 250)
 
@@ -109,8 +109,8 @@
   (apply fprintf (current-error-port) args))
 
 (define (read-from-string str)
-  (with-handlers ((void (lambda (x) #f)))
-    (let ((obj (read (open-input-string (string-append "(" str ")")))))
+  (with-handlers ([void (lambda (x) #f)])
+    (let ([obj (read (open-input-string (string-append "(" str ")")))])
       (and (list? obj) (= 1 (length obj)) (car obj)))))
 
 (define (write-to-string obj)
@@ -183,7 +183,7 @@
 
 (define (make-abstraction expr1 expr2)
   (if (simple-expr? expr1)
-    (let ((var (make-var expr1)))
+    (let ([var (make-var expr1)])
       (make-expr 'lambda var (substitute var expr1 expr2)))
     null-expr))
 (define (abstraction-expr? expr)
@@ -196,81 +196,81 @@
 
 (define (recolor-expr color expr)
   (define (get-rgb color)
-    (cond ((or (eq? color 'transparent) (null-expr? color)) color)
-          ((symbol? color)
-           (let ((c (send (3rd (assq color COLORS)) get-color)))
-             (list (send c red) (send c green) (send c blue))))
-          (else (vector->list color))))
+    (cond [(or (eq? color 'transparent) (null-expr? color)) color]
+          [(symbol? color)
+           (let ([c (send (3rd (assq color COLORS)) get-color)])
+             (list (send c red) (send c green) (send c blue)))]
+          [else (vector->list color)]))
   (define (mix rgb1 rgb2)
-    (cond ((equal? rgb1 rgb2) (list->vector rgb1))
-          ((or (null-expr? rgb1) (null-expr? rgb2)) null-expr)
-          ((or (eq? rgb1 'transparent) (eq? rgb2 'transparent)) 'transparent)
-          (else (list->vector (map (lambda (c1 c2)
+    (cond [(equal? rgb1 rgb2) (list->vector rgb1)]
+          [(or (null-expr? rgb1) (null-expr? rgb2)) null-expr]
+          [(or (eq? rgb1 'transparent) (eq? rgb2 'transparent)) 'transparent]
+          [else (list->vector (map (lambda (c1 c2)
                                      (inexact->exact (round (/ (+ c1 c2) 2))))
-                                   rgb1 rgb2)))))
-  (let ((color (get-rgb color)))
-    (let loop ((expr expr))
-      (cond ((or (var-expr? expr) (null-expr? expr)) expr)
-            ((simple-expr? expr) (mix color (get-rgb expr)))
-            (else (make-expr (expr-op expr)
+                                   rgb1 rgb2))]))
+  (let ([color (get-rgb color)])
+    (let loop ([expr expr])
+      (cond [(or (var-expr? expr) (null-expr? expr)) expr]
+            [(simple-expr? expr) (mix color (get-rgb expr))]
+            [else (make-expr (expr-op expr)
                              (loop (expr-1st expr))
-                             (loop (expr-2nd expr))))))))
+                             (loop (expr-2nd expr)))]))))
 
 (define (reduce-application expr . level)
   (define (reduce expr level)
     (if (and level (<= level 0))
       expr
-      (let ((1st (let ((e (expr-1st expr)))
+      (let ([1st (let ([e (expr-1st expr)])
                    (if (application-expr? e)
                      (reduce-application e (and level (sub1 level)))
-                     e)))
-            (2nd (expr-2nd expr)))
+                     e))]
+            [2nd (expr-2nd expr)])
         (cond
-         ((and COLOR-OPS (simple-expr? 1st) (not (var-expr? 1st)))
-          (recolor-expr 1st 2nd))
-         ((or (simple-expr? 1st) (application-expr? 1st)) expr)
-         ((abstraction-expr? 1st)
-          (substitute 2nd (expr-1st 1st) (expr-2nd 1st)))
-         (else
-          (let ((2nd (split-expr 2nd (expr-op 1st))))
+         [(and COLOR-OPS (simple-expr? 1st) (not (var-expr? 1st)))
+          (recolor-expr 1st 2nd)]
+         [(or (simple-expr? 1st) (application-expr? 1st)) expr]
+         [(abstraction-expr? 1st)
+          (substitute 2nd (expr-1st 1st) (expr-2nd 1st))]
+         [else
+          (let ([2nd (split-expr 2nd (expr-op 1st))])
             (make-expr (expr-op 1st)
                        (make-application1 (expr-1st 1st) (expr-1st 2nd))
-                       (make-application1 (expr-2nd 1st) (expr-2nd 2nd)))))))))
-  (let* ((level (if (null? level) EVAL-DEPTH (car level)))
-         (new   (reduce expr level)))
+                       (make-application1 (expr-2nd 1st) (expr-2nd 2nd))))]))))
+  (let* ([level (if (null? level) EVAL-DEPTH (car level))]
+         [new   (reduce expr level)])
     (if (and (application-expr? new) (not (equal? new expr))
              (or (not level) (> level 0)))
       (reduce-application new (and level (if (> level 0) (sub1 level) 0)))
       new)))
 
-' ;; No need for this now
+#; ;; No need for this now
 (define (eval-expr expr)
   (define (eval-expr expr level)
     (cond
-     ((zero? level) null-expr)
-     ((or (simple-expr? expr) (abstraction-expr? expr)) expr)
-     ((application-expr? expr)
-      (let ((1st (eval-expr (expr-1st expr) (sub1 level)))
-            (2nd (eval-expr (expr-2nd expr) (sub1 level))))
+     [(zero? level) null-expr]
+     [(or (simple-expr? expr) (abstraction-expr? expr)) expr]
+     [(application-expr? expr)
+      (let ([1st (eval-expr (expr-1st expr) (sub1 level))]
+            [2nd (eval-expr (expr-2nd expr) (sub1 level))])
         (cond
-         ((and COLOR-OPS (simple-expr? 1st) (not (var-expr? 1st)))
-          (recolor-expr 1st 2nd))
-         ((or (simple-expr? 1st) (application-expr? 1st)) expr)
-         ((abstraction-expr? 1st)
+         [(and COLOR-OPS (simple-expr? 1st) (not (var-expr? 1st)))
+          (recolor-expr 1st 2nd)]
+         [(or (simple-expr? 1st) (application-expr? 1st)) expr]
+         [(abstraction-expr? 1st)
           (eval-expr (substitute 2nd (expr-1st 1st) (expr-2nd 1st))
-                     (sub1 level)))
-         (else
-          (let ((2nd (split-expr (eval-expr 2nd (sub1 level)) (expr-op 1st))))
+                     (sub1 level))]
+         [else
+          (let ([2nd (split-expr (eval-expr 2nd (sub1 level)) (expr-op 1st))])
             (make-expr
              (expr-op 1st)
              (eval-expr (make-application (expr-1st 1st) (expr-1st 2nd))
                         (sub1 level))
              (eval-expr (make-application (expr-2nd 1st) (expr-2nd 2nd))
-                        (sub1 level))))))))
-     (else
+                        (sub1 level))))]))]
+     [else
       (make-expr (expr-op expr)
                  (eval-expr (expr-1st expr) (sub1 level))
-                 (eval-expr (expr-2nd expr) (sub1 level))))))
+                 (eval-expr (expr-2nd expr) (sub1 level)))]))
   (dynamic-wind
     begin-busy-cursor
     (lambda () (eval-expr expr (or EVAL-DEPTH -1)))
@@ -278,53 +278,53 @@
 
 (define (split-expr expr op)
   (cond
-   ((or (simple-expr? expr) (abstraction-expr? expr))
-    (make-expr op expr expr))
-   ((eq? (expr-op expr) op) expr)
-   (else
-    (let* ((e1   (split-expr (expr-1st expr) op))
-           (e2   (split-expr (expr-2nd expr) op))
-           (e11  (expr-1st e1))
-           (e12  (expr-2nd e1))
-           (e21  (expr-1st e2))
-           (e22  (expr-2nd e2))
-           (e-op (expr-op expr)))
-      (make-expr op (make-expr e-op e11 e21) (make-expr e-op e12 e22))))))
+   [(or (simple-expr? expr) (abstraction-expr? expr))
+    (make-expr op expr expr)]
+   [(eq? (expr-op expr) op) expr]
+   [else
+    (let* ([e1   (split-expr (expr-1st expr) op)]
+           [e2   (split-expr (expr-2nd expr) op)]
+           [e11  (expr-1st e1)]
+           [e12  (expr-2nd e1)]
+           [e21  (expr-1st e2)]
+           [e22  (expr-2nd e2)]
+           [e-op (expr-op expr)])
+      (make-expr op (make-expr e-op e11 e21) (make-expr e-op e12 e22)))]))
 
 (define (substitute new old expr)
   (cond
-   ((composite-expr? expr)
+   [(composite-expr? expr)
     (if (and (abstraction-expr? expr) (equal? (expr-1st expr) old))
       expr
-      (let-values (((new1 new2) (if SPLIT-ARGS
-                                  (let ((x (split-expr new (expr-op expr))))
+      (let-values ([(new1 new2) (if SPLIT-ARGS
+                                  (let ([x (split-expr new (expr-op expr))])
                                     (values (expr-1st x) (expr-2nd x)))
-                                  (values new new))))
+                                  (values new new))])
         (make-expr (expr-op expr)
                    (substitute new1 old (expr-1st expr))
-                   (substitute new2 old (expr-2nd expr))))))
-   ((equal? expr old) new)
-   (else expr)))
+                   (substitute new2 old (expr-2nd expr)))))]
+   [(equal? expr old) new]
+   [else expr]))
 
 (define (valid-expr? obj)
-  (cond ((null-expr? obj) #t)
-        ((list? obj)   (case (length obj)
-                         ((2) (and (eq? (1st obj) 'var)
+  (cond [(null-expr? obj) #t]
+        [(list? obj)   (case (length obj)
+                         [(2) (and (eq? (1st obj) 'var)
                                    (not (list? (2nd obj)))
-                                   (valid-expr? (2nd obj))))
-                         ((3 4) (case (car obj)
-                                  ((\| - / apply lambda)
+                                   (valid-expr? (2nd obj)))]
+                         [(3 4) (case (car obj)
+                                  [(\| - / apply lambda)
                                    (and (valid-expr? (expr-1st obj))
-                                        (valid-expr? (expr-2nd obj))))
-                                  (else #f)))))
-        ((symbol? obj) (and (assq obj COLORS) #t))
-        ((vector? obj) (and (= (vector-length obj) 3)
-                            (let ((ok? (lambda (x) (and (integer? x)
-                                                        (<= 0 x 255)))))
+                                        (valid-expr? (expr-2nd obj)))]
+                                  [else #f])])]
+        [(symbol? obj) (and (assq obj COLORS) #t)]
+        [(vector? obj) (and (= (vector-length obj) 3)
+                            (let ([ok? (lambda (x)
+                                         (and (integer? x) (<= 0 x 255)))])
                               (and (ok? (vector-ref obj 0))
                                    (ok? (vector-ref obj 1))
-                                   (ok? (vector-ref obj 2))))))
-        (else #f)))
+                                   (ok? (vector-ref obj 2)))))]
+        [else #f]))
 (define (valid-contents? obj)
   (and (pair? obj)
        (or (not (car obj)) (string? (car obj)))
@@ -342,106 +342,106 @@
   (if (simple-expr? expr)
     (or (null-expr? expr) (eq? expr 'transparent)
         (and (var-expr? expr) (eq? (var-val expr) 'transparent)))
-    (let ((last (cddr expr)))
+    (let ([last (cddr expr)])
       (when (null? (cdr last))
         (set-cdr!
          last
          (list
-          (cond ((abstraction-expr? expr)
-                 (expr-contains-transparent? (expr-2nd expr)))
-                ((application-expr? expr)
-                 #t)
-                (else (or (expr-contains-transparent? (expr-1st expr))
-                          (expr-contains-transparent? (expr-2nd expr))))))))
+          (cond [(abstraction-expr? expr)
+                 (expr-contains-transparent? (expr-2nd expr))]
+                [(application-expr? expr)
+                 #t]
+                [else (or (expr-contains-transparent? (expr-1st expr))
+                          (expr-contains-transparent? (expr-2nd expr)))]))))
       (2nd last))))
 
 ;; Draw an exprression - the smart way.
 (define (draw-expr dc expr name . r)
   (define size
-    (let-values (((sx sy) (send dc get-size))) (inexact->exact (min sx sy))))
+    (let-values ([(sx sy) (send dc get-size)]) (inexact->exact (min sx sy))))
   (define eval? (if (null? r) #f (car r)))
   (define (avg x y) (/ (+ x y) 2))
   (define (rnd x) (inexact->exact (round x)))
   (define dc-ofs 3D-OFFSET)
   (define dc-size (- size dc-ofs dc-ofs))
   (define draw-polygon ; efficient (could be more if it was global)
-    (let* ((p1 (instantiate point% ())) (p2 (instantiate point% ()))
-           (p3 (instantiate point% ())) (p4 (instantiate point% ()))
-           (points (list p1 p2 p3 p4)))
+    (let* ([p1 (instantiate point% ())] [p2 (instantiate point% ())]
+           [p3 (instantiate point% ())] [p4 (instantiate point% ())]
+           [points (list p1 p2 p3 p4)])
       (lambda (x1 y1 x2 y2 x3 y3 x4 y4)
         (send* p1 (set-x x1) (set-y y1)) (send* p2 (set-x x2) (set-y y2))
         (send* p3 (set-x x3) (set-y y3)) (send* p4 (set-x x4) (set-y y4))
         (send dc draw-polygon points))))
-  (define tmp-color (instantiate color% ())) ; reused for drawing colors
+  (define tmp-color (instantiate color% [])) ; reused for drawing colors
   (define (draw expr level left? top? front? x1 y1 z1 x2 y2 z2 abstr)
     (define eval? (or (not level) (> level 0)))
     (define lev1  (and level (if (> level 0) (sub1 level) 0)))
     (when (and eval? (application-expr? expr))
       (set! expr (reduce-application expr level)))
     (cond
-     ((null-expr? expr) expr)
-     ((composite-expr? expr)
-      (let ((1st (expr-1st expr)) (2nd (expr-2nd expr)))
+     [(null-expr? expr) expr]
+     [(composite-expr? expr)
+      (let ([1st (expr-1st expr)] [2nd (expr-2nd expr)])
         (cond
-         ((left-right-expr? expr)
-          (let ((cut? (and DRAW-CUTOFF (< (* (- x2 x1) size) DRAW-CUTOFF)))
-                (x12  (avg x1 x2))
-                (t?   (expr-contains-transparent? 1st)))
+         [(left-right-expr? expr)
+          (let ([cut? (and DRAW-CUTOFF (< (* (- x2 x1) size) DRAW-CUTOFF))]
+                [x12  (avg x1 x2)]
+                [t?   (expr-contains-transparent? 1st)])
             (make-right-left
              (if (and (not cut?) (or top? front? t?))
                (draw 2nd lev1 t? top? front? x12 y1 z1 x2 y2 z2 .0) 2nd)
              (if cut?
                (draw 1st lev1 left? top? front? x1 y1 z1 x2 y2 z2 abstr)
-               (draw 1st lev1 left? top? front? x1 y1 z1 x12 y2 z2 .0)))))
-         ((top-bottom-expr? expr)
-          (let ((cut? (and DRAW-CUTOFF (< (* (- y2 y1) size) DRAW-CUTOFF)))
-                (y12  (avg y1 y2))
-                (t?   (expr-contains-transparent? 1st)))
+               (draw 1st lev1 left? top? front? x1 y1 z1 x12 y2 z2 .0))))]
+         [(top-bottom-expr? expr)
+          (let ([cut? (and DRAW-CUTOFF (< (* (- y2 y1) size) DRAW-CUTOFF))]
+                [y12  (avg y1 y2)]
+                [t?   (expr-contains-transparent? 1st)])
             (make-bottom-top
              (if (and (not cut?) (or left? front? t?))
                (draw 2nd lev1 left? t? front? x1 y12 z1 x2 y2 z2 .0) 2nd)
              (if cut?
                (draw 1st lev1 left? top? front? x1 y1 z1 x2 y2 z2 abstr)
-               (draw 1st lev1 left? top? front? x1 y1 z1 x2 y12 z2 .0)))))
-         ((front-back-expr? expr)
-          (let ((cut? (and DRAW-CUTOFF (< (* (- z2 z1) size) DRAW-CUTOFF)))
-                (z12  (avg z1 z2))
-                (t?   (expr-contains-transparent? 1st)))
+               (draw 1st lev1 left? top? front? x1 y1 z1 x2 y12 z2 .0))))]
+         [(front-back-expr? expr)
+          (let ([cut? (and DRAW-CUTOFF (< (* (- z2 z1) size) DRAW-CUTOFF))]
+                [z12  (avg z1 z2)]
+                [t?   (expr-contains-transparent? 1st)])
             (make-back-front
              (if (and (not cut?) (or left? top? t?))
                (draw 2nd lev1 left? top? t? x1 y1 z1 x2 y2 z12 .0) 2nd)
              (if cut?
                (draw 1st lev1 left? top? front? x1 y1 z1 x2 y2 z2 abstr)
-               (draw 1st lev1 left? top? front? x1 y1 z12 x2 y2 z2 .0)))))
-         ((abstraction-expr? expr)
+               (draw 1st lev1 left? top? front? x1 y1 z12 x2 y2 z2 .0))))]
+         [(abstraction-expr? expr)
           (draw 2nd 0 left? top? front? x1 y1 z1 x2 y2 z2 (+ abstr ABSTR-GAP))
           (set-pen/brush dc (cdr (assq (var-val 1st) COLORS)))
-          (let ((xx (+ (rnd (* (+ x1 (* (- x2 x1) abstr) (* 3D-DX z2))
+          (let ([xx (+ (rnd (* (+ x1 (* (- x2 x1) abstr) (* 3D-DX z2))
                                (/ dc-size (+ 1 3D-DX))))
-                       dc-ofs))
-                (yy (+ (rnd (* (+ y1 (* 3D-DY z2)) (/ dc-size (+ 1 3D-DY))))
-                       dc-ofs))
-                (dx (rnd (* ABSTR-SIZE (- x2 x1) (/ dc-size (+ 1 3D-DX)))))
-                (dy (rnd (* ABSTR-SIZE (- y2 y1) (/ dc-size (+ 1 3D-DY))))))
+                       dc-ofs)]
+                [yy (+ (rnd (* (+ y1 (* 3D-DY z2)) (/ dc-size (+ 1 3D-DY))))
+                       dc-ofs)]
+                [dx (rnd (* ABSTR-SIZE (- x2 x1) (/ dc-size (+ 1 3D-DX))))]
+                [dy (rnd (* ABSTR-SIZE (- y2 y1) (/ dc-size (+ 1 3D-DY))))])
             (send dc draw-ellipse xx yy dx dy))
-          expr)
-         ((application-expr? expr)
-          (let* ((x12 (avg x1 x2))
-                 (y12 (avg y1 y2))
-                 (dx  (* (- x2 x1) 1/2 APPLY-SIZE))
-                 (dy  (* (- y2 y1) 1/2 APPLY-SIZE))
-                 (xx1 (- x12 dx))
-                 (yy1 (- y12 dy))
-                 (xx2 (+ x12 dx))
-                 (yy2 (+ y12 dy))
-                 (zz  (* (- z2 z1) APPLY-SIZE))
-                 (z11 (+ z1 zz))
-                 (z22 (- z2 zz)))
+          expr]
+         [(application-expr? expr)
+          (let* ([x12 (avg x1 x2)]
+                 [y12 (avg y1 y2)]
+                 [dx  (* (- x2 x1) 1/2 APPLY-SIZE)]
+                 [dy  (* (- y2 y1) 1/2 APPLY-SIZE)]
+                 [xx1 (- x12 dx)]
+                 [yy1 (- y12 dy)]
+                 [xx2 (+ x12 dx)]
+                 [yy2 (+ y12 dy)]
+                 [zz  (* (- z2 z1) APPLY-SIZE)]
+                 [z11 (+ z1 zz)]
+                 [z22 (- z2 zz)])
             (make-application1
              (draw 1st lev1 left? top? front? xx1 yy1 z1 xx2 yy2 z11 .0)
-             (draw 2nd lev1 left? top? front? xx1 yy1 z22 xx2 yy2 z2 .0))))
-         (else (error 'draw-expr "Unknown composite expr -- ~s." expr)))))
-     ((simple-expr? expr)
+             (draw 2nd lev1 left? top? front? xx1 yy1 z22 xx2 yy2 z2 .0)))]
+         [else (error 'draw-expr "Unknown composite expr -- ~s." expr)]))]
+     [(simple-expr? expr)
       (unless (eq? 'transparent (if (var-expr? expr) (var-val expr) expr))
         (let* (;;
                ;; Calculate points:
@@ -461,50 +461,50 @@
                ;;  (xx1 - x1) = (x2 - xx2) = (3D-DX * (x2 - x1))
                ;;   and the same for y values
                ;;
-               (dx  (* 3D-DX (- z2 z1)))
-               (xx0 (+ x1 (* z1 3D-DX)))
-               (xx1 (+ xx0 dx))
-               (xx2 (+ x2 (* z1 3D-DX)))
-               (xx3 (+ xx2 dx))
-               (dy  (* 3D-DY (- z2 z1)))
-               (yy0 (+ y1 (* z1 3D-DY)))
-               (yy1 (+ yy0 dy))
-               (yy2 (+ y2 (* z1 3D-DY)))
-               (yy3 (+ yy2 dy))
-               (xx00 (+ (rnd (* (/ xx0 (+ 1 3D-DX)) dc-size)) dc-ofs))
-               (xx11 (+ (rnd (* (/ xx1 (+ 1 3D-DX)) dc-size)) dc-ofs))
-               (xx22 (+ (rnd (* (/ xx2 (+ 1 3D-DX)) dc-size)) dc-ofs))
-               (xx33 (+ (rnd (* (/ xx3 (+ 1 3D-DX)) dc-size)) dc-ofs))
-               (yy00 (+ (rnd (* (/ yy0 (+ 1 3D-DY)) dc-size)) dc-ofs))
-               (yy11 (+ (rnd (* (/ yy1 (+ 1 3D-DY)) dc-size)) dc-ofs))
-               (yy22 (+ (rnd (* (/ yy2 (+ 1 3D-DY)) dc-size)) dc-ofs))
-               (yy33 (+ (rnd (* (/ yy3 (+ 1 3D-DY)) dc-size)) dc-ofs)))
+               [dx  (* 3D-DX (- z2 z1))]
+               [xx0 (+ x1 (* z1 3D-DX))]
+               [xx1 (+ xx0 dx)]
+               [xx2 (+ x2 (* z1 3D-DX))]
+               [xx3 (+ xx2 dx)]
+               [dy  (* 3D-DY (- z2 z1))]
+               [yy0 (+ y1 (* z1 3D-DY))]
+               [yy1 (+ yy0 dy)]
+               [yy2 (+ y2 (* z1 3D-DY))]
+               [yy3 (+ yy2 dy)]
+               [xx00 (+ (rnd (* (/ xx0 (+ 1 3D-DX)) dc-size)) dc-ofs)]
+               [xx11 (+ (rnd (* (/ xx1 (+ 1 3D-DX)) dc-size)) dc-ofs)]
+               [xx22 (+ (rnd (* (/ xx2 (+ 1 3D-DX)) dc-size)) dc-ofs)]
+               [xx33 (+ (rnd (* (/ xx3 (+ 1 3D-DX)) dc-size)) dc-ofs)]
+               [yy00 (+ (rnd (* (/ yy0 (+ 1 3D-DY)) dc-size)) dc-ofs)]
+               [yy11 (+ (rnd (* (/ yy1 (+ 1 3D-DY)) dc-size)) dc-ofs)]
+               [yy22 (+ (rnd (* (/ yy2 (+ 1 3D-DY)) dc-size)) dc-ofs)]
+               [yy33 (+ (rnd (* (/ yy3 (+ 1 3D-DY)) dc-size)) dc-ofs)])
           (set-pen/brush
            dc
            (cond
-            ((var-expr? expr) (cdr (assq (var-val expr) COLORS)))
-            ((symbol? expr)   (cdr (assq expr COLORS)))
-            (else ; explicit color
+            [(var-expr? expr) (cdr (assq (var-val expr) COLORS))]
+            [(symbol? expr)   (cdr (assq expr COLORS))]
+            [else ; explicit color
              (send tmp-color set
                    (vector-ref expr 0) (vector-ref expr 1) (vector-ref expr 2))
              (list DK-PEN (send the-brush-list find-or-create-brush
-                                tmp-color 'solid)))))
+                                tmp-color 'solid))]))
           (draw-polygon xx11 yy11 xx00 yy00 xx22 yy00 xx33 yy11)
           (draw-polygon xx11 yy11 xx00 yy00 xx00 yy22 xx11 yy33)
           (draw-polygon xx11 yy11 xx33 yy11 xx33 yy33 xx11 yy33)))
-      expr)
-     (else (error 'draw-expr "Unknown expr -- ~s." expr))))
+      expr]
+     [else (error 'draw-expr "Unknown expr -- ~s." expr)]))
   (dynamic-wind
     begin-busy-cursor
     (lambda ()
       (send dc clear)
       (set-pen/brush dc BG-PEN/BRUSH)
       (send dc draw-rectangle 1 1 size size)
-      (let ((expr (draw expr (if eval? EVAL-DEPTH 0)
-                        #t #t #t .0 .0 .0 1.0 1.0 1.0 .0)))
+      (let ([expr (draw expr (if eval? EVAL-DEPTH 0)
+                        #t #t #t .0 .0 .0 1.0 1.0 1.0 .0)])
         (when name
           (let-values ([(tw th d a) (send dc get-text-extent name)])
-            (let ((tw (min tw (- size 6))))
+            (let ([tw (min tw (- size 6))])
               (set-pen/brush dc BG-PEN/BRUSH)
               (send dc draw-rectangle (- size tw 3) 1 (+ 3 tw) (+ 2 th))
               (send dc draw-text name (max 0 (- size tw 1)) 2))))
@@ -555,12 +555,13 @@
                        gcalc-frame '(ok)))))
     (save-as)))
 (define (open-examples)
-  (open (build-path (this-expression-source-directory) "gcalc-examples")))
+  (open (path->string (build-path (this-expression-source-directory)
+                                  "gcalc-examples"))))
 (define (open . file)
   (maybe-save)
-  (let ((f (if (not (null? file))
+  (let ([f (if (not (null? file))
              (car file)
-             (get-file "Open" gcalc-frame))))
+             (path->string (get-file "Open" gcalc-frame)))])
     (when f
       (if (file-exists? f)
         (with-input-from-file f
@@ -569,10 +570,11 @@
               begin-busy-cursor
               (lambda ()
                 (with-handlers
-                    ((void (lambda (x)
-                             (message-box
-                              "Open" (format "~s is not a GCalc file." f)
-                              gcalc-frame '(ok)))))
+                    ([exn:fail?
+                      (lambda (x)
+                        (message-box
+                         "Open" (format "~s is not a GCalc file." f)
+                         gcalc-frame '(ok)))])
                   (or (equal? "GCALC" (read)) (error))
                   (set-file-name! f)
                   (for-each (lambda (c) ((custom-setter c) (read))) customs)
@@ -583,7 +585,7 @@
         (message-box "Open" (format "~s does not exists." f)
                      gcalc-frame '(ok))))))
 (define (save-as)
-  (let ((f (get-file "Save-as" gcalc-frame)))
+  (let ([f (path->string (get-file "Save-as" gcalc-frame))])
     (when f
       (if (directory-exists? f)
         (message-box
@@ -609,19 +611,19 @@
   (send gcalc-frame show #f))
 
 (define set-options
-  (let ((dlg (instantiate dialog% ("GCalc Expression" gcalc-frame))))
+  (let ([dlg (instantiate dialog% ("GCalc Expression" gcalc-frame))])
     (define ok? #f)
     (define inits (lambda () (set! ok? #f)))
     (define finals (lambda () (set! modified? #t)))
     (define (add-init/final initializer finalizer)
-      (let ((c inits))  (set! inits  (lambda () (initializer) (c))))
-      (let ((c finals)) (set! finals (lambda () (finalizer)   (c)))))
+      (let ([c inits])  (set! inits  (lambda () (initializer) (c))))
+      (let ([c finals]) (set! finals (lambda () (finalizer)   (c)))))
     (define (new-row . a)
-      (let ((p (instantiate horizontal-pane% (dlg))))
+      (let ([p (instantiate horizontal-pane% (dlg))])
         (send p set-alignment (if (null? a) 'left (car a)) 'center)
         p))
     (define (make-check-box getter setter title)
-      (let ((cb (instantiate check-box% (title (new-row) void))))
+      (let ([cb (instantiate check-box% (title (new-row) void))])
         (add-init/final (lambda () (send cb set-value (getter)))
                         (lambda () (setter (send cb get-value))))))
     (define (make-check/slide getter setter title range)
@@ -629,7 +631,7 @@
       (define toggle
         (instantiate check-box%
           (title row
-           (let ((saved 0))
+           (let ([saved 0])
              (lambda (this e)
                (if (send this get-value)
                  (send slider set-value saved)
@@ -637,32 +639,32 @@
                         (send slider set-value 0))))))))
       (define slider
         (instantiate slider%
-          ("" 0 range row
+          ["" 0 range row
            (lambda (this e)
-             (send toggle set-value (not (zero? (send this get-value))))))))
+             (send toggle set-value (not (zero? (send this get-value)))))]))
       (add-init/final (lambda ()
-                        (let ((val (getter)))
+                        (let ([val (getter)])
                           (send slider set-value (or val 0))
                           (send toggle set-value (and val #t))))
                       (lambda ()
                         (setter (and (send toggle get-value)
                                      (send slider get-value))))))
     (define (make-ok-cancel)
-      (let ((row (new-row 'center)))
+      (let ([row (new-row 'center)])
         (instantiate button%
-          ("&OK" row (lambda (this e) (set! ok? #t) (send dlg show #f)))
-          (style '(border)))
+          ["&OK" row (lambda (this e) (set! ok? #t) (send dlg show #f))]
+          [style '(border)])
         (instantiate button%
-          ("&Cancel" row (lambda (this e) (send dlg show #f))))))
+          ["&Cancel" row (lambda (this e) (send dlg show #f))])))
     ;; Dialog components
     (for-each (lambda (c)
-                (let ((type   (custom-type        c))
-                      (getter (custom-getter      c))
-                      (setter (custom-setter      c))
-                      (desc   (custom-description c)))
-                  (cond ((eq? type 'bool) (make-check-box getter setter desc))
-                        ((and (pair? type) (eq? (1st type) 'int))
-                         (make-check/slide getter setter desc (2nd type))))))
+                (let ([type   (custom-type        c)]
+                      [getter (custom-getter      c)]
+                      [setter (custom-setter      c)]
+                      [desc   (custom-description c)])
+                  (cond [(eq? type 'bool) (make-check-box getter setter desc)]
+                        [(and (pair? type) (eq? (1st type) 'int))
+                         (make-check/slide getter setter desc (2nd type))])))
               customs)
     (make-ok-cancel)
     ;; Main
@@ -685,27 +687,27 @@
                             (#\q      "&Quit"         ,maybe-save-and-exit)))
 
 (define popup-cell-menu
-  (let ((menu (instantiate popup-menu% ("GCalc")))
-        (this #f)
-        (cell-items '()))
+  (let ([menu (instantiate popup-menu% ("GCalc"))]
+        [this #f]
+        [cell-items '()])
     (define (make-item mi)
       (cons
        (instantiate menu-item%
-        ((string-append "[" (case (1st mi)
-                              ((#\space) "SPC") ((#\return) "RET")
-                              (else (string (1st mi))))
+        [(string-append "[" (case (1st mi)
+                              [(#\space) "SPC"] [(#\return) "RET"]
+                              [else (string (1st mi))])
                         "]  " (2nd mi))
          menu
          (lambda (i e)
-           (let ((f (3rd mi)))
-             ((if (symbol? f) (lambda () ((send this get-cell-op f) e)) f))))))
+           (let ([f (3rd mi)])
+             ((if (symbol? f) (lambda () ((send this get-cell-op f) e)) f))))])
        mi))
     (set! cell-items (map make-item cell-menu-items))
     (instantiate separator-menu-item% (menu))
     (for-each make-item global-menu-items)
     (lambda (cell e x y)
       (set! this cell)
-      (let ((ok? (not (null-expr? (send this get-expr)))))
+      (let ([ok? (not (null-expr? (send this get-expr)))])
         (for-each (lambda (mi)
                     (send (1st mi) enable
                           ((send cell get-cell-op (4th mi)) 'enabled? e)))
@@ -717,7 +719,7 @@
   (let/ec return
     (for-each
      (lambda (c)
-       (let-values (((x y) (send c screen->client x y)))
+       (let-values ([(x y) (send c screen->client x y)])
          (when (and (< -1 x (send c get-width)) (< -1 y (send c get-height)))
            (return c))))
      cells)
@@ -742,13 +744,13 @@
     (define/public (set-expr! e) (set-contents! (cons #f e)))
     (define/public (get-contents) (cons name expr))
     (define/public (set-contents! n/e)
-      (cond ((eq? dropper 'copy)
+      (cond [(eq? dropper 'copy)
              (set! modified? #t)
              (set! name (car n/e))
              (set! expr (cdr n/e))
-             (draw-contents))
-            (dropper (dropper n/e))
-            (else #f)))
+             (draw-contents)]
+            [dropper (dropper n/e)]
+            [else #f]))
     (define/public (eval-next-expr) (set! evaluate-next #t))
     (define/public (get-dropper) dropper)
     ;; highlighting
@@ -767,14 +769,14 @@
       (when highlighted? (frame-xor-bitmap) (set! highlighted? #f)))
     ;; cell operations
     (define (make-cell-op: op . enabled?)
-      (let ((enabled?
-             (cond ((null? enabled?) (lambda (e) (not (null-expr? expr))))
-                   ((not (procedure? (car enabled?)))
-                    (lambda (e) (and (car enabled?) (not (null-expr? expr)))))
-                   (else (car enabled?)))))
+      (let ([enabled?
+             (cond [(null? enabled?) (lambda (e) (not (null-expr? expr)))]
+                   [(not (procedure? (car enabled?)))
+                    (lambda (e) (and (car enabled?) (not (null-expr? expr))))]
+                   [else (car enabled?)])])
         (lambda (e . more)
-          (let ((enabled? (enabled? (if (eq? e 'enabled?) (car more) e))))
-            (cond ((eq? e 'enabled?) enabled?) (enabled? (op e)))))))
+          (let ([enabled? (enabled? (if (eq? e 'enabled?) (car more) e))])
+            (cond [(eq? e 'enabled?) enabled?] [enabled? (op e)])))))
     (define cut:
       (make-cell-op: (lambda (e) (copy: e) (clear: e)) (and dropper #t)))
     (define copy:
@@ -806,9 +808,9 @@
                      (and dropper #t)))
     (define rename:
       (make-cell-op: (lambda (e)
-                       (let ((new (get-text-from-user
+                       (let ([new (get-text-from-user
                                    "GCalc" "Enter a new name" gcalc-frame
-                                   (or name ""))))
+                                   (or name ""))])
                          (when new
                            (set! modified? #t)
                            (set! name new)
@@ -816,8 +818,8 @@
                      (and dropper #t)))
     (define/public (get-cell-op msg)
       (case msg
-        ((cut:) cut:) ((copy:) copy:) ((paste:) paste:) ((clear:) clear:)
-        ((show:) show:) ((print:) print:) ((eval:) eval:) ((rename:) rename:)))
+        [(cut:) cut:] [(copy:) copy:] [(paste:) paste:] [(clear:) clear:]
+        [(show:) show:] [(print:) print:] [(eval:) eval:] [(rename:) rename:]))
     ;; events
     (define/override (on-paint)
       (send (get-dc) draw-bitmap bitmap 0 0))
@@ -830,30 +832,30 @@
         (kill-thread right-menu-thread)
         (set! right-menu-thread #f))
       (case (send e get-event-type)
-        ((enter)
+        [(enter)
          (set! current-cell this)
          (send this focus)
          (when (and draggable? (not (null-expr? expr)))
-           (highlight!)))
-        ((leave)
-         (unless dragging? (set! current-cell #f) (unhighlight!)))
-        ((left-down)
-         (let ((d? (and last-click-time
+           (highlight!))]
+        [(leave)
+         (unless dragging? (set! current-cell #f) (unhighlight!))]
+        [(left-down)
+         (let ([d? (and last-click-time
                         (< (- (current-milliseconds) last-click-time)
-                           DOUBLE-MILISECS))))
+                           DOUBLE-MILISECS))])
            (set! last-click-time (if d? #f (current-milliseconds)))
            (if d?
              (show: e)
-             (begin (set! dragging? #t) (set! drag-to #f)))))
-        ((left-up)
+             (begin (set! dragging? #t) (set! drag-to #f))))]
+        [(left-up)
          (set! dragging? #f)
          (when drag-to
            (send drag-to set-contents! (get-contents))
            (when (and (not (send e get-shift-down))
                       (not (eq? drag-to main-cell))
                       (eq? 'copy (send drag-to get-dropper)))
-             (clear: e))))
-        ((right-down)
+             (clear: e)))]
+        [(right-down)
          (if alt-func
            (set! right-menu-thread
                  (thread
@@ -863,21 +865,21 @@
                      (lambda ()
                        (popup-cell-menu this e (send e get-x) (send e get-y))))
                     (set! right-menu-thread #f))))
-           (popup-cell-menu this e (send e get-x) (send e get-y))))
-        ((right-up)
+           (popup-cell-menu this e (send e get-x) (send e get-y)))]
+        [(right-up)
          (when right-menu-thread
            (kill-thread right-menu-thread)
            (set! right-menu-thread #f))
          (when (and alt-func (not (null-expr? (send main-cell get-expr))))
-           (alt-func this)))
-        ((middle-down)
-         (show: e))
-        ((motion)
+           (alt-func this))]
+        [(middle-down)
+         (show: e)]
+        [(motion)
          (when dragging?
-           (let*-values (((x y) (send this client->screen
-                                      (send e get-x) (send e get-y)))
-                         ((c) (find-cell x y)))
-             (when (and c (let ((cdrop (send c get-dropper)))
+           (let*-values ([(x y) (send this client->screen
+                                      (send e get-x) (send e get-y))]
+                         [(c) (find-cell x y)])
+             (when (and c (let ([cdrop (send c get-dropper)])
                             (or (eq? c this) (not cdrop)
                                 (and (not (eq? cdrop 'copy))
                                      (null-expr? (send main-cell get-expr))))))
@@ -885,18 +887,18 @@
              (unless (eq? c drag-to)
                (when drag-to (send drag-to unhighlight!))
                (when c (send c highlight!))
-               (set! drag-to c)))))))
+               (set! drag-to c))))]))
     (define/override (on-char e)
-      (let ((ch (send e get-key-code)))
+      (let ([ch (send e get-key-code)])
         (when (eq? this current-cell)
-          (cond ((memq ch '(escape f10))
-                 (popup-cell-menu this e (send e get-x) (send e get-y)))
-                ((eq? ch 'f1) (help))
-                ((assq ch cell-menu-items) =>
+          (cond [(memq ch '(escape f10))
+                 (popup-cell-menu this e (send e get-x) (send e get-y))]
+                [(eq? ch 'f1) (help)]
+                [(assq ch cell-menu-items) =>
                  (lambda (mi)
-                   ((send this get-cell-op (3rd mi)) e)))
-                ((assq ch global-menu-items) =>
-                 (lambda (mi) ((3rd mi))))))))
+                   ((send this get-cell-op (3rd mi)) e))]
+                [(assq ch global-menu-items) =>
+                 (lambda (mi) ((3rd mi)))]))))
     ;; initialization
     (set! cells (cons this cells))
     (when (and (not name) (symbol? expr)) (set! name (symbol->string expr)))
@@ -907,11 +909,11 @@
     (draw-contents)))
 
 (define show-expr
-  (let* ((dlg (instantiate dialog% ("GCalc Expression" gcalc-frame)
-                                   (style '(no-caption))))
-         (bmp (instantiate bitmap% (SHOW-CELL-SIZE SHOW-CELL-SIZE)))
-         (dc  (instantiate bitmap-dc% (bmp)))
-         (cnv (instantiate
+  (let* ([dlg (instantiate dialog% ("GCalc Expression" gcalc-frame)
+                                   (style '(no-caption)))]
+         [bmp (instantiate bitmap% (SHOW-CELL-SIZE SHOW-CELL-SIZE))]
+         [dc  (instantiate bitmap-dc% (bmp))]
+         [cnv (instantiate
                (class canvas%
                  (inherit get-dc)
                  (define/override (on-event e)
@@ -926,8 +928,8 @@
                  (send* this
                    (min-width  SHOW-CELL-SIZE)
                    (min-height SHOW-CELL-SIZE)))
-               ()))
-         (cdc (send cnv get-dc)))
+               ())]
+         [cdc (send cnv get-dc)])
     (send dc set-text-mode 'solid)
     (send dc set-font SHOW-FONT)
     (lambda (expr name)
@@ -935,17 +937,17 @@
       (send dlg show #t))))
 
 (define (print-expr expr name)
-  (let ((dc (instantiate post-script-dc% ())))
+  (let ([dc (instantiate post-script-dc% ())])
     (send dc start-doc "Printing...")
     (send dc start-page)
-    (fluid-let ((BG-PEN/BRUSH (list (instantiate pen%   ("BLACK" 1 'solid))
-                                    (instantiate brush% ("WHITE" 'solid)))))
+    (fluid-let ([BG-PEN/BRUSH (list (instantiate pen%   ("BLACK" 1 'solid))
+                                    (instantiate brush% ("WHITE" 'solid)))])
       (if (or NOBMP-PRINT (< (expr-size expr) 5000))
         (draw-expr dc expr name)
-        (let* ((size  (let-values (((sx sy) (send dc get-size)))
-                        (inexact->exact (min sx sy))))
-               (bmp   (instantiate bitmap% (size size)))
-               (bmpdc (instantiate bitmap-dc% (bmp))))
+        (let* ([size  (let-values ([(sx sy) (send dc get-size)])
+                        (inexact->exact (min sx sy)))]
+               [bmp   (instantiate bitmap% (size size))]
+               [bmpdc (instantiate bitmap-dc% (bmp))])
           (message-box "Printing"
                        "The expression, is too complex, using bitmap."
                        gcalc-frame '(ok))
@@ -1008,7 +1010,7 @@
 (define store-panel
   (instantiate tiled-panel% (STORE-CELL-ROW STORE-CELL-SIZE)))
 (define storage-cells
-  (let loop ((n (* STORE-CELL-ROW STORE-CELL-COL)) (cells '()))
+  (let loop ([n (* STORE-CELL-ROW STORE-CELL-COL)] [cells '()])
     (if (zero? n)
       (reverse! cells)
       (loop (sub1 n)
