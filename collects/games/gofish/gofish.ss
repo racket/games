@@ -15,9 +15,6 @@
 ; Initial card count
 (define DEAL-COUNT 7)
 
-; Seconds to pause so the user can watch the action
-(define PAUSE-DURATION 0.5)
-
 ; Region layout constants
 (define MARGIN 10)
 (define SUBMARGIN 10)
@@ -130,7 +127,7 @@
 			   ; Dragging to your discard pile checks to see if the card
 			   ;  makes a match:
 			   (lambda (cards) 
-			     (check-hand you (car cards) #f)
+			     (check-hand you (car cards))
 			     (send t set-status-text "Your turn..."))))
 
 ; More card setup: Opponents's cards and deck initally can't be moved
@@ -155,11 +152,13 @@
   (send t move-cards-to-region (player-discarded p) (player-discard-r p))
   (send t move-cards-to-region (player-hand p) (player-hand-r p))
   ; Recreate the counter region to reset the count
+  (send t begin-card-sequence)
   (send t remove-region (player-count-r p))
   (set-player-count-r! p (make-discard-count-region 
 			  (player-r p) (/ (length (player-discarded p)) 2)
 			  (region-callback (player-count-r p))))
-  (send t add-region (player-count-r p)))
+  (send t add-region (player-count-r p))
+  (send t end-card-sequence))
 
 ; Function to search for an equivalent card
 (define (find-equiv card hand)
@@ -169,11 +168,8 @@
 		c))
 	 hand))
 
-(define (slow-down-so-the-user-can-watch)
-  (send t pause PAUSE-DURATION))
-
 ; Function to check for a match involving `card' already in the player's hand
-(define (check-hand player card slow?)
+(define (check-hand player card)
   (let* ([h (player-hand player)]
 	 [found (find-equiv card h)])
     (if found
@@ -182,8 +178,6 @@
 	  (send found face-up)
 	  (send card face-up)
 	  (send t set-status-text "Match!")
-	  (when slow?
-	    (slow-down-so-the-user-can-watch))
 	  ; The players has a match! Move the card from the player's hand
 	  ;  to his discard pile
 	  (set-player-hand! player (remove* (list card found) h))
@@ -196,8 +190,6 @@
 	  ; Move the cards to their new places
 	  (rearrange-cards player)
 	  ; Slower
-	  (when slow?
-	    (slow-down-so-the-user-can-watch))
 	  #t)
 	#f)))
 
@@ -222,9 +214,8 @@
 	  ; Make sure the matching cards are face-up and pause for the user
 	  (send found face-up)
 	  (send card face-up)
-	  (slow-down-so-the-user-can-watch)
 	  ; Move the cards around
-	  (check-hand getter card #t)
+	  (check-hand getter card)
 	  (rearrange-cards giver)
 	  #t)
 	; The giver player doesn't have it - Go Fish!
@@ -266,7 +257,7 @@
 	      (begin
 		(set-player-hand! player (append (deal 1) (player-hand player)))
 		(rearrange-cards player)
-		(if (check-hand player (car (player-hand player)) #t)
+		(if (check-hand player (car (player-hand player)))
 		    ; Drew a good card - keep going
 		    (check-done
 		     (lambda ()
@@ -299,7 +290,7 @@
 	(send (car deck) user-can-move #t)
 	(wx:yield something-happened)
 	(enable-your-cards #t)
-	(if (check-hand you (car (player-hand you)) #t)
+	(if (check-hand you (car (player-hand you)))
 	    (check-done loop)
 	    (begin
 	      (send t set-status-text PLAYER-1-NAME)
