@@ -58,7 +58,7 @@
           
           [define dull-i 1]
           [define dull-j 1]
-          [define tile->screen
+          [define/private tile->screen
             (lambda (i j)
               (let ([x (inexact->exact (floor (* (/ i (vector-length current-board)) (- (get-width) 2))))]
                     [y (inexact->exact (floor (* (/ j (vector-length current-board)) (- (get-height) 2))))]
@@ -68,11 +68,11 @@
                         (+ y 2)
                         (max 0 (- w 2))
                         (max 0 (- h 2)))))]
-          [define screen->tile
+          [define/private screen->tile
             (lambda (x y)
               (values (inexact->exact (floor (* (/ x (get-width)) (vector-length current-board))))
                       (inexact->exact (floor (* (/ y (get-height)) (vector-length current-board))))))]
-          [define draw-tile
+          [define/private draw-tile
             (lambda (dc i j)
               (when (and (<= 0 i (- (vector-length current-board) 1))
                          (<= 0 j (- (vector-length current-board) 1)))
@@ -106,7 +106,7 @@
                             (send dc set-brush off-brush)))))
                 (let-values ([(x y w h) (tile->screen i j)])
                   (send dc draw-rectangle x y w h))))]
-          [define get-changed
+          [define/private get-changed
             (lambda (x y)
               (if (and x y)
                   (list (cons x y)

@@ -228,7 +228,7 @@
                 [else (void)])))
           (inherit get-client-size get-dc)
           
-          (define (check-end-condition)
+          (define/private (check-end-condition)
             (let ([answer #t])
               (board-for-each
                board
@@ -240,7 +240,7 @@
               (when answer
                 (set! solved? #t))))
           
-          (define (slide i j)
+          (define/private (slide i j)
             (cond
               [(= j hole-j)
                (let loop ([new-hole-i hole-i])
@@ -276,13 +276,13 @@
                  (on-paint))]
               [else (void)]))
           
-          (define (xy->ij x y)
+          (define/private (xy->ij x y)
             (let-values ([(w h) (get-client-size)])
               (values
                (inexact->exact (floor (* board-width (/ x w))))
                (inexact->exact (floor (* board-height (/ y h)))))))
           
-          (define (ij->xywh i j)
+          (define/private (ij->xywh i j)
             (let-values ([(w h) (get-client-size)])
               (let ([cell-w (/ w board-width)]
                     [cell-h (/ h board-height)])
@@ -290,7 +290,7 @@
                         (* j cell-h)
                         cell-w
                         cell-h))))
-          (define (draw-cell draw-i draw-j)
+          (define/private (draw-cell draw-i draw-j)
             (let-values ([(xd yd wd hd) (ij->xywh draw-i draw-j)])
               (let* ([dc (get-dc)]
                      [indicies (board-ref board draw-i draw-j)])

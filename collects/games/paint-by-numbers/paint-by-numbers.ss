@@ -135,7 +135,7 @@
       [define/public (do-save) (void)]
       [define/public (get-canvas) (void)]
       
-      [define save-as
+      [define/private save-as
         (lambda ()
           (let ([fn (put-file)])
             (when fn
@@ -230,7 +230,7 @@
       (inherit can-close? show)
       
       (inherit stretchable-width stretchable-height update-filename)
-      [define set-problem
+      [define/private set-problem
         (lambda (prlmb)
           (update-filename #f)
           (send wrong-item enable (problem-solution prlmb))
@@ -247,7 +247,7 @@
           (stretchable-width #f)
           (stretchable-height #f))]
       
-      [define show-wrong
+      [define/private show-wrong
         (lambda ()
           (let loop ([i (length (problem-cols problem))])
             (unless (zero? i)
@@ -264,16 +264,16 @@
                   (loop (- j 1))))
               (loop (- i 1)))))]
       
-      [define get-entry
+      [define/private get-entry
         (lambda (i j)
           (send canvas get-rect i j))]
       
-      [define set-entry
+      [define/private set-entry
         (lambda (i j nv)
           (send canvas set-rect i j nv)
           (send canvas paint-rect i j))]
       
-      [define really-solve?
+      [define/private really-solve?
         (lambda ()
           (gui-utils:get-choice
            (format "~
@@ -285,7 +285,7 @@
            "Really Solve?"
            #f))]
       
-      [define solve
+      [define/private solve
         (lambda ()
           (when (really-solve?)
             (send canvas all-unknown)
@@ -293,7 +293,7 @@
             (solve:solve
              (problem-rows problem)
              (problem-cols problem)
-             set-entry
+             (lambda (i j nv) (set-entry i j nv))
              setup-progress)))]
       
       (super-new (label game-name))
@@ -376,7 +376,7 @@
 	      'truncate
 	      'text)))]
       
-      [define test-puzzle
+      [define/private test-puzzle
         (lambda ()
           (player
            (make-problem "<editor test>"
