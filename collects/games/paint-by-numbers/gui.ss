@@ -44,8 +44,12 @@ paint by numbers.
 
   (define LINES/NUMBERS-PEN (send the-pen-list find-or-create-pen "BLACK" 1 'solid))
 
+  (define BLACK-PEN (send the-pen-list find-or-create-pen "BLACK" 1 'solid))
   (define WHITE-PEN (send the-pen-list find-or-create-pen "WHITE" 1 'solid))
   (define WHITE-BRUSH (send the-brush-list find-or-create-brush "WHITE" 'solid))
+
+  (define BAR-PEN (send the-pen-list find-or-create-pen "SALMON" 1 'solid))
+  (define BAR-BRUSH (send the-brush-list find-or-create-brush "SALMON" 'solid))
 
   (define-struct do (x y before after))
 
@@ -53,6 +57,8 @@ paint by numbers.
     (class canvas% (parent row-numbers col-numbers)
       (inherit get-dc get-client-size)
       (private
+	[longest-strs (apply max (map length col-numbers))]
+
 	[canvas-width 200]
 	[canvas-height 200]
 	
@@ -115,8 +121,10 @@ paint by numbers.
 		  [yp (- y col-label-height)]
 		  [x (inexact->exact (floor (/ xp grid-width)))]
 		  [y (inexact->exact (floor (/ yp grid-height)))])
-	     (if (and (<= 0 x grid-x-size)
-		      (<= 0 y grid-y-size))
+	     (if (and (<= 0 x)
+		      (< x grid-x-size)
+		      (<= 0 y)
+		      (< y grid-y-size))
 		 (cons x y)
 		 #f)))]
 	
@@ -253,13 +261,56 @@ paint by numbers.
 			(loop (- j 1))]))
 	       (loop (- i 1))])))])
       
+      (private
+	[draw-row-label
+	 (lambda (n nums)
+	   (let-values ([(gx gy gw gh) (grid->rect 0 n)])
+	     (let* ([dc (get-dc)]
+		    [str (get-row-label-string nums)]
+		    [str-height (get-string-height str)]
+		    [str-ascent (get-string-ascent str)]
+		    [str-width (get-string-width str)]
+		    [sy (+ gy
+			   (- (/ gh 2)
+			      (/ str-height 2)))]
+		    [sx (- row-label-width str-width x-margin)]
+
+		    [x 0]
+		    [y gy]
+		    [w gx]
+		    [h gh])
+	       (send dc draw-rectangle x y w h)
+	       (send dc draw-text str sx sy))))]
+	
+	[draw-col-label
+	 (lambda (n nums)
+	   (let-values ([(gx gy gw gh) (grid->rect n 0)])
+	     (let ([strs (get-col-label-strings nums)]
+		   [dc (get-dc)])
+	       (send dc draw-rectangle gx 0 gw gy)
+	       (let loop ([ss strs]
+			  [line (- longest-strs (length strs))])
+		 (cond
+		  [(null? ss) (void)]
+		  [else
+		   (let* ([s (car ss)]
+			  [str-width (get-string-width s)]
+			  [str-height (get-string-height s)]
+			  [x (+ gx
+				(- (/ gw 2)
+				   (/ str-width 2)))]
+			  [y (* line (+ str-height y-margin))])
+		     (send dc draw-text (car ss) x y)
+		     (loop (cdr ss)
+			   (+ line 1)))])))))]
+
+	[last-p #f])
 
       (override
        [on-size
 	(lambda (w h)
 	  (set! canvas-width w)
-	  (set! canvas-height h)
-	  (on-paint))]
+	  (set! canvas-height h))]
        [on-event
 	(lambda (evt)
 	  (let* ([x (send evt get-x)]
@@ -270,6 +321,46 @@ paint by numbers.
 		  (send evt entering?)
 		  (send evt leaving?))
 	      (let ([dc (get-dc)])
+
+		;; update the bars
+		(when (and last-p
+			   (or (send evt leaving?)
+			       (not p)
+			       (not (= (cdr p) (cdr last-p)))))
+		  (let ([last-row (cdr last-p)])
+		    (send dc set-pen WHITE-PEN)
+		    (send dc set-brush WHITE-BRUSH)
+		    (draw-row-label last-row (list-ref row-numbers last-row))))
+		(when (and p
+			   (or (send evt entering?)
+			       (not last-p)
+			       (not (= (cdr last-p) (cdr p)))))
+		  (let ([row (cdr p)])
+		    (send dc set-pen BAR-PEN)
+		    (send dc set-brush BAR-BRUSH)
+		    (draw-row-label row (list-ref row-numbers row))))
+
+		(when (and last-p
+			   (or (send evt leaving?)
+			       (not p)
+			       (not (= (car p) (car last-p)))))
+		  (let ([last-col (car last-p)])
+		    (send dc set-pen WHITE-PEN)
+		    (send dc set-brush WHITE-BRUSH)
+		    (draw-col-label last-col (list-ref col-numbers last-col))))
+		(when (and p
+			   (or (send evt entering?)
+			       (not last-p)
+			       (not (= (car last-p) (car p)))))
+		  (let ([col (car p)])
+		    (send dc set-pen BAR-PEN)
+		    (send dc set-brush BAR-BRUSH)
+		    (draw-col-label col (list-ref col-numbers col))))
+
+		(set! last-p p)
+
+
+		;; update the coordinates
 		(send dc set-pen WHITE-PEN)
 		(send dc set-brush WHITE-BRUSH)
 		(send dc draw-rectangle 0 0 row-label-width col-label-height)
@@ -310,7 +401,6 @@ paint by numbers.
 		  (set! redo-history null)
 		  (vector-set! (vector-ref grid i) j new)
 		  (paint-rect i j)))])))]
-
        [on-paint
 	(lambda ()
 	  (let ([dc (get-dc)])
@@ -328,52 +418,39 @@ paint by numbers.
 				(loop (- j 1))]))
 		       (loop (- i 1))]))
 
-	      
-	      (let ([longest-strs (apply max (map length col-numbers))])
+	      (let loop ([l col-numbers]
+			 [n 0])
+		(cond
+		 [(null? l) (void)]
+		 [else
+		  (if (and last-p
+			   (= (car last-p) n))
+		      (begin
+			(send dc set-pen BAR-PEN)
+			(send dc set-brush BAR-BRUSH))
+		      (begin
+			(send dc set-pen WHITE-PEN)
+			(send dc set-brush WHITE-BRUSH)))
 
-		(let loop ([l col-numbers]
-			   [n 0])
-		  (cond
-		   [(null? l) (void)]
-		   [else 
-		    (let-values ([(gx gy gw gh) (grid->rect n 0)])
-		      (let ([strs (get-col-label-strings (car l))])
+		  (draw-col-label n (car l))
+		  (loop (cdr l) (+ n 1))]))
 
-			(let loop ([ss strs]
-				   [line (- longest-strs (length strs))])
-			  (cond
-			   [(null? ss) (void)]
-			   [else
-			    (let* ([s (car ss)]
-				   [str-width (get-string-width s)]
-				   [str-height (get-string-height s)]
-				   [x (+ gx
-					 (- (/ gw 2)
-					    (/ str-width 2)))]
-				   [y (* line (+ str-height y-margin))])
-			      (send dc draw-text (car ss) x y)
-			      (loop (cdr ss)
-				    (+ line 1)))]))))
-		    (loop (cdr l) (+ n 1))])))
-
-	      (let ([square-height (/ (- canvas-height col-label-height) grid-y-size)])
-		(let loop ([l row-numbers]
-			   [n 0])
-		  (cond
-		   [(null? l) (void)]
-		   [else
-		    (let-values ([(gx gy gw gh) (grid->rect 0 n)])
-		      (let* ([str (get-row-label-string (car l))]
-			     [str-height (get-string-height str)]
-			     [str-ascent (get-string-ascent str)]
-			     [str-width (get-string-width str)]
-			     [y (+ gy
-				   (- (/ gh 2)
-				      (/ str-height 2)))]
-			     [x (- row-label-width str-width x-margin)])
-			(send dc draw-text str x y)))
-		    (loop (cdr l)
-			  (+ n 1))])))
+	      (let loop ([l row-numbers]
+			 [n 0])
+		(cond
+		 [(null? l) (void)]
+		 [else
+		  (if (and last-p
+			   (= (cdr last-p) n))
+		      (begin
+			(send dc set-pen BAR-PEN)
+			(send dc set-brush BAR-BRUSH))
+		      (begin
+			(send dc set-pen WHITE-PEN)
+			(send dc set-brush WHITE-BRUSH)))
+		  (draw-row-label n (car l))
+		  (loop (cdr l)
+			(+ n 1))]))
 	      
 	      (void))))])
       
