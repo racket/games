@@ -85,12 +85,13 @@
 	 
 	 [draw-line
 	  (lambda (dc i)
-	    (let loop ([j board-height])
-	      (cond
-		[(zero? j) (void)]
-		[else
-		 (draw-cell dc #f i (- j 1))
-		 (loop (- j 1))])))]
+	    (let ([show-turned? (> (length turned) 1)])
+	      (let loop ([j board-height])
+		(cond
+		 [(zero? j) (void)]
+		 [else
+		  (draw-cell dc (and show-turned? (member (list i (- j 1)) turned)) i (- j 1))
+		  (loop (- j 1))]))))]
 	 
 	 [find-same-colors
 	  (lambda (i j)
@@ -148,6 +149,17 @@
 	 [font (make-object font% 24 'decorative 'normal 'normal #f)]
 	 [turned null])
        
+       (private
+	 [recalc/draw-turned
+	  (lambda (i j)
+	    (set! turned (map (lambda (xx) (list (second xx) (third xx))) (find-same-colors i j)))
+	    (cond
+	     [(> (length turned) 1)
+	      (send this-message set-label (number->string (calc-score (length turned))))
+	      (for-each (lambda (p) (draw-cell (get-dc) #t (first p) (second p))) turned)]
+	     [else
+	      (send this-message set-label "")]))])
+
        (override
 	[on-size
 	 (lambda (w h)
@@ -172,13 +184,7 @@
 		       (unless (member (list i j) turned)
 			 (when (> (length turned) 1)
 			   (for-each (lambda (p) (draw-cell (get-dc) #f (first p) (second p))) turned))
-			 (set! turned (map (lambda (xx) (list (second xx) (third xx))) (find-same-colors i j)))
-			 (cond
-			   [(> (length turned) 1)
-			    (send this-message set-label (number->string (calc-score (length turned))))
-			    (for-each (lambda (p) (draw-cell (get-dc) #t (first p) (second p))) turned)]
-			   [else
-			    (send this-message set-label "")]))]
+			 (recalc/draw-turned i j))]
 		       [else
 			(when (> (length turned) 1)
 			  (for-each (lambda (p) (draw-cell (get-dc) #f (first p) (second p))) turned))
@@ -248,7 +254,11 @@
 				    (cond
 				      [(= i board-width) (void)]
 				      [else (draw-line (get-dc) i)
-					    (loop (+ i 1))]))))))
+					    (loop (+ i 1))])))
+
+				;; update `small' balls
+				(recalc/draw-turned i j)
+				)))
 
 			  (set! game-over?
 				(not
