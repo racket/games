@@ -15,6 +15,12 @@
 ; Initial card count
 (define DEAL-COUNT 7)
 
+; Messages
+(define YOUR-TURN-MESSAGE "Your turn.  (Drag a match to your discard box or drag a card to an opponent.)")
+(define GO-FISH-MESSAGE "Go Fish!  (Drag a card from the center deck to your box.)")
+(define MATCH-MESSAGE "Match!")
+(define GAME-OVER-MESSAGE "GAME OVER")
+
 ; Region layout constants
 (define MARGIN 10)
 (define SUBMARGIN 10)
@@ -128,7 +134,7 @@
 			   ;  makes a match:
 			   (lambda (cards) 
 			     (check-hand you (car cards))
-			     (send t set-status-text "Your turn..."))))
+			     (send t set-status-text YOUR-TURN-MESSAGE))))
 
 ; More card setup: Opponents's cards and deck initally can't be moved
 (for-each
@@ -139,9 +145,7 @@
   deck))
 
 ; More card setup: Show your cards
-(for-each
- (lambda (card) (send card flip))
- (player-hand you))
+(send t flip-cards (player-hand you))
 
 ; Function to update the display for a player record
 (define (rearrange-cards p)
@@ -175,9 +179,8 @@
     (if found
 	(begin
 	  ; Make sure the matching cards are face-up and pause for the user
-	  (send found face-up)
-	  (send card face-up)
-	  (send t set-status-text "Match!")
+	  (send t cards-face-up (list found card))
+	  (send t set-status-text MATCH-MESSAGE)
 	  ; The players has a match! Move the card from the player's hand
 	  ;  to his discard pile
 	  (set-player-hand! player (remove* (list card found) h))
@@ -212,8 +215,7 @@
 	  (set-player-hand! giver (remq found h))
 	  (set-player-hand! getter (cons found (player-hand getter)))
 	  ; Make sure the matching cards are face-up and pause for the user
-	  (send found face-up)
-	  (send card face-up)
+	  (send t cards-face-up (list found card))
 	  ; Move the cards around
 	  (check-hand getter card)
 	  (rearrange-cards giver)
@@ -230,7 +232,7 @@
 ; Callback for going fishing
 (define fishing
   (lambda (cards)
-    (send (car deck) flip)
+    (send t flip-card (car deck))
     (set-player-hand! you (append (deal 1) (player-hand you)))
     (rearrange-cards you)
     (semaphore-post something-happened)))
@@ -254,23 +256,27 @@
 	       (lambda ()
 		 (simulate-player player other-player k)))
 	      ; Go fish
-	      (begin
-		(set-player-hand! player (append (deal 1) (player-hand player)))
-		(rearrange-cards player)
-		(if (check-hand player (car (player-hand player)))
-		    ; Drew a good card - keep going
-		    (check-done
-		     (lambda ()
-		       (simulate-player player other-player k)))
-		    ; End of our turn
-		    (k))))))))
+	      (if (null? deck)
+		  ; No more cards; pass
+		  (k)
+		  (begin
+		    ; Draw a card
+		    (set-player-hand! player (append (deal 1) (player-hand player)))
+		    (rearrange-cards player)
+		    (if (check-hand player (car (player-hand player)))
+			; Drew a good card - keep going
+			(check-done
+			 (lambda ()
+			   (simulate-player player other-player k)))
+			; End of our turn
+			(k)))))))))
 
 ; Function to check for end-of-game
 (define (check-done k)
   (if (ormap (lambda (p) (null? (player-hand p))) (list player-1 player-2 you))
       (begin
 	(enable-your-cards #f)
-	(send t set-status-text "GAME OVER"))
+	(send t set-status-text GAME-OVER-MESSAGE))
       (k)))
 
 ; Run the game loop
@@ -278,19 +284,24 @@
   (set-region-callback! (player-r you) #f)
   (set-region-callback! (player-r player-1) (player-callback player-1))
   (set-region-callback! (player-r player-2) (player-callback player-2))
-  (send t set-status-text "Your turn...")
+  (send t set-status-text YOUR-TURN-MESSAGE)
   (wx:yield something-happened)
   (if go-fish?
       (begin
-	(send t set-status-text "Go Fish!")
-	(enable-your-cards #f)
-	(set-region-callback! (player-r player-1) #f)
-	(set-region-callback! (player-r player-2) #f)
-	(set-region-callback! (player-r you) fishing)
-	(send (car deck) user-can-move #t)
-	(wx:yield something-happened)
-	(enable-your-cards #t)
-	(if (check-hand you (car (player-hand you)))
+	(if (if (null? deck)
+		; No more cards; pass
+		#f
+		; Draw a card (wait for the user to drag it)
+		(begin
+		  (send t set-status-text GO-FISH-MESSAGE)
+		  (enable-your-cards #f)
+		  (set-region-callback! (player-r player-1) #f)
+		  (set-region-callback! (player-r player-2) #f)
+		  (set-region-callback! (player-r you) fishing)
+		  (send (car deck) user-can-move #t)
+		  (wx:yield something-happened)
+		  (enable-your-cards #t)
+		  (check-hand you (car (player-hand you)))))
 	    (check-done loop)
 	    (begin
 	      (send t set-status-text PLAYER-1-NAME)
