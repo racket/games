@@ -386,13 +386,14 @@
 	(set-selection-visible #f))))
 
   (define table%
-    (class100 mred:frame% (title w h)
+    (class mred:frame%
+      (init title w h)
       (inherit reflow-container)
-      (override
+      (override*
 	[on-close
 	 (lambda ()
 	   (exit))])
-      (public
+      (public*
 	[table-width (lambda ()
 		       (reflow-container)
 		       (let-values ([(x y w h) (send pb get-full-box)])
@@ -513,17 +514,17 @@
 	 (case-lambda 
 	  [() animate?]
 	  [(on?) (set! animate? (and on? #t))])])
-      (private-field
-	[add-cards-callback
+      (begin
+	(define add-cards-callback
 	 (lambda (card x y)
-	   (send pb insert card #f x y))]
-        [move-cards-callback
+	   (send pb insert card #f x y)))
+        (define move-cards-callback
 	 (lambda (card x y)
-	   (send pb move-to card x y))])
-      (private-field
-	[animate? #t]
-	[in-sequence 0])
-      (private
+	   (send pb move-to card x y))))
+      (begin
+	(define animate? #t)
+	(define in-sequence 0))
+      (private*
         [position-cards
 	 (lambda (cards x y offset set)
 	   (let ([positions (let loop ([l cards][n 0])
@@ -597,16 +598,14 @@
 				       (values (* (- len p) (/ (- w cw) len))
 					       (* (- len p) (/ (- h ch) len)))))
 				 set)))))])
-      (sequence
-	(super-init title))
-      (private-field
-        [c (make-object mred:editor-canvas% this #f '(no-vscroll no-hscroll))]
-	[pb (make-object pasteboard%)])
-      (sequence
-	(send c min-client-width (+ 10 (inexact->exact (floor (* w (send back get-width))))))
-	(send c min-client-height (+ 10 (inexact->exact (floor (* h (send back get-height))))))
-	(send c stretchable-width #f)
-	(send c stretchable-height #f)
-	(send this stretchable-width #f)
-	(send this stretchable-height #f)
-	(send c set-editor pb)))))
+      (super-new [label title] [style '(metal)])
+      (begin
+        (define c (make-object mred:editor-canvas% this #f '(no-vscroll no-hscroll)))
+	(define pb (make-object pasteboard%)))
+      (send c min-client-width (+ 10 (inexact->exact (floor (* w (send back get-width))))))
+      (send c min-client-height (+ 10 (inexact->exact (floor (* h (send back get-height))))))
+      (send c stretchable-width #f)
+      (send c stretchable-height #f)
+      (send this stretchable-width #f)
+      (send this stretchable-height #f)
+      (send c set-editor pb))))
