@@ -6,11 +6,14 @@
     (list "cards" "paint-by-numbers" "same" "lights-out" "aces" "pousse"))
   (define blurb 
     (list "Demos a few small "
-	  '(a ((MZSCHEME "(parameterize ([current-custodian (make-custodian)]) 
-               (parameterize ([current-eventspace (make-eventspace)])
-                 (queue-callback 
-                  (lambda ()
-                    (exit-handler void) 
-                    (dynamic-require (quote (lib |games.ss| |games|)) #f)))))")) "games")
+	  '(a ((MZSCHEME "
+(begin
+  (require (lib |mred.ss| |mred|))
+  (parameterize ([current-custodian (make-custodian)]) 
+    (parameterize ([current-eventspace (make-eventspace)])
+      (queue-callback 
+       (lambda ()
+         (exit-handler void) 
+         (dynamic-require (quote (lib |games.ss| |games|)) #f))))))")) "games")
 	  " implemented in Scheme.")))
 
