@@ -1,5 +1,5 @@
 
-(module tmp mzscheme
+(module make-bitmap mzscheme
   (require "board.ss"
 	   "moves.ss"
            (lib "mred.ss" "mred")

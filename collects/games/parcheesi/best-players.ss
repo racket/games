@@ -24,8 +24,6 @@ careful charlie
            agressive-player%
            careful-player%
            best-player%
-           balanced-player1%
-           balanced-player2%
            polite-player%
            reckless-player%
            
@@ -119,23 +117,14 @@ careful charlie
       (define/override (score board) (find-distance board color))
       (super-new [name "Polite Polly"])))
   
-  (define balanced-player1%
+  (define best-player%
     (class base-player%
       (inherit-field color)
       (define/override (score board) 
         (let ([dist (- 500 (find-distance board color))]
               [bop-chance (- 36 (find-bop-chance board color))])
           (+ (* dist 100) bop-chance)))
-      (super-new [name "Balanced Bob Dist"])))
-  
-  (define balanced-player2%
-    (class base-player%
-      (inherit-field color)
-      (define/override (score board) 
-        (let ([dist (- 500 (find-distance board color))]
-              [bop-chance (- 36 (find-bop-chance board color))])
-          (+ (* bop-chance 1000) dist)))
-      (super-new [name "Balanced Bob Bop"])))
+      (super-new [name "Amazing Grace"])))
   
   (define reckless-player%
     (class base-player%
@@ -148,8 +137,6 @@ careful charlie
       (inherit-field color)
       (define/override (score board) (- 36 (find-bop-chance board color)))
       (super-new [name "Careful Charlie"])))
-  
-  (define best-player% balanced-player1%)
   
   ;; search : board color (listof number) -> (listof state)
   (define (search orig-board color dice)

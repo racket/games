@@ -370,7 +370,7 @@
                                (new radio-box%
                                     (parent panel)
                                     (label #f)
-                                    (choices '("Killer Kelly"
+                                    (choices '("Amazing Grace"
                                                "Polite Polly"
                                                "Reckless Renee"
                                                "You"))
