@@ -6,7 +6,7 @@
 	     "spidey.ss" "synrule.ss" "trace.ss"
 	     "cmdlines.ss" "dates.ss" "strings.ss"
 	     "compats.ss" "files.ss" "threads.ss"
-	     "compiles.ss" "functios.ss" "pconvers.ss" "triggers.ss"
+	     "compiles.ss" "functios.ss" "pconvers.ss"
 	     "inflates.ss" "prettys.ss" "zmaths.ss"
 	     "cores.ss"
 	     "mzlibs.ss")])
