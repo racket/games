@@ -389,7 +389,8 @@
       (send dc set-brush (send the-brush-list find-or-create-brush 
 			       BG-COLOR 'solid)))))
 
-;; Make a dialog, install the game, and then show the dialog
-(define d (make-object dialog% "Minesweeper"))
-(make-object ms:canvas% d)
-(send d show #t)
+;; Make a frame, install the game, and then show the frame
+(define f (make-object frame% "Minesweeper"))
+(make-object ms:canvas% f)
+(send f show #t)
+(yield (make-semaphore))
