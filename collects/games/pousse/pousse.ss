@@ -690,13 +690,13 @@
                                                                             exn))))])
                                   (let ([f (get-file "Get Player Program" d)])
                                     (when f
-                                      (let ([player (dynamic-require `(file ,f) 'robot)])
+                                      (let ([player (dynamic-require f 'robot)])
                                         (let ([name (get-text-from-user "Player Name"
                                                                         "Player Program Name:"
                                                                         d
                                                                         (let-values ([(base name dir?)
                                                                                       (split-path f)])
-                                                                          name))])
+                                                                          (path->string name)))])
                                           (when name
                                             (set! robots (append robots
                                                                  (list (make-robot name player))))
