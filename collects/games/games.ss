@@ -1,8 +1,5 @@
-(require-library "function.ss")
-
-(invoke-unit/sig
- (unit/sig ()
-   (import mred^ mzlib:function^)
+(module games mzscheme
+  (require (lib "mred.ss" "mred"))
 
    (define game-mapping 
      '(("slidey" "slidey.ss" "Slidey" #f)
@@ -16,7 +13,7 @@
        ("pousse" "pousse.ss" "Pousse" #f)
        ("aces" "aces.scm" "Aces" #t)))
    
-   (define f (make-object (class frame% (name)
+   (define f (make-object (class100 frame% (name)
 			    (override
 			      [on-close exit])
 			    (sequence (super-init name)))
@@ -60,7 +57,6 @@
    (send f show #t)
 
    (yield (make-semaphore 0)))
- mred^ mzlib:function^)
 
 
-				      
+				     
