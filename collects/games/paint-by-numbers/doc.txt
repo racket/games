@@ -34,61 +34,60 @@ permission to re-distribute their puzzles. Visit them online at:
 The specific contributers who have permitted their puzzles to be
 redistributed are:
 
- snordmey@dayton.net
- jtraub@dragoncat.net
- e0gb258s@mail.erin.utoronto.ca
- mattingly@bigfoot.com
- jennifer.forman@umb.edu
- karen.hoover@bigfoot.com
- sssstree@ix.netcom.com
- we_bakers_3@earthlink.net
- bbart@cs.sfu.ca
- jonesjk@thegrid.net
- rrichard@lexitech.ca
- helena.montauban@auroraenergy.com.au
- barblane@ionsys.com
- m5rammy@maale5.com
- nmbauer@sprynet.com
- ncfrench@aol.com
- km29@drexel.edu
- jjl@stanford.edu
- disneyfan13@hotmail.com
- adjusting@yahoo.com
- richard@condor-post.com
- lady_tabitha@yahoo.com
- vaa@psulias.psu.edu
- kimbhall@yahoo.com
- kcottam@cusa.com
- karganov@hotmail.com
- jdmaynard@excite.com
- mnemoy@gameworks.com
- arrelless@jayco.net
- azisi@skiathos.physics.auth.gr
- whoaleo@hotmail.com
- tucker1999@earthlink.net
- bergles@yahoo.com
- elisabeth.springfelter@lanab.amv.se
- ewhaynes@mit.edu
- mjcarroll@ccnmail.com
- dahu@netcourrier.com
- joy@dcs.gla.ac.uk
- piobst@wam.umd.edu
- dani681@aol.com
- Talzhemir <pixel@realtime.net>
- hkittredge@hotmail.com
- allraft@sccoast.net
- karlvonl@geocities.com
- ailsa@worldonline.nl
- Carey Willis <N8NRG@hotmail.com>
- citragreen@hotmail.com
- dhalayko@cgocable.net
- jontive1@elp.rr.com
- hublan@rocketmail.com
- barbridgway@compuserve.com
- mijoy@mailcity.com
- joostdh@sci.kun.nl
- gossamer_kwaj@hotmail.com
- williamson@proaxis.com
- vacko_6@hotmail.com
- jojess@earthlink.net
+ snordmey /at/ dayton <dot> net
+ jtraub /at/ dragoncat <dot> net
+ e0gb258s /at/ mail <dot> erin <dot> utoronto <dot> ca
+ mattingly /at/ bigfoot <dot> com
+ jennifer <dot> forman /at/ umb <dot> edu
+ karen <dot> hoover /at/ bigfoot <dot> com
+ sssstree /at/ ix <dot> netcom <dot> com
+ we_bakers_3 /at/ earthlink <dot> net
+ bbart /at/ cs <dot> sfu <dot> ca
+ jonesjk /at/ thegrid <dot> net
+ rrichard /at/ lexitech <dot> ca
+ helena <dot> montauban /at/ auroraenergy <dot> com <dot> au
+ barblane /at/ ionsys <dot> com
+ m5rammy /at/ maale5 <dot> com
+ nmbauer /at/ sprynet <dot> com
+ ncfrench /at/ aol <dot> com
+ km29 /at/ drexel <dot> edu
+ jjl /at/ stanford <dot> edu
+ disneyfan13 /at/ hotmail <dot> com
+ richard /at/ condor-post <dot> com
+ lady_tabitha /at/ yahoo <dot> com
+ vaa /at/ psulias <dot> psu <dot> edu
+ kimbhall /at/ yahoo <dot> com
+ kcottam /at/ cusa <dot> com
+ karganov /at/ hotmail <dot> com
+ jdmaynard /at/ excite <dot> com
+ mnemoy /at/ gameworks <dot> com
+ arrelless /at/ jayco <dot> net
+ azisi /at/ skiathos <dot> physics <dot> auth <dot> gr
+ whoaleo /at/ hotmail <dot> com
+ tucker1999 /at/ earthlink <dot> net
+ bergles /at/ yahoo <dot> com
+ elisabeth <dot> springfelter /at/ lanab <dot> amv <dot> se
+ ewhaynes /at/ mit <dot> edu
+ mjcarroll /at/ ccnmail <dot> com
+ dahu /at/ netcourrier <dot> com
+ joy /at/ dcs <dot> gla <dot> ac <dot> uk
+ piobst /at/ wam <dot> umd <dot> edu
+ dani681 /at/ aol <dot> com
+ Talzhemir <pixel /at/ realtime <dot> net>
+ hkittredge /at/ hotmail <dot> com
+ allraft /at/ sccoast <dot> net
+ karlvonl /at/ geocities <dot> com
+ ailsa /at/ worldonline <dot> nl
+ Carey Willis <N8NRG /at/ hotmail <dot> com>
+ citragreen /at/ hotmail <dot> com
+ dhalayko /at/ cgocable <dot> net
+ jontive1 /at/ elp <dot> rr <dot> com
+ hublan /at/ rocketmail <dot> com
+ barbridgway /at/ compuserve <dot> com
+ mijoy /at/ mailcity <dot> com
+ joostdh /at/ sci <dot> kun <dot> nl
+ gossamer_kwaj /at/ hotmail <dot> com
+ williamson /at/ proaxis <dot> com
+ vacko_6 /at/ hotmail <dot> com
+ jojess /at/ earthlink <dot> net
 
