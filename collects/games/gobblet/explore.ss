@@ -15,7 +15,7 @@
   (define-syntax (log-printf stx)
     (syntax-case stx ()
       [(_ n i arg ...)
-       (<= (syntax-e #'n) 0)
+       (<= (syntax-e #'n) 10)
        #'(begin
 	   (when (i  . < . 100)
 	     (printf arg ...))
@@ -79,10 +79,10 @@
 			  (set! result
 				;; ======== Here's where we get a move ============
 				(let ([v (multi-step-minmax
-					  steps
-					  3 ; span
+					  1; steps ; steps
+					  1 ; 3 ; span
 					  (make-config 
-					   (min max-depth one-step-depth)
+					   5 ; (min max-depth one-step-depth)
 					   memory canonicalize rate-board canned-moves)
 					  0 ; indent 
 					  init-memory
@@ -91,6 +91,7 @@
 					      steps (min max-depth one-step-depth)
 					      (play->string v))
 				  v))
+			  (exit)
 			  ;; We have at least one result, now.
 			  (semaphore-post once-sema)
 			  ;; If we could learn more by searching deeper, then
