@@ -504,5 +504,3 @@
       (player)
       ;(editor #f)
       )))
-
-;(require paint-by-numbers)
