@@ -8,7 +8,7 @@
 
   (define-signature model^
     (move 
-     winner?
+     winner? 3-in-a-row?
      red-pieces yellow-pieces
      piece-color piece-size
      empty-board

@@ -8,10 +8,12 @@
     (unit/sig model^
       (import config^)
 
+      (define JR? (= BOARD-SIZE 3))
       (define SIZES (if (= BOARD-SIZE 3)
 			'(1 2 3)
 			'(1 2 3 4)))
-
+      (define PIECE-COUNT (sub1 BOARD-SIZE))
+      
       ;; A piece is
       ;;  (make-piece num sym)
       ;;  where the sym is 'red or 'yellow
@@ -78,7 +80,13 @@
 	  ;; The move is allowed if the target space is empty or the
 	  ;;  top piece is smaller than this one:
 	  (if (or (null? pl)
-		  (< (piece-size (car pl)) (piece-size p)))
+		  (and (< (piece-size (car pl)) (piece-size p))
+		       (or from-i
+			   JR?
+			   ;; In 4x4 game, can't move onto board on top
+			   ;;  of piece unless it's part of 3-in-a-row
+			   (and (not (eq? (piece-color (car pl)) (piece-color p)))
+				(3-in-a-row? board to-i to-j (piece-color (car pl)))))))
 	      ;; Allowed:
 	      (let ([new-board (if from-i
 				   ;; Remove the piece from the old spot:
@@ -91,29 +99,50 @@
 	      ;; Not allowed; fail
 	      (fail-k))))
 
+      ;; 3-in-a-row? : board num num color -> bool
+      (define (3-in-a-row? board i j c)
+	(or (n-in-a-row/col? 3 board i j c)
+	    (and (= i j)
+		 (n-in-a-diag? 3 board c backslash-diag-flip))
+	    (and (= i (- BOARD-SIZE 1 j))
+		 (n-in-a-diag? 3 board c slash-diag-flip))))
+
+      ;; n-in-a-row/col? : num board num num color -> bool
+      (define (n-in-a-row/col? n board i j c)
+	(let ([row/col?
+	       (lambda (board-ref)
+		 (= n
+		    (fold-rowcol (lambda (z v)
+				   (+ v
+				      (let ([pl (board-ref z)])
+					(if (and (pair? pl)
+						 (eq? c (piece-color (car pl))))
+					    1
+					    0))))
+				 0)))])
+	  (or (row/col? (lambda (z) (board-ref board i z)))
+	      (row/col? (lambda (z) (board-ref board z j))))))
+
+      ;; n-in-a-diag? : num board color (num -> num) -> bool
+      (define (n-in-a-diag? n board c flip)
+	(= n
+	   (fold-rowcol (lambda (i v)
+			  (+ v
+			     (let ([pl (board-ref board i (flip i))])
+			       (if (and (pair? pl)
+					(eq? c (piece-color (car pl))))
+				   1
+				   0))))
+			0)))
+      (define backslash-diag-flip (lambda (x) x))
+      (define slash-diag-flip (lambda (x) (- BOARD-SIZE 1 x)))
+
       ;; winner? : board sym -> bool
       ;;  Checks whether the given color has BOARD-SIZE in a row
       (define (winner? board c)
-	(let ([row/col
-	       (lambda (board-ref)
-		 (fold-rowcol (lambda (i v)
-				(or v
-				    (fold-rowcol (lambda (j v)
-						   (and v
-							(let ([pl (board-ref board i j)])
-							  (and (pair? pl)
-							       (eq? c (piece-color (car pl)))))))
-						 #t)))
-			      #f))]
-	      [diag
-	       (lambda (flip)
-		 (fold-rowcol (lambda (i v)
-				(and v
-				     (let ([pl (board-ref board i (flip i))])
-				       (and (pair? pl)
-					    (eq? c (piece-color (car pl)))))))
-			      #t))])
-	  (or (row/col board-ref)
-	      (row/col (lambda (a i j) (board-ref a j i)))
-	      (diag (lambda (x) x))
-	      (diag (lambda (x) (- BOARD-SIZE 1 x)))))))))
+	(or (n-in-a-diag? BOARD-SIZE board c backslash-diag-flip)
+	    (n-in-a-diag? BOARD-SIZE board c slash-diag-flip)
+	    (fold-rowcol (lambda (i v)
+			   (or v
+			       (n-in-a-row/col? BOARD-SIZE board i i c)))
+			 #f))))))
