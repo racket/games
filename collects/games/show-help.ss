@@ -10,7 +10,7 @@
             (class frame%
               (define/override (on-close)
                 (set! f #f))
-              (super-instantiate ()))])
+              (super-instantiate () (label frame-title)))])
       (lambda ()
         (if f
             (send f show #t)
