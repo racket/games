@@ -6,17 +6,17 @@
 
   (define die%
     (class canvas%
-      (inherit get-dc get-client-size)
+      (inherit get-dc get-client-size refresh)
       (init-field [digit #f])
       (define/public (set-digit d) 
         (unless (equal? digit d)
           (set! digit d)
-          (on-paint)))
+          (refresh)))
       (init-field [dim? #f])
       (define/public (set-dim d)
         (unless (equal? dim? d)
           (set! dim? d)
-          (on-paint)))
+          (refresh)))
       (define/override (on-paint)
         (let ([dc (get-dc)])
           (let-values ([(w h) (get-client-size)])
