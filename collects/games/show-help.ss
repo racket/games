@@ -20,7 +20,7 @@
                    [c (make-object editor-canvas% frame t)])
               (send c min-width 500)
               (send c min-height 300)
-              (send t auto-wrap #t)
+              (send t auto-wrap (not verbatim?))
               (call-with-input-file (build-path
                                      (apply collection-path collections)
                                      "doc.txt")

@@ -5,7 +5,7 @@
 
 (module gcalc mzscheme
   (require (lib "class.ss") (lib "mred.ss" "mred") (lib "etc.ss")
-           (lib "unit.ss"))
+           "../show-help.ss" (lib "unit.ss"))
   (provide game-unit)
 
   (define customs '())
@@ -527,6 +527,9 @@
 (define main-pane
   (instantiate horizontal-pane% (gcalc-frame)))
 
+(define help
+  (show-help (list "games" "gcalc") "GCalc Help" #t))
+
 (define file-name #f)
 (define modified? #f)
 (define (set-file-name! name)
@@ -671,9 +674,10 @@
                             (#\r      "Clea&r"         clear:)
                             (#\e      "&Eval"          eval:)
                             (#\n      "Re&name"        rename:)
-                            (#\space  "S&how"          show:)
+                            (#\space  "Sho&w"          show:)
                             (#\p      "&Print"         print:)))
-(define global-menu-items `((#\o      "&Open"          ,open)
+(define global-menu-items `((#\h      "&Help"          ,help)
+                            (#\o      "&Open"          ,open)
                             (#\m      "Open-Exa&mples" ,open-examples)
                             (#\s      "&Save"         ,save)
                             (#\a      "Save-&as"      ,save-as)
@@ -885,13 +889,14 @@
     (define/override (on-char e)
       (let ((ch (send e get-key-code)))
         (when (eq? this current-cell)
-          (if (eq? ch 'escape)
-            (popup-cell-menu this e (send e get-x) (send e get-y))
-            (cond ((assq ch cell-menu-items) =>
-                   (lambda (mi)
-                     ((send this get-cell-op (3rd mi)) e)))
-                  ((assq ch global-menu-items) =>
-                   (lambda (mi) ((3rd mi)))))))))
+          (cond ((memq ch '(escape f10))
+                 (popup-cell-menu this e (send e get-x) (send e get-y)))
+                ((eq? ch 'f1) (help))
+                ((assq ch cell-menu-items) =>
+                 (lambda (mi)
+                   ((send this get-cell-op (3rd mi)) e)))
+                ((assq ch global-menu-items) =>
+                 (lambda (mi) ((3rd mi))))))))
     ;; initialization
     (set! cells (cons this cells))
     (when (and (not name) (symbol? expr)) (set! name (symbol->string expr)))
