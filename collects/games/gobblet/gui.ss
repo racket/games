@@ -83,7 +83,9 @@
 			   (let ([r? (winner? new-board 'red)]
 				 [y? (winner? new-board 'yellow)])
 			     (cond
-			      [(and r? y?) (set-winner! "Cat")]
+			      [(and r? y?) (set-winner! (case old-turn
+							  [(red) "Yellow"]
+							  [(yellow) "Red"]))]
 			      [r? (set-winner! "Red")]
 			      [y? (set-winner! "Yellow")]
 			      [else (set-turn! (other old-turn))])))
@@ -239,11 +241,14 @@
 				 (parent bottom)
 				 (stretchable-height #f)
 				 (stretchable-width #f)))
+      (define arrows? (let ([f (make-object font% 12 'system)])
+			(and (send f screen-glyph-exists? #\u25C0)
+			     (send f screen-glyph-exists? #\u25B6))))
       (define backward-button
-	(new button% (label "<") (parent bottom-middle) 
+	(new button% (label (if arrows? " \u25C0 " " < ")) (parent bottom-middle) 
 	     (callback (lambda (b e) (backward!)))))
       (define forward-button
-	(new button% (label ">") (parent bottom-middle)
+	(new button% (label (if arrows? " \u25B6 " " > ")) (parent bottom-middle)
 	     (callback (lambda (b e) (forward!)))))
       (define (enable-buttons)
 	(send backward-button enable (pair? past))
@@ -271,7 +276,8 @@
 	   (callback (lambda (b e)
 		       (new-game (if (= BOARD-SIZE 3) 4 3)))))
       (new button% (label "Help") (parent bottom-right)
-	   (callback (lambda (b e) (void))))
+	   (callback (lambda (b e)
+		       (show-gobblet-help))))
 
       ;; Extra controls ----------------------------------------
       

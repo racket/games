@@ -18,6 +18,7 @@
      other))
 
   (define-signature restart^
-    (new-game)))
+    (new-game
+     show-gobblet-help)))
 
 
