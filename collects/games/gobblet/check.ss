@@ -26,6 +26,8 @@
 		    (define (mk-search)
 		      (make-search make-3x3-rate-board make-3x3-canned-moves))
 		    
+		    (define FLUSH-CACHE-COUNT 1000)
+
 		    (let ([search (mk-search)]
 			  [cnt 0]
 			  [move-map (make-hash-table 'equal)]
@@ -34,61 +36,71 @@
 				 [depth 0]
 				 [history null])
 			(set! cnt (+ cnt 1))
-			(when (= cnt 10)
+			(when (= cnt FLUSH-CACHE-COUNT)
 			  (set! cnt 0)
 			  (set! search (mk-search)))
 			(printf "------------~n~a~n" (board->string depth board))
 			(cond
-			 [(winner? board 'red)
-			  (void)]
+			 [(winner? board 'red) 0]
 			 [(winner? board 'yellow)
 			  (error '! "yellow wins")]
 			 [else
 			  (let ([key+xform (canonicalize board 'red)])
-			    (hash-table-get 
-			     move-map (car key+xform)
-			     (lambda ()
-			       (let ([play (search 300.0 1 2 'red board history)])
-				 (hash-table-put! move-map (car key+xform)
-						  (list (piece-size (car play))
-							(and (list-ref play 1)
-							     (apply-xform (cdr key+xform)
-									  (list-ref play 1) (list-ref play 2)))
-							(apply-xform (cdr key+xform)
-								     (list-ref play 3) (list-ref play 4))))
-				 (printf "~a ~a ~a~n" (piece-color (car play)) (piece-size (car play)) (cdr play))
-				 (let ([new-board (apply-play board play)])
-				   (unless (winner? new-board 'red)
-				     (let ([pss (available-off-board new-board 'yellow)])
-				       (for-each
-					(lambda (ps)
-					  (fold-board
-					   (lambda (i j v)
-					     (move new-board (list-ref yellow-pieces (car ps))
-						   #f #f i j
-						   (lambda (newer-board)
-						     (loop newer-board
-							   (add1 depth)
-							   (list* new-board board history)))
-						   void))
-					   (void)))
-					pss))
-				     (fold-board
-				      (lambda (from-i from-j v)
-					(let ([ps (board-ref new-board from-i from-j)])
-					  (when (and (pair? ps)
-						     (eq? 'yellow (piece-color (car ps))))
-					    (fold-board
-					     (lambda (to-i to-j v)
-					       (move new-board (car ps)
-						     from-i from-j to-i to-j
-						     (lambda (newer-board)
-						       (loop newer-board
-							     (add1 depth)
-							     (list* new-board board history)))
-						     void))
-					     (void)))))
-				      (void))))))))]))
+			    (list-ref
+			     (hash-table-get 
+			      move-map (car key+xform)
+			      (lambda ()
+				(let ([play (search 300.0 1 2 'red board history)])
+				  (let ([new-board (apply-play board play)])
+				    (let ([max-depth
+					   (if (winner? new-board 'red)
+					       0
+					       (max
+						(let ([pss (available-off-board new-board 'yellow)])
+						  (apply
+						   max
+						   (map
+						    (lambda (ps)
+						      (fold-board
+						       (lambda (i j v)
+							 (move new-board (list-ref yellow-pieces (car ps))
+							       #f #f i j
+							       (lambda (newer-board)
+								 (max v
+								      (loop newer-board
+									    (add1 depth)
+									    (list* new-board board history))))
+							       (lambda () v)))
+						       0))
+						    pss)))
+						(fold-board
+						 (lambda (from-i from-j v)
+						   (let ([ps (board-ref new-board from-i from-j)])
+						     (if (and (pair? ps)
+							      (eq? 'yellow (piece-color (car ps))))
+							 (fold-board
+							  (lambda (to-i to-j v)
+							    (move new-board (car ps)
+								  from-i from-j to-i to-j
+								  (lambda (newer-board)
+								    (max v
+									 (loop newer-board
+									       (add1 depth)
+									       (list* new-board board history))))
+								  (lambda () v)))
+							  v)
+							 v)))
+						 0)))])
+				      (let ([l (list (piece-size (car play))
+						     (and (list-ref play 1)
+							  (apply-xform (cdr key+xform)
+								       (list-ref play 1) (list-ref play 2)))
+						     (apply-xform (cdr key+xform)
+								  (list-ref play 3) (list-ref play 4))
+						     (add1 max-depth))])
+					(hash-table-put! move-map (car key+xform) l)
+					l))))))
+			     3))]))
 		      (hash-table-for-each move-map
 					   (lambda (k v)
 					     (printf "~s~n" (cons k v))))))

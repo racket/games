@@ -51,7 +51,8 @@
 						  (make-plan
 						   (list-ref red-pieces (list-ref play 1))
 						   from-i from-j to-i to-j
-						   (cdr key+xform))))))))
+						   (cdr key+xform)
+						   (sub1 (list-ref play 4)))))))))
 		    3x3-plays)
 	  (lambda (board me k xform)
 	    (hash-table-get ht k (lambda () null)))))
