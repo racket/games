@@ -198,7 +198,7 @@ possible to remap single click (instead of double click)?
           (andmap (lambda (x) 
                     (let ([cards (stack-cards x)])
                       (and (not (null? cards))
-                           (= 1 (send (car stack-cards) get-value)))))
+                           (= 1 (send (car cards) get-value)))))
                   stacks)))
 
    (define (check-game-over)
