@@ -11,6 +11,11 @@
 (define white-pen (make-object pen% "white" 1 'solid))
 (define white-brush (make-object brush% "white" 'solid))
 
+
+;; board : (vectorof (vectorof (vector (union num #f) boolean)))
+;   this represents the board. Each entry is the color index of
+;   the piece and a node to mark for the depth-first traversal.
+;   #f for the color index indicates an eliminated piece.
 (define board
   (build-vector
    board-width
@@ -104,6 +109,10 @@
 						      (+ j 1)
 						      (cons (list v i j) ps))))))]
 			   [else ps]))])
+
+		  ;; reset back the marks for the next depth-first traversal
+		  (for-each (lambda (p) (vector-set! (first p) 1 #f)) same-colors)
+
 		  (when (>= (length same-colors) 2)
 
 		    ;; update score
@@ -114,12 +123,10 @@
 		    (let ([is null])
 		      (for-each
 		       (lambda (p)
-			 (let ([v (first p)]
-			       [i (second p)]
+			 (let ([i (second p)]
 			       [j (third p)])
 			   (unless (member i is)
 			     (set! is (cons i is)))
-			   (vector-set! v 1 #f)
 			   (let loop ([x j])
 			     (cond
 			       [(<= 1 x)
