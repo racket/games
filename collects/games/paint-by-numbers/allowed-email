@@ -2,7 +2,7 @@
 
 ("snordmey@dayton.net"
  "jtraub@dragoncat.net"
- "snicker@tmbg.org" ; "e0gb258s@mail.erin.utoronto.ca"
+ ("snicker@tmbg.org" "e0gb258s@mail.erin.utoronto.ca")
  "mattingly@bigfoot.com"
  "jennifer.forman@umb.edu"
  "karen.hoover@bigfoot.com"
@@ -13,10 +13,10 @@
  "rrichard@lexitech.ca"
  "helena.montauban@auroraenergy.com.au"
  "barblane@ionsys.com"
- "rman@mishkei.org.il" ; "m5rammy@maale5.com"
+ ("rman@mishkei.org.il" "m5rammy@maale5.com")
  "nmbauer@sprynet.com"
  "ncfrench@aol.com"
- "blumbergk@auhs.edu" ;  "km29@drexel.edu"
+ ("blumbergk@auhs.edu" "km29@drexel.edu")
  "jjl@stanford.edu"
  "disneyfan13@hotmail.com"
  "adjusting@yahoo.com"
@@ -36,24 +36,24 @@
  "elisabeth.springfelter@lanab.amv.se"
  "ewhaynes@mit.edu"
  "mjcarroll@ccnmail.com"
- "dahu@chez.com" ; "dahu@netcourrier.com"
+ ("dahu@chez.com" "dahu@netcourrier.com")
  "joy@dcs.gla.ac.uk"
  "piobst@wam.umd.edu"
  "dani681@aol.com"
- ("pixel@bga.com" "Talzhemir") ; "pixel@realtime.net"
+ ("pixel@bga.com" "Talzhemir pixel@realtime.net")
  "hkittredge@hotmail.com"
  "allraft@sccoast.net"
  "karlvonl@geocities.com"
- "ailsa@worldonline.nl" ; "alisa@euronet.nl"
- ("nievmelody@aol.com" "Carey Willis") ;  N8NRG@hotmail.com
+ ("ailsa@worldonline.nl" "alisa@euronet.nl")
+ ("nievmelody@aol.com" "Carey Willis N8NRG@hotmail.com")
  "citragreen@hotmail.com"
  "dhalayko@cgocable.net"
  "jontive1@elp.rr.com"
- 
  "hublan@rocketmail.com"
  "barbridgway@compuserve.com"
  "mijoy@mailcity.com"
  "joostdh@sci.kun.nl"
  ("steven.paradise@m.cc.utah.edu" "gossamer_kwaj@hotmail.com")
  "williamson@proaxis.com"
+
  )
