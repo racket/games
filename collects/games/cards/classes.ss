@@ -23,11 +23,6 @@
 	       get-snip-location move-to
 	       dc-location-to-editor-location
 	       set-selection-visible)
-      (rename [super-after-select after-select]
-	      [super-on-default-event on-default-event]
-	      [super-on-interactive-move on-interactive-move] 
-	      [super-interactive-adjust-move interactive-adjust-move]
-	      [super-after-interactive-move after-interactive-move])
       (private-field
 	[select-one? #t]
 	[select-backward? #f]
@@ -151,10 +146,11 @@
 				  (+ dy sy (/ (- sh y) 2))
 				  (+ dy sy 5))))
 		      (send dc set-font old-f)))))
-	      regions)))]
+	      regions)))])
+      (augment
 	[after-select
 	 (lambda (s on?)
-	   (super-after-select s on?)
+	   (inner (void) after-select s on?)
 	   (unless (or (not on?) selecting?)
 	     (set! selecting? #t)
 	     (if select-one?
@@ -175,13 +171,14 @@
 	     (set! selecting? #f)))]
 	[on-interactive-move
 	 (lambda (e)
-	   (super-on-interactive-move e)
+	   (inner (void) on-interactive-move e)
 	   (for-each (lambda (region) (set-region-decided-start?! region #f)) regions)
 	   (for-each-selected (lambda (snip) (send snip remember-location this)))
-	   (set! dragging? #t))]
+	   (set! dragging? #t))])
+      (override
 	[interactive-adjust-move
 	 (lambda (snip xb yb)
-	   (super-interactive-adjust-move snip xb yb)
+	   (super interactive-adjust-move snip xb yb)
 	   (let-values ([(l t r b) (get-snip-bounds snip)])
 	     (let-values ([(rl rt rw rh)
 			   (let ([r (send snip stay-in-region)])
@@ -200,11 +197,12 @@
 		 (when (< (unbox yb) rt)
 		   (set-box! yb rt))
 		 (when (> (unbox yb) max-y)
-		   (set-box! yb max-y))))))]
+		   (set-box! yb max-y))))))])
+      (augment
 	[after-interactive-move
 	 (lambda (e)
 	   (set! dragging? #f)
-	   (super-after-interactive-move e)
+	   (inner (void) after-interactive-move e)
 	   (for-each-selected (lambda (snip) (send snip back-to-original-location this)))
 	   (let ([cards (get-reverse-selected-list)])
 	     ; (no-selected)
@@ -216,7 +214,8 @@
 		   (lambda ()
 		     ((region-callback region) cards)
 		     (unhilite-region region)))))
-	      regions)))]
+	      regions)))])
+      (override
 	[on-default-event
 	 (lambda (e)
 	   (let ([click (or (and (send e button-down? 'left) 'left)
@@ -273,7 +272,7 @@
 		     (when (and bg-click? (not (send e dragging?)))
 		       (set! bg-click? #f)))
 		 (unless bg-click?
-		   (super-on-default-event e))
+		   (super on-default-event e))
 		 (when bg-click?
 		   ; Check for clicking on a button region:
 		   (for-each

@@ -109,7 +109,6 @@
       (define tile:bomb%
         (class tile:plain%
           (inherit get-state draw-text-tile)
-          (rename [super-draw draw])
           (define explode-source? #f) ; draw this bomb as the one that exploded?
           
           (public*
@@ -123,7 +122,7 @@
               (if (eq? (get-state) 'uncovered)
                   (draw-text-tile dc x y w h #f #f "*"
                                   (and explode-source? EXPLODE-COLOR))
-                  (super-draw dc x y w h hilite?)))])
+                  (super draw dc x y w h hilite?)))])
           
           (super-instantiate ())))
       

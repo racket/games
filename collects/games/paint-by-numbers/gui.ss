@@ -790,10 +790,9 @@ paint by numbers.
               (on-paint))))]
       
       [define update-row-col? #t]
-      (rename [super-set-raw-rect set-raw-rect])
       [define/override set-raw-rect
         (lambda (i j n)
-          (super-set-raw-rect i j n)
+          (super set-raw-rect i j n)
           (when update-row-col?
             (update-col i)
             (update-row j)))]
@@ -847,11 +846,10 @@ paint by numbers.
           (set! update-row-col? #t)
           (update-all-rows-cols))]
       
-      (rename [super-set-grid set-grid])
       [define/override set-grid
         (lambda (g)
           (set! update-row-col? #f)
-          (super-set-grid g)
+          (super set-grid g)
           (set! update-row-col? #t)
           (update-all-rows-cols))]
       
