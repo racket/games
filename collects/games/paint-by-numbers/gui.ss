@@ -239,7 +239,9 @@ paint by numbers.
 
 		 (let ([spacing (floor (/ width 5))])
 		   (send dc set-pen LINES/NUMBERS-PEN)
-		   (send dc set-brush (vector-ref (vector-ref grid i) j))
+		   (send dc set-brush 
+			 (new-brush (vector-ref (vector-ref grid i) j)
+				    modifier-on?))
 		   (send dc draw-rectangle
 			 (+ left spacing)
 			 (+ top spacing)
@@ -280,6 +282,21 @@ paint by numbers.
 	       (loop (- i 1))])))])
       
       (private
+	[new-brush
+	 (lambda (prev modifier?)
+	   (cond
+	     [(eq? prev UNKNOWN-BRUSH)
+	      (if modifier?
+		  OFF-BRUSH
+		  ON-BRUSH)]
+	     [(eq? prev ON-BRUSH) UNKNOWN-BRUSH]
+	     [(eq? prev OFF-BRUSH) UNKNOWN-BRUSH]
+	     [(eq? prev WRONG-BRUSH) UNKNOWN-BRUSH]
+	     [else
+	      (error 'internal-error
+		     "unkown brush in board ~s~n" prev)]))]
+
+
 	[draw-row-label
 	 (lambda (n nums)
 	   (let-values ([(gx gy gw gh) (grid->rect 0 n)])
@@ -322,6 +339,14 @@ paint by numbers.
 		     (loop (cdr ss)
 			   (+ line 1)))])))))]
 
+	[check-modifier
+	 (lambda (evt)
+	   (or (send evt get-alt-down)
+	       (send evt get-meta-down)
+	       (send evt get-control-down)
+	       (send evt get-shift-down)))]
+	
+	[modifier-on? #f]
 	[last-p #f]
 	[button-down-p #f]
 	[draw-small-p #f])
@@ -337,23 +362,24 @@ paint by numbers.
 		 [y (send evt get-y)]
 		 [p (xy->grid x y)])
 	    (cond
-	     [(or (send evt moving?)
-		  (send evt entering?)
-		  (send evt leaving?))
+	     [(send evt moving?)
 
 	      ;; update depressed square
-	      (cond
-	       [(equal? button-down-p p)
-		(unless (equal? draw-small-p p)
-		  (set! draw-small-p p)
-		  (paint-rect (car draw-small-p)
-			      (cdr draw-small-p)))]
-	       [else
-		(let ([old-draw-small-p draw-small-p])
-		  (set! draw-small-p #f)
-		  (when old-draw-small-p
-		    (paint-rect (car old-draw-small-p)
-				(cdr old-draw-small-p))))])
+	      (let ([this-modifier (check-modifier evt)])
+		(cond
+		  [(and (equal? button-down-p p)
+			(equal? this-modifier modifier-on?))
+		   (unless (equal? draw-small-p p)
+		     (set! draw-small-p p)
+		     (paint-rect (car draw-small-p)
+				 (cdr draw-small-p)))]
+		  [else
+		   (let ([old-draw-small-p draw-small-p])
+		     (set! draw-small-p #f)
+		     (set! modifier-on? this-modifier)
+		     (when old-draw-small-p
+		       (paint-rect (car old-draw-small-p)
+				   (cdr old-draw-small-p))))]))
 
 	      (let ([dc (get-dc)])
 
@@ -413,6 +439,7 @@ paint by numbers.
 	     [(send evt button-down?)
 	      (set! button-down-p p)
 	      (set! draw-small-p p)
+	      (set! modifier-on? (check-modifier evt))
 	      (when p
 		(paint-rect (car p) (cdr p)))]
 	     [(send evt button-up?)
@@ -420,25 +447,14 @@ paint by numbers.
 	       [(and p (equal? button-down-p p))
 		(set! button-down-p #f)
 		(set! draw-small-p #f)
+		(set! modifier-on? #f)
 		(let* ([i (car p)]
 		       [j (cdr p)]
 		       [prev (vector-ref (vector-ref grid i) j)]
-		       [new
-			(cond
-			 [(eq? prev UNKNOWN-BRUSH)
-			  (if (or (send evt get-alt-down)
-				  (send evt get-control-down)
-				  (send evt get-meta-down)
-				  (send evt get-shift-down))
-			      OFF-BRUSH
-			      ON-BRUSH)]
-			 [(eq? prev ON-BRUSH) UNKNOWN-BRUSH]
-			 [(eq? prev OFF-BRUSH) UNKNOWN-BRUSH]
-			 [(eq? prev WRONG-BRUSH) UNKNOWN-BRUSH]
-			 [else
-			  (error 'internal-error
-				 "unkown brush in board ~s~n"
-				 (vector-ref (vector-ref grid i) j))])])
+		       [new (new-brush prev (or (send evt get-alt-down)
+						(send evt get-control-down)
+						(send evt get-meta-down)
+						(send evt get-shift-down)))])
 		  (set! undo-history (cons (make-do i j prev new) undo-history))
 		  (set! redo-history null)
 		  (vector-set! (vector-ref grid i) j new)
@@ -447,6 +463,7 @@ paint by numbers.
 		(let ([old-draw-small-p draw-small-p])
 		  (set! button-down-p #f)
 		  (set! draw-small-p #f)
+		  (set! modifier-on? (check-modifier evt))
 		  (when old-draw-small-p
 		    (paint-rect (car old-draw-small-p)
 				(cdr old-draw-small-p))))])])))]
