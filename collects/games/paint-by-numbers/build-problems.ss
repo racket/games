@@ -1,12 +1,12 @@
 #!/bin/sh
 
-string=? ; exec mzscheme -qr $0 "$@"
+string=? ; exec mred -qr $0 "$@"
 
 #|
 
-Simple shell script to read in the raw-problems.ss file and produce
-problems.ss with no solutions. See raw-problems.ss for the description
-of that file.
+Shell script to read in the raw-problems.ss file and produce
+problems.ss with solutions via John's solver. See raw-problems.ss for
+the description of that file.
 
 This file must produce code that evaluates to a list of problem
 structs. The problem struct should have four fields: a string, a col,
@@ -34,9 +34,57 @@ yet defined.
     (import [SOLVE : SOLVE^]
 	    mzlib:function^
 	    mzlib:pretty-print^
+	    mred^
 	    (argv))
 
-    (define time-limit (* 5 60)) ;; in seconds
+    (define memory-limit (* 1024 1024 400)) ;; in bytes (500 megs)
+
+    (define memory-frame%
+      (class frame% args
+	(override
+	 [can-close?
+	  (lambda x #f)])
+	(sequence (apply super-init args))))
+    (define memory-frame (parameterize ([current-eventspace (make-eventspace)])
+			   (make-object memory-frame% "memory stats frame" #f 500 50)))
+    (define memory-hp (make-object horizontal-panel% memory-frame))
+    (define memory-vp (make-object vertical-panel% memory-hp))
+    (define memory-text (make-object text%))
+    (define memory-ec (make-object editor-canvas% memory-vp memory-text '(hide-hscroll hide-vscroll)))
+    (define memory-gauge (make-object gauge% #f 10000 memory-vp))
+    (define memory-canvas (make-object canvas% memory-hp))
+    (define memory-on-bitmap (make-object bitmap% (build-path (collection-path "icons") "recycle.gif")))
+    (define memory-off-bitmap (make-object bitmap%
+				(send memory-on-bitmap get-width)
+				(send memory-on-bitmap get-height)))
+
+    (let ([memory-off-bitmap-dc (make-object bitmap-dc% memory-off-bitmap)])
+      (send memory-off-bitmap-dc clear)
+      (send memory-off-bitmap-dc set-bitmap #f))
+
+    (register-collecting-blit memory-canvas 0 0
+			      (send memory-on-bitmap get-width) (send memory-on-bitmap get-height)
+			      memory-on-bitmap memory-off-bitmap)
+    (send memory-canvas min-width (send memory-on-bitmap get-width))
+    (send memory-canvas min-height (send memory-on-bitmap get-height))
+    (send memory-canvas stretchable-width #f)
+    (send memory-canvas stretchable-height #f)
+    (send memory-ec set-line-count 1)
+    (send memory-text hide-caret #t)
+    (define (format-memory-txt use)
+      (format "~a megs (~a bytes)" (bytes->megs use) use))
+    (define (bytes->megs n) (floor (/ n 1024 1024)))
+    (define (update-memory-display)
+      (let ([use (current-memory-use)])
+	(send memory-text lock #f)
+	(send memory-text begin-edit-sequence)
+	(send memory-text erase)
+	(send memory-text insert (format-memory-txt use))
+	(send memory-text end-edit-sequence)
+	(send memory-text lock #t)
+	(send memory-gauge set-value (min 10000 (floor (* 10000 (/ use memory-limit)))))))
+    (update-memory-display)
+    (send memory-frame show #t)
 
     (define problems-dir (collection-path "games" "paint-by-numbers"))
 
@@ -145,7 +193,8 @@ yet defined.
     (define (solve name rows cols)
       (cond
        [(equal? argv (vector))
-	(fprintf (current-error-port) "Solving ~s; time limit ~a seconds~n" name time-limit)
+	(fprintf (current-error-port) "Solving ~s; memory limit ~a~n"
+		 name (format-memory-txt memory-limit))
 	(let ([row-count (length rows)]
 	      [col-count (length cols)])
 	  (set! board
@@ -182,10 +231,22 @@ yet defined.
 		 [k
 		  (thread
 		   (lambda ()
-		     (sleep time-limit)
+		     (let ([check-interval 1]) ;; in seconds
+		       (let loop ()
+			 (sleep check-interval)
+			 (update-memory-display)
+			 (if (<= (current-memory-use) memory-limit)
+			     (loop)
+			     (begin (collect-garbage)(collect-garbage)(collect-garbage)
+				    (update-memory-display)
+				    (if (<= (current-memory-use) memory-limit)
+					(loop)
+					(void))))))
 		     (semaphore-wait kill)
 		     (kill-thread t)
-		     (fprintf (current-error-port) "~ntime limit expired.~n")
+		     (fprintf (current-error-port) "~n memory limit expired.~n")
+		     (collect-garbage)(collect-garbage)(collect-garbage)(collect-garbage)(collect-garbage)
+		     (update-memory-display)
 		     (semaphore-post done)))])
 	  (semaphore-wait done)
 	  (newline (current-error-port))
@@ -249,6 +310,7 @@ yet defined.
     [F : mzlib:function^ ((require-library "functior.ss"))]
     [P : mzlib:pretty-print^ ((require-library "prettyr.ss"))]
     [S : SOLVE^ ((require-library "solve.ss" "games" "paint-by-numbers") F)]
-    [B : BOARD^ (BOARD S F P A)])
+    [mred : mred^ (mred@)]
+    [B : BOARD^ (BOARD S F P mred A)])
    (export))
  (argv))
