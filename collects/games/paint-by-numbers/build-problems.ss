@@ -39,14 +39,12 @@ yet defined.
     (define time-limit (* 5 60)) ;; in seconds
 
     (define problems-dir (collection-path "games" "paint-by-numbers"))
-    (define games-input-file (build-path problems-dir "raw-problems.ss"))
-    (define games-input-file (build-path problems-dir "raw-misc.ss"))
-    (define hattori-input-file (build-path problems-dir "raw-hattori.ss"))
-    
+
     (define hattori-sets
       (let* ([set-size 30]
 	     [raw-hattori
-	      (call-with-input-file hattori-input-file (compose eval read))]
+	      (call-with-input-file (build-path problems-dir "raw-hattori.ss")
+		(compose eval read))]
 	     [hattori-count (length raw-hattori)])
 	(let o-loop ([n 0])
 	  (cond
@@ -68,18 +66,20 @@ yet defined.
 			       (cons (list-ref raw-hattori i)
 				     set))])))]))))
 
-    (define games-set 
-      (list "Games Magazine"
-	    "games"
-	    (call-with-input-file games-input-file (compose eval read))))
-    
-    (define misc-set 
-      (list "Misc"
-	    "misc"
-	    (call-with-input-file misc-input-file (compose eval read))))
+    (define (build-set name output-file input-file)
+      (list name
+	    output-file
+	    (call-with-input-file (build-path problems-dir input-file) (compose eval read))))
 
-    ;(define sets (cons games-set hattori-sets))
-    (define sets (list games-set))
+    (define games-set (build-set "Games Magazine"
+				 "games"
+				 "raw-problems.ss"))
+    (define misc-set (build-set "Misc"
+				"misc"
+				"raw-misc.ss"))
+
+    ;(define sets (cons games-set (cons misc-set hattori-sets)))
+    (define sets (list misc-set))
 
     (define (sum-list l) (apply + l))
     (define (sum-lists ls) (sum-list (map sum-list ls)))
