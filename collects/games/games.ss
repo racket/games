@@ -6,6 +6,7 @@
    (define game-mapping 
      '(("gofish" "gofish.ss" "Go Fish" #t)
        ("blackjack" "blackjack.ss" "Blackjack" #t)
+       ("same" "same.ss" "Same" #f)
        ("mines" "mines.ss" "Minesweeper" #f)))
    
    (define f (make-object (class frame% (name)
