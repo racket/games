@@ -2,7 +2,8 @@
 (require-library "pretty.ss")
 
 (define raw-hattori (call-with-input-file 
-			"/home/robby/plt/collects/games/paint-by-numbers/raw-hattori.ss"
+			(build-path (collection-path "games" "paint-by-numbers")
+				    "raw-hattori.ss")
 		      (lambda (x) (eval (read x)))))
 
 (define (num-possibilities size col)
@@ -42,8 +43,9 @@
 		     (loop (cdr hattoris)))))]))
   (lambda (x y) (< (cadr x) (cadr y)))))
 
+#|
 ;; result of previous expression
-'(("Hattori 81" 158)
+(("Hattori 81" 158)
   ("Hattori 1" 205)
   ("Hattori 3" 647)
   ("Hattori 82" 709)
@@ -182,3 +184,4 @@
   ("Hattori 109" 469815)
   ("Hattori 110" 516937)
   ("Hattori 122" 5784954))
+|#
