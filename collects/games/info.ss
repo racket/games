@@ -1,10 +1,6 @@
-
-(lambda (request failure)
-  (case request
-    [(name) "Games"]
-    [(mred-launcher-libraries) (list "games.ss")]
-    [(mred-launcher-names) (list "Games")]
-    [(doc-sub-collections) (list "cards"
-				 "paint-by-numbers" "same" "lights-out" "aces"
-				 "pousse")]
-    [else (failure)]))
+(module info (lib "infotab.ss" "setup")
+  (define name "Games")
+  (define mred-launcher-libraries (list "games.ss"))
+  (define mred-launcher-names (list "Games"))
+  (define doc-sub-collections
+    (list "cards" "paint-by-numbers" "same" "lights-out" "aces" "pousse")))
