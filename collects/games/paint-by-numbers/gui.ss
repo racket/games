@@ -15,6 +15,12 @@ same length. paint-by-numbers-canvas% objects accepts four methods:
     Draws the rectangle specified by the arguments.
     Call this after calling set-rect to see the changes updated on the screen.
 
+  get-grid : (-> (list-of (list-of (union 'on 'off 'unknown))))
+    Returns the current state of the entire board as a list of lists.
+
+  set-grid : ((list-of (list-of (union 'on 'off 'unknown)))-> void)
+    Sets the state of the board. No drawing takes place
+
   on-paint : (-> void)
     Redraws the entire canvas. May be used if many rects were set.
 
@@ -141,12 +147,38 @@ paint by numbers.
 		      (color->val actual)
 		      x y))
 	     (vector-set! (vector-ref grid x) y new)
-	     (paint-rect x y)))])
-		      
+	     (paint-rect x y)))]
+
+	[brush->symbol
+	 (lambda (res)
+	   (cond
+	    [(eq? res UNKNOWN-BRUSH) 'unknown]
+	    [(eq? res OFF-BRUSH) 'off]
+	    [(eq? res ON-BRUSH) 'on]))]
+	[sym->brush
+	 (lambda (sym)
+	   (case sym
+	     [(unknown) UNKNOWN-BRUSH]
+	     [(off) OFF-BRUSH]
+	     [(on) ON-BRUSH]))])
       
       (public
 
-	 ;; (-> void)
+	;; ((list-of (list-of (union 'unknown 'off 'on))) -> void)
+	[set-grid
+	 (lambda (g)
+	   (set! grid
+		 (list->vector
+		  (map (lambda (x) (list->vector (map sym->brush x)))
+		       g))))]
+
+	;; (-> (list-of (list-of (union 'unknown 'off 'on))))
+	[get-grid
+	 (lambda ()
+	   (map (lambda (x) (map brush->symbol (vector->list x)))
+		(vector->list grid)))]
+
+	;; (-> void)
 	[undo
 	 (lambda ()
 	   (cond
@@ -181,20 +213,14 @@ paint by numbers.
 	[get-rect
 	 (lambda (i j)
 	   (let ([res (vector-ref (vector-ref grid i) j)])
-	     (cond
-	      [(eq? res UNKNOWN-BRUSH) 'unknown]
-	      [(eq? res OFF-BRUSH) 'off]
-	      [(eq? res ON-BRUSH) 'on])))]
+	     (brush->symbol res)))]
 
 	;; (int int (union 'on 'off 'unknown) -> void)
 	[set-rect
 	 (lambda (i j sym)
 	   (vector-set! (vector-ref grid i)
 			j
-			(case sym
-			  [(unknown) UNKNOWN-BRUSH]
-			  [(off) OFF-BRUSH]
-			  [(on) ON-BRUSH])))])
+			(sym->brush sym)))])
       
 
       (override
@@ -256,6 +282,7 @@ paint by numbers.
        [on-paint
 	(lambda ()
 	  (let ([dc (get-dc)])
+	    (send dc clear)
 	    (let-values ([(width height) (get-client-size)])
 
 	      (send dc set-pen LINES/NUMBERS-PEN)
