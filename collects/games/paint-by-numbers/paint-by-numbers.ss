@@ -141,7 +141,6 @@
             (when fn
               (update-filename fn)
               (do-save))))]
-      (rename [super-file-menu:between-new-and-open file-menu:between-new-and-open])
       
       [define/override file-menu:new-string (lambda () "New Puzzle")]
       [define/override file-menu:new-callback
@@ -350,10 +349,10 @@
         (lambda ()
           canvas))
       
-      (rename [super-on-close on-close])
-      (define/override on-close
+      (define/augment on-close
         (lambda ()
-          (when canvas (send canvas close-up))))
+          (inner (void) on-close)
+	  (when canvas (send canvas close-up))))
       
       (set-problem problem)
       (show #t)))
@@ -393,11 +392,10 @@
           canvas)]
       
       
-      (rename [super-on-close on-close])
-      [define/override on-close
+      [define/augment on-close
 	(lambda ()
-	  (when canvas (send canvas close-up))
-	  (super-on-close))]
+	  (inner (void) on-close)
+	  (when canvas (send canvas close-up)))]
       
       (super-instantiate () (label editor-name))
       
