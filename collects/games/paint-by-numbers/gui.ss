@@ -15,10 +15,10 @@ same length. paint-by-numbers-canvas% objects accepts four methods:
     Draws the rectangle specified by the arguments.
     Call this after calling set-rect to see the changes updated on the screen.
 
-  get-grid : (-> (list-of (list-of (union 'on 'off 'unknown))))
+  get-grid : (-> (list-of (list-of (union 'on 'off 'unknown 'wrong))))
     Returns the current state of the entire board as a list of lists.
 
-  set-grid : ((list-of (list-of (union 'on 'off 'unknown)))-> void)
+  set-grid : ((list-of (list-of (union 'on 'off 'unknown 'wrong)))-> void)
     Sets the state of the board. No drawing takes place
 
   on-paint : (-> void)
@@ -40,6 +40,8 @@ paint by numbers.
   (define UNKNOWN-BRUSH (send the-brush-list find-or-create-brush "DARK GRAY" 'solid))
   (define ON-BRUSH (send the-brush-list find-or-create-brush "BLUE" 'solid))
   (define OFF-BRUSH (send the-brush-list find-or-create-brush "WHITE" 'solid))
+  (define WRONG-BRUSH (send the-brush-list find-or-create-brush "RED" 'solid))
+
   (define LINES/NUMBERS-PEN (send the-pen-list find-or-create-pen "BLACK" 1 'solid))
 
   (define WHITE-PEN (send the-pen-list find-or-create-pen "WHITE" 1 'solid))
@@ -164,17 +166,19 @@ paint by numbers.
 	   (cond
 	    [(eq? res UNKNOWN-BRUSH) 'unknown]
 	    [(eq? res OFF-BRUSH) 'off]
-	    [(eq? res ON-BRUSH) 'on]))]
+	    [(eq? res ON-BRUSH) 'on]
+	    [(eq? res WRONG-BRUSH) 'wrong]))]
 	[sym->brush
 	 (lambda (sym)
 	   (case sym
 	     [(unknown) UNKNOWN-BRUSH]
 	     [(off) OFF-BRUSH]
-	     [(on) ON-BRUSH]))])
+	     [(on) ON-BRUSH]
+	     [(wrong) WRONG-BRUSH]))])
       
       (public
 
-	;; ((list-of (list-of (union 'unknown 'off 'on))) -> void)
+	;; ((list-of (list-of (union 'unknown 'off 'on 'wrong))) -> void)
 	[set-grid
 	 (lambda (g)
 	   (set! undo-history null)
@@ -184,7 +188,7 @@ paint by numbers.
 		  (map (lambda (x) (list->vector (map sym->brush x)))
 		       g))))]
 
-	;; (-> (list-of (list-of (union 'unknown 'off 'on))))
+	;; (-> (list-of (list-of (union 'unknown 'off 'on 'wrong))))
 	[get-grid
 	 (lambda ()
 	   (map (lambda (x) (map brush->symbol (vector->list x)))
@@ -221,13 +225,13 @@ paint by numbers.
 	       (send dc set-brush (vector-ref (vector-ref grid i) j))
 	       (send dc draw-rectangle left top width height))))]
 
-	;; (int int -> (union 'on 'off 'unknown))
+	;; (int int -> (union 'on 'off 'unknown 'wrong))
 	[get-rect
 	 (lambda (i j)
 	   (let ([res (vector-ref (vector-ref grid i) j)])
 	     (brush->symbol res)))]
 
-	;; (int int (union 'on 'off 'unknown) -> void)
+	;; (int int (union 'on 'off 'unknown 'wrong) -> void)
 	[set-rect
 	 (lambda (i j sym)
 	   (vector-set! (vector-ref grid i)
@@ -281,7 +285,7 @@ paint by numbers.
 			 [sy (- (/ col-label-height 2)
 				(/ height 2))])
 		    (send dc draw-text string sx sy))))]
-	     [(send evt button-down?)
+	     [(send evt button-up?)
 	      (when p
 		(let* ([i (car p)]
 		       [j (cdr p)]
@@ -297,6 +301,7 @@ paint by numbers.
 			      ON-BRUSH)]
 			 [(eq? prev ON-BRUSH) UNKNOWN-BRUSH]
 			 [(eq? prev OFF-BRUSH) UNKNOWN-BRUSH]
+			 [(eq? prev WRONG-BRUSH) UNKNOWN-BRUSH]
 			 [else
 			  (error 'internal-error
 				 "unkown brush in board ~s~n"

@@ -96,20 +96,38 @@ yet defined.
       (newline (current-error-port))
       (build-progress-outputer max))
 
+    (define time-limit 10) ;; in seconds
+
     (define (solve name rows cols)
       (cond
        [(equal? argv (vector))
-	(fprintf (current-error-port) "Solving ~s~n" name)
+	(fprintf (current-error-port) "Solving ~s; time limit ~a seconds~n" name time-limit)
 	(let ([row-count (length rows)]
 	      [col-count (length cols)])
-	  (set! board (build-vector col-count
-				    (lambda (i) (make-vector row-count 'unknown))))
+	  (set! board
+		(build-vector col-count
+			      (lambda (i) (make-vector row-count 'unknown))))
 	  (set! known 0)
-	  (set! solving-progress-output (build-progress-outputer (* row-count col-count)))
-	  (SOLVE:solve rows cols))
-	(newline (current-error-port))
-	(newline (current-error-port))
-	board]
+	  (set! solving-progress-output (build-progress-outputer (* row-count col-count))))
+	(let* ([done (make-semaphore 0)]
+	       [sucessful? #f]
+	       [t (thread
+		   (lambda ()
+		     (SOLVE:solve rows cols)
+		     (set! sucessful? #t)
+		     (semaphore-post done)))])
+	  (thread
+	   (lambda ()
+	     (sleep time-limit)
+	     (kill-thread t)
+	     (fprintf (current-error-port) "~ntime limit expired.~n")
+	     (semaphore-post done)))
+	  (semaphore-wait done)
+	  (newline (current-error-port))
+	  (newline (current-error-port))
+	  (if sucessful?
+	      board
+	      #f))]
        [else #f]))
 
     (define (sanity-check problem)
