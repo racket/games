@@ -27,7 +27,7 @@
 		      [on-close (lambda () (exit))])
 		    (super-new))
 		  [label "PLT Games"]
-		  [style '(metal)]))
+		  [style '(metal no-resize-border)]))
    (define hp (make-object horizontal-panel% f))
    (define main (make-object vertical-panel% hp))
    (send f set-alignment 'left 'top)
@@ -64,7 +64,7 @@
    (let ([pred (lambda (x y) (<= (send x min-width) (send y min-width)))])
      (send p change-children (lambda (l) (quicksort l pred))))
 
-   (make-object grow-box-spacer-pane% hp)
+   ; (make-object grow-box-spacer-pane% hp)
 
    (define show-games-help
      (show-help '("games") "About PLT Games"))

@@ -598,7 +598,7 @@
 				       (values (* (- len p) (/ (- w cw) len))
 					       (* (- len p) (/ (- h ch) len)))))
 				 set)))))])
-      (super-new [label title] [style '(metal)])
+      (super-new [label title] [style '(metal no-resize-border)])
       (begin
         (define c (make-object mred:editor-canvas% this #f '(no-vscroll no-hscroll)))
 	(define pb (make-object pasteboard%)))
