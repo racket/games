@@ -89,10 +89,13 @@
   
   (send main-horizontal-panel change-children
         (lambda (l) (quicksort l
-                               (lambda (x y) (< (length (send x get-children))
-                                                (length (send y get-children)))))))
-
-   ; (make-object grow-box-spacer-pane% hp)
+                               (lambda (x y) 
+				 (let ([l1 (length (send x get-children))]
+				       [l2 (length (send y get-children))])
+				   (cond
+				    [(> l1 l2) #t]
+				    [(= l1 l2) (string-ci<? (send x get-label) (send y get-label))]
+				    [else #f]))))))
 
    (define show-games-help
      (show-help '("games") "About PLT Games"))

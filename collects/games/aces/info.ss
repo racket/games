@@ -1,4 +1,4 @@
 (module info (lib "infotab.ss" "setup")
   (define name "Aces")
   (define game "aces.scm")
-  (define game-set "Cards"))
+  (define game-set "Card Games"))
