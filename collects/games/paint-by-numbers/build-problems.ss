@@ -1,6 +1,6 @@
 #!/bin/sh
 
-string=? ; exec mzscheme -qgr $0 "$@"
+string=? ; exec mzscheme -qr $0 "$@"
 
 #|
 
@@ -21,7 +21,7 @@ yet defined.
 (require-library "functios.ss")
 (require-library "prettys.ss")
 
-(require-library "errortrace.ss" "errortrace")
+;(require-library "errortrace.ss" "errortrace")
 
 (require-library "raw-sig.ss" "games" "paint-by-numbers")
 
