@@ -626,8 +626,8 @@
 	    ; (board-line-list try-list-list-opt-list) -> (tally-list-list try-list-list-opt-list)
 	    (define do-lines 
               (contract
-               (->* (any? try-batch?)
-                    ((listof (listof any?))  try-batch?))
+               (->* (any/c try-batch?)
+                    ((listof (listof any/c))  try-batch?))
                (lambda (board-line-list try-list-list-opt-list)
                  (let ([new-tries (batch-try board-line-list try-list-list-opt-list)])
                    (values (batch-tabulate board-line-list new-tries)
@@ -639,8 +639,8 @@
 	    ; of try-list-list-lists, and a boolean (whether it's changed)
 	    (define full-set
               (contract
-               (->* (any? try-batch? try-batch?)
-                    (any? try-batch? try-batch? boolean?))
+               (->* (any/c try-batch? try-batch?)
+                    (any/c try-batch? try-batch? boolean?))
                (lambda (board row-try-list-list-opt-list col-try-list-list-opt-list)
                  (let*-values ([(board-rows new-row-tries)
                                 (do-lines (extract-rows board) row-try-list-list-opt-list)]
