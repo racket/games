@@ -1,19 +1,18 @@
 (unit/sig cards:make-cards^
-  (import [wx : wx^]
-	  [mred : mred^]
+  (import [mred : mred^]
 	  [card-class : cards:card-class^])
 
   (define (get-bitmap file)
-    (make-object wx:bitmap% file wx:const-bitmap-type-gif))
+    (make-object mred:bitmap% file 'gif))
   (define (get-bitmap/dc file)
     (let ([bm (get-bitmap file)])
-      (let ([m (make-object wx:memory-dc%)])
+      (let ([m (make-object mred:memory-dc%)])
 	(send m select-object bm)
 	m)))
 
   (define (make-semi dc w h)
-    (let* ([bm (make-object wx:bitmap% (floor (/ w 2)) h)]
-	   [mdc (make-object wx:memory-dc%)])
+    (let* ([bm (make-object mred:bitmap% (floor (/ w 2)) h)]
+	   [mdc (make-object mred:memory-dc%)])
       (send mdc select-object bm)
       (let loop ([i (floor (/ w 2))])
 	(unless (zero? i)
@@ -22,16 +21,15 @@
       mdc))
 
   (define tmpframe
-    (let* ([f (make-object mred:dialog-box% null "Please Wait")]
-	   [p (make-object mred:vertical-panel% f)])
-      (make-object mred:message% p "Loading cards...")
-      (send p stretchable-in-x #f)
-      (send p stretchable-in-y #f)
-      (send f center wx:const-both)
+    (let* ([f (make-object mred:frame% "Please Wait")])
+      (make-object mred:message% "Loading cards..." f)
+      (send f stretchable-height #f)
+      (send f stretchable-width #f)
+      (send f center 'both)
       (send f show #t)
       f))
-  (wx:flush-display)
-  (wx:yield)
+  (mred:flush-display)
+  (mred:yield)
 
   (define here 
     (let ([cp (collection-path "games" "cards")])
@@ -44,7 +42,7 @@
     (let* ([back (get-bitmap (here "back.gif"))]
 	   [w (send back get-width)]
 	   [h (send back get-height)]
-	   [back (let ([m (make-object wx:memory-dc%)])
+	   [back (let ([m (make-object mred:memory-dc%)])
 		   (send m select-object back)
 		   m)]
 	   [semi-back (make-semi back w h)])

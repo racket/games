@@ -1,5 +1,5 @@
 (unit/sig cards:constants^
-  (import [wx : wx^])
+  (import mred^)
 
   (define ANIMATION-STEPS 5)
   (define ANIMATION-TIME 0.3)
@@ -7,11 +7,11 @@
   (define PRETTY-CARD-SEP-AMOUNT 5)
 
   (define red-brush
-    (send wx:the-brush-list
+    (send the-brush-list
 	  find-or-create-brush
-	  "RED" wx:const-solid))
+	  "RED" 'solid))
 
   (define nice-font
-    (send wx:the-font-list
+    (send the-font-list
 	  find-or-create-font
-	  12 wx:const-decorative wx:const-normal wx:const-bold)))
+	  12 'decorative 'normal 'bold)))

@@ -1,10 +1,9 @@
 (unit/sig cards:card-class^
-  (import [wx : wx^]
-	  [mred : mred^]
+  (import [mred : mred^]
 	  [snipclass : cards:snipclass^])
 
   (define card%
-    (class wx:snip% (suit-id value width height front back semi-front semi-back)
+    (class mred:snip% (suit-id value width height front back semi-front semi-back)
 	   (inherit set-snipclass set-count get-admin)
 	   (private
 	    [flipped? #f]
@@ -15,7 +14,7 @@
 	    [refresh
 	     (lambda ()
 	       (let ([a (get-admin)])
-		 (unless (null? a)
+		 (when a
 		   (send a needs-update this 0 0 width height))))])
 	   (public
 	    [face-down? (lambda () flipped?)]
@@ -29,8 +28,6 @@
 	       (refresh))]
 	    [face-up (lambda () (when flipped? (flip)))]
 	    [face-down (lambda () (unless flipped? (flip)))]
-	    [resize
-	     (lambda (w h) (void))]
 	    [get-suit-id
 	     (lambda () suit-id)]
 	    [get-suit
@@ -53,19 +50,21 @@
 	    [snap-back-after-move
 	     (case-lambda
 	      [() snap-back?]
-	      [(f) (set! snap-back? (and f #t))])])
-	   (public
+	      [(f) (set! snap-back? (and f #t))])]
 	    [card-width (lambda () width)]
-	    [card-height (lambda () height)]
+	    [card-height (lambda () height)])
+	   (override
+	     [resize
+	      (lambda (w h) (void))]
 	    [get-extent
 	     (lambda (dc x y w h descent space lspace rspace)
 	       (map
 		(lambda (b)
-		  (unless (null? b)
+		  (when b
 		    (set-box! b 0)))
 		(list descent space lspace rspace))
-	       (unless (null? w) (set-box! w width))
-	       (unless (null? h) (set-box! h height)))]
+	       (when w (set-box! w width))
+	       (when h (set-box! h height)))]
 	    [draw
 	     (lambda (dc x y left top right bottom dx dy draw-caret)
 	       (if semi-flipped?

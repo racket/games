@@ -1,6 +1,6 @@
 (unit/sig cards:snipclass^
-  (import [wx : wx^])
+  (import mred^)
 
-  (define sc (make-object wx:snip-class%))
+  (define sc (make-object snip-class%))
   (send sc set-classname "card")
-  (send (wx:get-the-snip-class-list) add sc))
+  (send (get-the-snip-class-list) add sc))

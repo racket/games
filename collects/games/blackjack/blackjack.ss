@@ -29,8 +29,6 @@
 ;; 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(require-library "sig.ss" "mred")
-(require-library "wxs.ss" "system")
 (require-library "cards.ss" "games" "cards")
 
 ; Number of decks to use
@@ -49,12 +47,12 @@
 
 ; Set up the table
 (define t (make-table "Blackjack" 6 3))
-(send t create-status-line 1)
+(send t create-status-line)
 (send t show #t)
 (send t set-double-click-action #f)
-(send t set-button-action 1 'drag/one)
-(send t set-button-action 2 'drag/one)
-(send t set-button-action 3 'drag/one)
+(send t set-button-action 'left 'drag/one)
+(send t set-button-action 'middle 'drag/one)
+(send t set-button-action 'right 'drag/one)
 
 ; Get table width & height
 (define w (send t table-width))
@@ -244,7 +242,7 @@
 			      continue)]
 		       [else (update-money! (if double? 4 2))
 			     (done "Push" continue)])
-		      (wx:yield continue)))]
+		      (yield continue)))]
 		 ; Done with the first hand of a split
 		 [finish-split
 		  (lambda (p player-region player-wait-region player-border)
@@ -261,7 +259,7 @@
 		 [local-bust (lambda ()
 			       (let ([cont (make-semaphore)])
 				 (done "Bust" cont)
-				 (wx:yield cont)))]
+				 (yield cont)))]
 		 ; Callback for the hit button; the button's callback
 		 ;  is changed for diferent modes: normal, split part 1, or split part 2
 		 [make-hit-callback
@@ -395,7 +393,7 @@
 						     stand-button
 						     switch)))))))
 		  ; Wait until the player is done
-		  (wx:yield continue)
+		  (yield continue)
 		  ; No more player actions; get rid of the buttons
 		  (send t remove-region hit-button)
 		  (send t remove-region stand-button)

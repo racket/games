@@ -1,5 +1,4 @@
-(require-library "sig.ss" "mred")
-(require-library "wxs.ss" "system")
+
 (require-library "cards.ss" "games" "cards")
 
 ; Player record
@@ -31,12 +30,12 @@
 
 ; Set up the table
 (define t (make-table "Go Fish" 8 5))
-(send t create-status-line 1)
+(send t create-status-line)
 (send t show #t)
 (send t set-double-click-action #f)
-(send t set-button-action 1 'drag/one)
-(send t set-button-action 2 'drag/one)
-(send t set-button-action 3 'drag/one)
+(send t set-button-action 'left 'drag/one)
+(send t set-button-action 'middle 'drag/one)
+(send t set-button-action 'right 'drag/one)
 
 ; Get table width & height
 (define w (send t table-width))
@@ -285,7 +284,7 @@
   (set-region-callback! (player-r player-1) (player-callback player-1))
   (set-region-callback! (player-r player-2) (player-callback player-2))
   (send t set-status-text YOUR-TURN-MESSAGE)
-  (wx:yield something-happened)
+  (yield something-happened)
   (if go-fish?
       (begin
 	(if (if (null? deck)
@@ -299,7 +298,7 @@
 		  (set-region-callback! (player-r player-2) #f)
 		  (set-region-callback! (player-r you) fishing)
 		  (send (car deck) user-can-move #t)
-		  (wx:yield something-happened)
+		  (yield something-happened)
 		  (enable-your-cards #t)
 		  (check-hand you (car (player-hand you)))))
 	    (check-done loop)

@@ -1,6 +1,5 @@
 (unit/sig cards:main^
-  (import [wx : wx^]
-	  [mred : mred^]
+  (import [mred : mred^]
 	  cards:classes^
 	  cards:make-cards^)
   
