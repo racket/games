@@ -35,6 +35,7 @@
 			    (send t insert #\space)))])
 		      (loop)))))
 	      'text)
+	    (send t lock #t)
 	    (send t set-position 0 0)
 	    (send frame show #t)
 	    (set! f frame))))))
