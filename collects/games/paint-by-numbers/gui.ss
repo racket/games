@@ -18,7 +18,7 @@ same length. paint-by-numbers-canvas% objects accepts four methods:
   get-grid : (-> (list-of (list-of (union 'on 'off 'unknown 'wrong))))
     Returns the current state of the entire board as a list of lists.
 
-  set-grid : ((list-of (list-of (union 'on 'off 'unknown 'wrong)))-> void)
+  set-grid : ((vector-of (vector-of (union 'on 'off 'unknown 'wrong)))-> void)
     Sets the state of the board. No drawing takes place
 
   on-paint : (-> void)
@@ -35,7 +35,7 @@ paint by numbers.
 (unit/sig GUI^
 
   (import mzlib:function^
-	  mred^)
+	  mred-interfaces^)
 
   (define UNKNOWN-BRUSH (send the-brush-list find-or-create-brush "DARK GRAY" 'solid))
   (define ON-BRUSH (send the-brush-list find-or-create-brush "BLUE" 'solid))
@@ -267,6 +267,12 @@ paint by numbers.
 	;; (int int -> (instance brush%))
 	[get-raw-rect
 	 (lambda (i j)
+	   '(unless (and (<= 0 i)
+			(< i grid-x-size)
+			(<= 0 j)
+			(< j grid-y-size))
+	     (error 'get-raw-rect "cannot get (~a, ~a) in ~ax~a board"
+		    i j grid-x-size grid-y-size))
 	   (vector-ref (vector-ref grid i) j))]
 
 	;; (int int -> (union 'on 'off 'unknown 'wrong))
@@ -277,6 +283,12 @@ paint by numbers.
 	;; (int int (instance brush%) -> void)
 	[set-raw-rect
 	 (lambda (i j brush)
+	   '(unless (and (<= 0 i)
+			(< i grid-x-size)
+			(<= 0 j)
+			(< j grid-y-size))
+	     (error 'set-raw-rect "cannot set (~a, ~a) in ~ax~a board"
+		    i j grid-x-size grid-y-size))
 	   (vector-set! (vector-ref grid i) j brush))]
 
 	;; (int int (union 'on 'off 'unknown 'wrong) -> void)
@@ -628,8 +640,8 @@ paint by numbers.
 	       on-paint)
       (private
 	[calculate-col/row
-	 (lambda (get-rect col/row-numbers)
-	   (let loop ([i (length col/row-numbers)]
+	 (lambda (get-rect col/row-numbers num-row/cols)
+	   (let loop ([i num-row/cols]
 		      [block-count 0]
 		      [ans null])
 	     (cond
@@ -649,16 +661,16 @@ paint by numbers.
 	[calculate-col
 	 (lambda (col)
 	   (calculate-col/row
-	    (lambda (i)
-	      (get-rect col i))
-	    col-numbers))]
+	    (lambda (i) (get-rect col i))
+	    col-numbers
+	    (length row-numbers)))]
 
 	[calculate-row
 	 (lambda (row)
 	   (calculate-col/row
-	    (lambda (i)
-	      (get-rect i row))
-	    row-numbers))]
+	    (lambda (i) (get-rect i row))
+	    row-numbers
+	    (length col-numbers)))]
 	
 	[update-col/row
 	 (lambda (col/row col/row-numbers calculate-col/row draw-col/row-label)
@@ -700,14 +712,75 @@ paint by numbers.
 	       (update-min-spacing)
 	       (on-paint))))])
 
+      (private
+	[update-row-col? #t])
       (rename [super-set-raw-rect set-raw-rect])
       (override
        [set-raw-rect
 	(lambda (i j n)
 	  (super-set-raw-rect i j n)
-	  (update-col i)
-	  (update-row j))])
+	  (when update-row-col?
+	    (update-col i)
+	    (update-row j)))])
 
+      (private
+	[update-all-rows-cols
+	 (lambda ()
+	   (let loop ([i width])
+	     (unless (zero? i)
+	       (update-col (- i 1))
+	       (loop (- i 1))))
+	   (let loop ([i height])
+	     (unless (zero? i)
+	       (update-row (- i 1))
+	       (loop (- i 1)))))])
+      (inherit set-rect)
+      (public
+	[set-bitmap
+	 (lambda (bitmap)
+	   (set! update-row-col? #f)
+	   (let ([dc (make-object bitmap-dc% bitmap)]
+		 [c (make-object color%)]
+		 [warned? #f])
+	     (let loop ([i width])
+	       (unless (zero? i)
+		 (let loop ([j height])
+		   (unless (zero? j)
+		     (let ([m (- i 1)]
+			   [n (- j 1)])
+		       (send dc get-pixel m n c)
+		       (when (and (not warned?)
+				  (not (or (and (= 0 (send c red))
+						(= 0 (send c blue))
+						(= 0 (send c green)))
+					   (and (= 255 (send c red))
+						(= 255 (send c blue))
+						(= 255 (send c green))))))
+			 (set! warned? #t)
+			 (message-box
+			  "Paint by Numbers"
+			  "WARNING: This is a color bitmap; non-white pixels will be considered black"))
+		       (set-rect m n
+				 (if (and (= 255 (send c red))
+					  (= 255 (send c blue))
+					  (= 255 (send c green)))
+				     'off
+				     'on)))
+		     (loop (- j 1))))
+		 (loop (- i 1)))))
+
+	   (set! update-row-col? #t)
+	   (update-all-rows-cols))])
+
+      (rename [super-set-grid set-grid])
+      (override
+       [set-grid
+	(lambda (g)
+	  (set! update-row-col? #f)
+	  (super-set-grid g)
+	  (set! update-row-col? #t)
+	  (update-all-rows-cols))])
+		 
       (sequence
 	(super-init parent null null)
 	(set! row-numbers (vector->list (make-vector height null)))

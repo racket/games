@@ -22,7 +22,7 @@ yet defined.
 
 (require-library "errortrace.ss" "errortrace")
 
-(require-library "sig.ss" "games" "paint-by-numbers")
+(require-library "raw-sig.ss" "games" "paint-by-numbers")
 
 (if (eq? (vector) argv)
     (fprintf (current-error-port) "pass any commad line argument to skip the solver~n~n")
@@ -114,7 +114,7 @@ yet defined.
 		 [sucessful? #f]
 		 [t (thread
 		     (lambda ()
-		       (SOLVE:solve rows cols)
+		       (SOLVE:solve rows cols set-entry setup-progress)
 		       (set! sucessful? #t)
 		       (semaphore-wait kill)
 		       (kill-thread k)
@@ -176,7 +176,7 @@ yet defined.
    (link
     [F : mzlib:function^ ((require-library "functior.ss"))]
     [P : mzlib:pretty-print^ ((require-library "prettyr.ss"))]
-    [S : SOLVE^ ((require-library "solve.ss" "games" "paint-by-numbers") B F)]
+    [S : SOLVE^ ((require-library "solve.ss" "games" "paint-by-numbers") F)]
     [B : BOARD^ (BOARD S F P A)])
    (export))
  (argv))

@@ -1,7 +1,8 @@
 (unit/sig SOLVE^
-  (import [BOARD : BOARD^]
-	  mzlib:function^)
+  (import mzlib:function^)
   
+  (define (solve row-info col-info set-entry setup-progress)
+  (local(
   (define (pause) (sleep 1/16))
 
   ; all test cases are commented out.
@@ -270,10 +271,10 @@
 		  (inner-loop (+ inner-index 1))))))))
   
   (define (draw-rows-thunk board row col)
-    (BOARD:set-entry col row (board-ref board row col)))
+    (set-entry col row (board-ref board row col)))
   
   (define (draw-cols-thunk board col row)
-    (BOARD:set-entry col row (board-ref board row col)))
+    (set-entry col row (board-ref board row col)))
 				 
 ;  (print-board '((full full unknown empty)
 ;		 (full full unknown unknown)
@@ -315,10 +316,10 @@
 					(length (car board-cols))))])
       (values final-board new-row-tries new-col-tries (or row-changed col-changed))))
   
-  (define (solve row-info col-info)
+  (define (local-solve row-info col-info)
     (let* ([rows (length row-info)]
 	   [cols (length col-info)]
-	   [update-progress (BOARD:setup-progress (+ rows cols))]
+	   [update-progress (setup-progress (+ rows cols))]
 	   [row-try-list-list-list (memoize-tries row-info cols update-progress)]
 	   [col-try-list-list-list (memoize-tries col-info rows update-progress)]
 	   [board (build-list rows (lambda (x) (build-list cols (lambda (x) 'unknown))))])
@@ -329,9 +330,6 @@
 	(if changed
 	    (call-with-values (lambda () (full-set board row-tries col-tries))
 			      loop)
-	    board))))
-  
-  ;; JOHN -- this sanity check is applied in build problems.
-  '(define (sanity-check row-info col-info)
-    (= (apply + (map (lambda (x) (apply + x)) row-info))
-       (apply + (map (lambda (x) (apply + x)) col-info)))))
+	    board)))))
+
+    (local-solve row-info col-info))))
