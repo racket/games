@@ -5,7 +5,8 @@
 	   (lib "class.ss")
            (lib "unit.ss")
            (lib "etc.ss")
-	   (lib "list.ss"))
+	   (lib "list.ss")
+           (lib "async-channel.ss"))
   
   ;; Player record
   (define-struct player (r hand-r  ; region
@@ -18,12 +19,15 @@
   ;; Messages
   (define YOUR-NAME "You")
   (define PLAYER-X-NAME "Opponent ~a")
-  (define YOUR-TURN-MESSAGE "Your turn.  (Drag a match to your discard box or drag a card to an opponent.)")
+  (define YOUR-TURN-MESSAGE "Your turn.  (Discard an ~a or ~a, or else ~a.)")
+  (define GAME-OVER-YOU-WIN "Game over - you win!")
+  (define GAME-OVER "Game over - opponent wins")
   
   ;; Region layout constants
   (define MARGIN 10)
   (define SUBMARGIN 10)
   (define LABEL-H 15)
+  (define PASS-W 40)
       
   ;; Randomize
   (random-seed (modulo (current-milliseconds) 10000))
@@ -46,7 +50,19 @@
    (lambda (card)
      (send card user-can-flip #f))
    deck)
-      
+
+  ;; We'll need an 8 of each suit for substitutions later:
+  (define (find-8 suit)
+    (ormap (lambda (c)
+             (and (= 8 (send c get-value))
+                  (eq? suit (send c get-suit))
+                  (send c copy)))
+           deck))
+  (define 8-hearts (find-8 'hearts))
+  (define 8-spades (find-8 'spades))
+  (define 8-clubs (find-8 'clubs))
+  (define 8-diamonds (find-8 'diamonds))
+  
   ;; Function for dealing or drawing cards
   (define (deal n)
     (let loop ([n n][d deck])
@@ -77,7 +93,49 @@
                  (+ cw MARGIN) (+ ch MARGIN)
                  "" #f))
   
+  (define SEL-WIDTH 32)
+  (define SEL-HEIGHT 32)
+  
+  (define (make-suit-region x y label card)
+    (let ([bm (make-object bitmap%
+                (build-path (collection-path "games" "crazy8s")
+                            "images"
+                            (format "~a.png" label))
+                'unknown/mask)])
+      (make-button-region x y
+                          SEL-WIDTH SEL-HEIGHT
+                          bm
+                          (lambda ()
+                            (async-channel-put msg card)))))
+  
+  (define hearts-region
+    (make-suit-region (+ (region-x discard-target-region) cw (* 2 MARGIN))
+                      (+ (region-y discard-target-region)
+                         (/ (- ch (* 2 SEL-HEIGHT) (/ MARGIN 2)) 2))
+                      "heart" 8-hearts))
+  (define spades-region
+    (make-suit-region (+ (region-x hearts-region) SEL-WIDTH (/ MARGIN 2))
+                      (region-y hearts-region)
+                      "spade" 8-spades))
+  (define clubs-region
+    (make-suit-region (region-x hearts-region)
+                      (+ (region-y hearts-region) SEL-HEIGHT (/ MARGIN 2))
+                      "club" 8-clubs))
+  (define diamonds-region
+    (make-suit-region (region-x spades-region)
+                      (region-y clubs-region)
+                      "diamond" 8-diamonds))
+  
   (send t add-region discard-target-region)
+  
+  (define pass-button
+    (make-button-region (+ (region-x deck-region)
+                           (/ (- cw PASS-W) 2))
+                        (+ (region-y deck-region)
+                           (/ (- ch (* 2 LABEL-H)) 2))
+                        PASS-W (+ LABEL-H 4)
+                        "Pass" (lambda ()
+                                 (async-channel-put msg 'pass))))
 
   ;; Put the cards on the table
   (send t add-cards-to-region deck deck-region)
@@ -114,10 +172,21 @@
          (format PLAYER-X-NAME (+ 1 delta)))))))
   (define you (car players))
   (define opponents (cdr players))
-    
+
+  (send t add-region
+        (make-button-region (region-x (player-r you))
+                            (- (region-y (player-r you))
+                               (+ LABEL-H 4 MARGIN))
+                            PASS-W (+ LABEL-H 4)
+                            "Clean" (lambda ()
+                                      (send t stack-cards (player-hand you))
+                                      (send t move-cards-to-region
+                                            (player-hand you)
+                                            (player-hand-r you)))))
+  
   ;; Card setup: Deal the cards
   (for-each (lambda (player)
-              (set-player-hand! player (deal 7))
+              (set-player-hand! player (deal init-hand-size))
               (send t move-cards-to-region 
                     (player-hand player)
                     (player-hand-r player)))
@@ -147,7 +216,7 @@
               (player-hand you)))
       
   ;; Callbacks communicate back to the main loop via these
-  (define something-happened (make-semaphore 1))
+  (define msg (make-async-channel))
       
   (define (get-discard-card cs)
     (and (= 1 (length cs))
@@ -159,18 +228,111 @@
                        (send c get-suit-id))
                     (= (send c get-value) 8))
                 c))))
-           
+  
+  (define (pick-to-discard cards)
+    (let ([non-8s (filter (lambda (c)
+                            (not (= 8 (send c get-value))))
+                          cards)])
+      (if (null? non-8s)
+          (car cards)
+          (car non-8s))))
+  
+  (define (play-opponent p)
+    (let ([suit-id (send (car discards) get-suit-id)]
+          [value (send (car discards) get-value)])
+      (let ([matches (filter (lambda (c)
+                               (or (= suit-id (send c get-suit-id))
+                                   (= value (send c get-value))
+                                   (= 8 (send c get-value))))
+                             (player-hand p))])
+        (if (null? matches)
+            ;; Draw or pass
+            (if (pair? deck)
+                ;; Draw
+                (begin
+                  (send t card-to-front (car deck))
+                  (set-player-hand! p (append (deal 1) (player-hand p)))
+                  (send t move-cards-to-region (player-hand p) (player-hand-r p))
+                  (play-opponent p))
+                ;; Pass
+                (begin
+                  (send t hilite-region (player-r p))
+                  (send t pause 0.25)
+                  (send t unhilite-region (player-r p))
+                  #t))
+            ;; Discard
+            (let ([c (pick-to-discard matches)])
+              (set-player-hand! p (remq c (player-hand p)))
+              (send t flip-card c)
+              (send t card-to-front c)
+              (send t move-cards-to-region (list c) discard-region)
+              (send t move-cards-to-region (player-hand p) (player-hand-r p))
+              (set! discards (cons c discards))
+              ;; Did we just discard an 8?
+              (when (= 8 (send (car discards) get-value))
+                (let ([counts (map (lambda (v)
+                                     (cons v
+                                           (length (filter (lambda (c)
+                                                             (= v (send c get-value)))
+                                                           (player-hand p)))))
+                                   '(1 2 3 4))])
+                  (reset-8
+                   (list-ref
+                    (list 8-clubs 8-diamonds 8-hearts 8-spades)
+                    (sub1 (caar (quicksort counts (lambda (a b) (> (cdr a) (cdr b))))))))))
+              ;; Return #f if this player has just won:
+              (pair? (player-hand p)))))))            
+  
+  (define (allow-cards on?)
+    (when (pair? deck)
+      (send (car deck) user-can-move on?))
+    (for-each (lambda (c)
+                (send c user-can-move on?))
+              (player-hand you))
+    (when (null? deck)
+      (if on?
+          (send t add-region pass-button)
+          (send t remove-region pass-button))))
+  
+  (define (reset-8 got-8)
+    (unless (eq? (send (car discards) get-suit)
+                 (send got-8 get-suit))
+      (let ([c (send got-8 copy)])
+        (send c user-can-move #f)
+        (send t flip-card (car discards))
+        (send t add-cards-to-region (list c) discard-region)
+        (send t card-to-front c)
+        (send t remove-card (car discards))
+        (set! discards (cons c (cdr discards)))
+        (send t flip-card c))))
+  
+  (define (pick-suit)
+    (allow-cards #f)
+    (send t add-region hearts-region)
+    (send t add-region spades-region)
+    (send t add-region clubs-region)
+    (send t add-region diamonds-region)
+    (let ([got-8 (yield msg)])
+      (reset-8 got-8))
+    (send t remove-region hearts-region)
+    (send t remove-region spades-region)
+    (send t remove-region clubs-region)
+    (send t remove-region diamonds-region)
+    (allow-cards #t))
+
   ;; Run the game loop
   (let loop ()
     (when (pair? deck)
       (send (car deck) user-can-move #t)
       (send (car deck) home-region deck-region))
+    (when (null? deck)
+      (send t add-region pass-button))
     (set-region-interactive-callback! 
      discard-target-region
      (lambda (in? cs)
        (let ([c (get-discard-card cs)])
          (when c
-           (send c home-region (if in? discard-region (player-r you)))))))
+           (send c home-region (if in? #f (player-r you)))))))
     (set-region-callback! 
      discard-target-region
      (lambda (cs)
@@ -179,9 +341,10 @@
            (send c home-region #f)
            (set! discards (cons c discards))
            (set-player-hand! you (remq c (player-hand you)))
+           (send t card-to-front c)
            (send t move-cards-to-region (list c) discard-region)
            (send c user-can-move #f)
-           (semaphore-post something-happened)))))
+           (async-channel-put msg 'discard)))))
     (set-region-interactive-callback! 
      (player-r you)
      (lambda (in? cs)
@@ -194,11 +357,52 @@
          (send t flip-card c)
          (send c home-region (player-r you))
          (set-player-hand! you (cons c (player-hand you)))
-         (set! deck (cdr deck))
-         (semaphore-post something-happened))))
-    (send t set-status-text YOUR-TURN-MESSAGE)
-    (yield something-happened)
-    (loop))
-    
-  )
+         (deal 1)
+         (async-channel-put msg 'draw))))
+    (send t set-status-text (format YOUR-TURN-MESSAGE
+                                    (let ([v (send (car discards) get-value)])
+                                      (if (= v 8)
+                                          "8"
+                                          (format "8, ~a," (case v
+                                                             [(1) "ace"]
+                                                             [(11) "jack"]
+                                                             [(12) "queen"]
+                                                             [(13) "king"]
+                                                             [else v]))))
+                                    (case (send (car discards) get-suit)
+                                      [(hearts) "heart"]
+                                      [(spades) "spade"]
+                                      [(diamonds) "diamond"]
+                                      [(clubs) "club"])
+                                    (if (null? deck)
+                                        "pass"
+                                        "draw")))
+    (let ([what (yield msg)])
+      ;; Played a crazy 8?
+      (when (and (eq? what 'discard)
+                 (= 8 (send (car discards) get-value)))
+        (pick-suit))
+      ;; Done... but what did we do?
+      (case what
+        [(draw)
+         ;; Go again
+         (loop)]
+        [(discard pass)
+         ;; Hide pass button...
+         (when (null? deck)
+           (send t remove-region pass-button))
+         ;; ... and run opponents
+         (send t set-status-text "Opponent's turn...")
+         (unless (null? (player-hand you))
+           (let oloop ([l opponents])
+             (cond
+               [(null? l) (loop)]
+               [else (when (play-opponent (car l))
+                       (oloop (cdr l)))])))])))
+  
+  (allow-cards #f)
+
+  (send t set-status-text (if (null? (player-hand you))
+                              GAME-OVER-YOU-WIN
+                              GAME-OVER)))
 
