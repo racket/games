@@ -15,8 +15,9 @@
   (define dim-red (gl-float-vector .8 0.0 0.0 1.0))
   (define gray (gl-float-vector 0.2 0.2 0.2 1.0))
 
-  (define light-img (image->gl-vector "light.jpg"))
-  (define dark-img (image->gl-vector "dark.jpg"))
+  (define path (collection-path "games" "checkers"))
+  (define light-img (image->gl-vector (build-path path "light.jpg")))
+  (define dark-img (image->gl-vector (build-path path "dark.jpg")))
   
   (define-struct space-info (x y))
   (define-struct piece-info (x y color king?) (make-inspector))
