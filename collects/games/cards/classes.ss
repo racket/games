@@ -504,11 +504,12 @@
 	   (send pb set-single-click-action a))]
 	[pause
 	 (lambda (duration)
-	   (let ([s (make-semaphore)])
-	     (thread (lambda () (sleep duration) (semaphore-post s)))
-	     ; Can't move the cards during this time:
+	   (let ([s (make-semaphore)]
+		 [a (alarm-evt (+ (current-inexact-milliseconds)
+				  (* duration 1000)))])
+	     ;; Can't move the cards during this time:
 	     (send c enable #f)
-	     (mred:yield s)
+	     (mred:yield a)
 	     (send c enable #t)))]
 	[animated
 	 (case-lambda 
