@@ -1,3 +1,5 @@
+; -*- Scheme -*-
+
 ("snordmey@dayton.net"
  "jtraub@dragoncat.net"
  "snicker@tmbg.org" ; "e0gb258s@mail.erin.utoronto.ca"
@@ -42,4 +44,6 @@
  "hkittredge@hotmail.com"
  "allraft@sccoast.net"
  "karlvonl@geocities.com"
+
+ "ailsa@worldonline.nl" ; "alisa@euronet.nl"
  )
