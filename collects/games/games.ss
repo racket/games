@@ -4,10 +4,10 @@
    (import mred^)
 
    (define game-mapping 
-     '(("gofish" "gofish.ss" "Go Fish" #t)
+     '(("same" "same.ss" "Same" #f)
+       ("gofish" "gofish.ss" "Go Fish" #t)
        ("blackjack" "blackjack.ss" "Blackjack" #t)
        ("ginrummy" "ginrummy.ss" "Gin Rummy" #t)
-       ("same" "same.ss" "Same" #f)
        ("mines" "mines.ss" "Minesweeper" #f)))
    
    (define f (make-object (class frame% (name)
