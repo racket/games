@@ -44,7 +44,7 @@
 
 ; Class for a basic tile
 (define tile:plain%
-  (class null ()
+  (class object% ()
     (private
       [state 'covered]
       [neighbor-bomb-count 0])
