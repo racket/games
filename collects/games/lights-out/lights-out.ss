@@ -1,5 +1,3 @@
-(current-library-collection-paths (list "d:/plt/collects"))
-
 (require-library "sig.ss" "games" "lights-out")
 
 (invoke-unit/sig
