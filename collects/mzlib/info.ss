@@ -7,7 +7,7 @@
 	     "cmdlines.ss" "dates.ss" "strings.ss"
 	     "compats.ss" "files.ss" "threads.ss" "transcrs.ss"
 	     "compiles.ss" "functios.ss" "pconvers.ss"
-	     "inflates.ss" "prettys.ss" "maths.ss"
+	     "inflates.ss" "deflates.ss" "prettys.ss" "maths.ss"
 	     "cores.ss" "coreflats.ss" "invoke.ss"
 	     "mzlibs.ss" "mzlibflats.ss")])
   (lambda (request failure)
