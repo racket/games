@@ -2,12 +2,16 @@
 
 (module solve mzscheme
   
-  (provide solve)
-  ; solve : ((list-of (list-of nat)) (list-of (list-of nat)) (num num symbol -> void) (num -> void) -> void)
-
   (require (lib "list.ss")
            (lib "etc.ss")
-           (lib "contracts.ss"))
+           (lib "contract.ss"))
+  
+  (provide/contract [solve (-> (listof (listof integer?))  ; row-info
+                               (listof (listof integer?))  ; col-info
+                               (-> number? number? symbol? ; set-entry
+                                   void?)
+                               (-> number? void?)          ; setup-progress
+                               void)])
   
   ; filter! : returns a list of all elements in a-list which 
   ; satisfy the predicate.  
@@ -665,7 +669,7 @@
               'caller))
 	    
             ; on 2002-10-17, I wrapped another layer of looping around the inner loop.
-            ; the purpose of this outer loop is to assow the solver to ignore rows (or
+            ; the purpose of this outer loop is to allow the solver to ignore rows (or
             ; columns) about which the solver knows nothing for as long as possible.
             
 	    (define (local-solve row-info col-info)
@@ -698,53 +702,48 @@
                                   (outer-loop board (next-threshold skip-threshold) row-tries col-tries)
                                   (outer-loop board skip-threshold row-tries col-tries)))))))))
 
-	    #|
-	    (let* ([row-info '((2)
-			      (1)
-			      (10 9)
-			      (10 7 1)
-			      (10 5 3)
-			      (8 8)
-			      (7 4 2)
-			      (7 2 2 4)
-			      (7 2 7)
-			      (2 1)
-			      (1)
-			      (1 4)
-			      (1 1 1)
-			      (1 2 1 1 1)
-			      (2 2 1 4 1)
-			      (2 1 1 4 2)
-			      (3 4 1 1)
-			      (1 1)
-			      (1 2 2 1)
-			      (18))]
-		  [col-info '((15 1)
-			      (8 3)
-			      (7 2 1)
-			      (7 2 1)
-			      (7 3 2)
-			      (7 2)
-			      (7 1)
-			      (4 1)
-			      (3 4 1)
-			      (1 3 2 1 1 1)
-			      (2 2 1 3 1)
-			      (3 1 4 1)
-			      (4 1 3 1)
-			      (7 4 1)
-			      (7 1)
-			      (5 1 1)
-			      (2 4 2)
-			      (4 2 1 2)
-			      (1 5 1 1)
-			      (8 6))]
-		  [initial-board (whole-first-pass row-info col-info 20 20)]
-		  [col-try-list-list-list (memoize-tries col-info 20 initial-board void)])
-	      (list-ref col-try-list-list-list 2))
-	    |#
-		  
-	   
 	    )
       (local-solve row-info col-info)
       )))
+
+
+; test case:
+
+;(require solve)
+;
+;(let* ([test-board (build-vector 20 (lambda (x) (make-vector 20 'bad-value)))]
+;       [set-board! (lambda (col row val)
+;                     (vector-set! (vector-ref test-board row) col val))])
+;  (solve `((9 9) (6 10) (5 11) (4 3 5) (2 1 3) (2 4 2) (1 3 6) (5 1 1 1) (2 2 1 3 1) (7 4 1) (7 4 2) (1 3 9) (1 2 4 6) (1 6 9) (1 4 7) (2 1 4 2) (5 3 4) (5 7) (5 10) (5 11))
+;         `((1 8) (2 4 4) (4 1 2 4) (8 2 4) (6 1 3 7) (4 8 4) (3 7 1) (1 2) (1 2) (2 2 2 1) (3 2 1 1 1 2) (7 8 2) (3 7 4 2) (3 1 1 2 3 3) (3 4 6 3) (4 1 4 3) (4 1 4 4) (5 1 4 4) (7 4 5) (7 6 5))
+;         set-board!
+;         (lambda (x) (void)))
+;  (equal? (map (lambda (row) 
+;                 (apply string-append
+;                        (map (lambda (x)
+;                               (case x
+;                                 [(off) " "]
+;                                 [(on) "x"])) 
+;                             row)))
+;               (apply map list (map vector->list (vector->list test-board))))
+;          
+;          `("x       xxxxxxxx    "
+;           "xx     xxxx    xxxx "
+;           "xxxx   x xx     xxxx"
+;           "xxxxxxxx xx     xxxx"
+;           "xxxxxx x xxx xxxxxxx"
+;           "xxxx   xxxxxxxx xxxx"
+;           "xxx     xxxxxxx    x"
+;           "x            xx     "
+;           "x           xx      "
+;           "  xx    xx  xx     x"
+;           " xxx  xx x  x   x xx"
+;           "xxxxxxx  xxxxxxxx xx"
+;           "xxx  xxxxxxx xxxx xx"
+;           "xxx  x  x xx xxx xxx"
+;           "xxx  xxxx xxxxxx xxx"
+;           "xxxx  x    xxxx  xxx"
+;           "xxxx  x    xxxx xxxx"
+;           "xxxxx x    xxxx xxxx"
+;           "xxxxxxx   xxxx xxxxx"
+;           "xxxxxxx xxxxxx xxxxx")))
