@@ -96,7 +96,7 @@ yet defined.
       (newline (current-error-port))
       (build-progress-outputer max))
 
-    (define time-limit 30) ;; in seconds
+    (define time-limit 60) ;; in seconds
 
     (define (solve name rows cols)
       (cond
