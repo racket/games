@@ -5,7 +5,8 @@
    (import mred^ mzlib:function^)
 
    (define game-mapping 
-     '(("same" "same.ss" "Same" #f)
+     '(("lights-out" "lights-out.ss" "Lights Out" #f)
+       ("same" "same.ss" "Same" #f)
        ("paint-by-numbers" "paint-by-numbers.ss" "Paint By Numbers" #f)
        ("gofish" "gofish.ss" "Go Fish" #t)
        ("blackjack" "blackjack.ss" "Blackjack" #t)
@@ -17,12 +18,14 @@
 			      [on-close exit])
 			    (sequence (super-init name)))
 			  "PLT Games"))
+   (define hp (make-object horizontal-panel% f))
+   (define main (make-object vertical-panel% hp))
    (send f set-alignment 'left 'top)
    (send f stretchable-width #f)
    (send f stretchable-height #f)
 
-   (define m (make-object message% "Choose a game:" f))
-   (define p (make-object vertical-panel% f))
+   (define m (make-object message% "Choose a game:" main))
+   (define p (make-object vertical-panel% main))
 
    (define (game-button desc)
      (let* ([collect (car desc)]
@@ -49,6 +52,8 @@
    (let ([pred (lambda (x y) (<= (send x min-width) (send y min-width)))])
      (send p change-children (lambda (l) (quicksort l pred))))
 
+   (make-object grow-box-spacer-pane% hp)
+   
    (send f show #t)
 
    (yield (make-semaphore 0)))

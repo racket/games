@@ -4,5 +4,5 @@
     [(name) "Games"]
     [(mred-launcher-libraries) (list "games.ss")]
     [(mred-launcher-names) (list "Games")]
-    [(doc-sub-collections) (list "cards" "paint-by-numbers" "same")]
+    [(doc-sub-collections) (list "cards" "paint-by-numbers" "same" "lights-out")]
     [else (failure)]))
