@@ -17,9 +17,12 @@
   (define YOUR-NAME "You")
   (define OPPONENT-X-NAME "Opponent ~a")
   (define OPPONENT-NAME "Opponent")
-  (define YOUR-TURN-MESSAGE "Your turn.  (Discard a ~a or crazy 8, or else ~a.)")
+  (define YOUR-TURN-MESSAGE "Your turn - discard a ~a or crazy 8, or else ~a")
+  (define PICK-A-SUIT "Pick a suit")
   (define GAME-OVER-YOU-WIN "Game over - you win!")
+  (define GAME-OVER-STUCK "Game over - no one wins")
   (define GAME-OVER "Game over - opponent wins")
+  (define NEW-GAME "New Game")
   
   ;; Region layout constants
   (define MARGIN 10)
@@ -27,6 +30,7 @@
   (define LABEL-H 15)
   (define BUTTON-HEIGHT 18)
   (define PASS-W 40)
+  (define NEW-GAME-W 80)
   (define SEL-WIDTH 32)
   (define SEL-HEIGHT 32)
             
@@ -159,7 +163,9 @@
       (define h (send t table-height))
       
       ;; Set up the cards
-      (define deck (shuffle-list (make-deck) 7))
+      (define all-cards (shuffle-list (make-deck) 7))
+      (define deck all-cards)
+      (define discards null)
       (for-each
        (lambda (card)
 	 (send card user-can-flip #f))
@@ -315,15 +321,20 @@
         ;; So that black and red suits are interleaved
         (case v [(2) 1][(1) 2][else v]))
       (define (card< a b)
-        (or (< (remap (send a get-suit-id))
-               (remap (send b get-suit-id)))
-            (and (= (send a get-suit-id)
-                    (send b get-suit-id))
-                 (or
-                  (= 8 (send a get-value))
-                  (and (< (send a get-value)
-                          (send b get-value))
-                       (not (= 8 (send b get-value))))))))
+	(cond
+	 [(= 8 (send a get-value))
+	  (or (not (= 8 (send b get-value)))
+	      (< (remap (send a get-suit-id))
+		 (remap (send b get-suit-id))))]
+	 [(= 8 (send b get-value))
+	  #f]
+	 [(= (send a get-suit-id)
+	     (send b get-suit-id))
+	  (< (send a get-value)
+	     (send b get-value))]
+	 [else 
+	  (< (remap (send a get-suit-id))
+	     (remap (send b get-suit-id)))]))
       (when drag-mode?
         (send t add-region
               (make-button-region (+ (region-x clean-button) PASS-W MARGIN)
@@ -332,40 +343,6 @@
                                   "Sort" (lambda ()
                                            (sort-hand! card<)))))
       
-      ;; Card setup: Deal the cards
-      (for-each (lambda (player)
-		  (set-player-hand! player (quicksort (deal init-hand-size) card<))
-                  (send t stack-cards (player-hand player))
-		  (send t move-cards-to-region 
-			(player-hand player)
-			(player-hand-r player)))
-		players)
-
-      ;; More card setup: Opponents's cards and deck initally can't be moved
-      (for-each
-       (lambda (card) (send card user-can-move #f))
-       (append
-	(apply append
-	       (map player-hand (if drag-mode? opponents players)))
-	deck))
-      (for-each (lambda (c) (send c home-region (player-r you)))
-		(player-hand you))
-      
-      ;; More card setup: Initial discard
-      ;;  If it's an eight, then shuffle and try again
-      (let loop ()
-	(when (= 8 (send (car deck) get-value))
-	  (set! deck (shuffle-list deck 1))
-	  (send t stack-cards deck)
-	  (loop)))
-      (define discards (deal 1))
-      (send t flip-cards discards)
-      (send t move-cards-to-region discards discard-region)
-      
-      ;; More card setup: Show your cards
-      (send t flip-cards (player-hand you))
-      
-
       ;; ========== Game engine ========================================
 
       ;; Callbacks communicate back to the main loop
@@ -383,6 +360,15 @@
 			   (send c get-suit-id))
 			(= (send c get-value) 8))
 		    c))))
+
+      ;; Utility: detect a stuck game
+      (define (stuck-game?)
+	(and (null? deck)
+	     (not (ormap (lambda (p)
+			   (ormap (lambda (c)
+				    (get-discard-card (list c)))
+				  (player-hand p)))
+			 players))))
       
       ;; Auto-player strategy: Choose which valid card to discard
       (define (pick-to-discard cards)
@@ -426,8 +412,9 @@
 		  (send t move-cards-to-region (list c) discard-region)
 		  (send t move-cards-to-region (player-hand p) (player-hand-r p))
 		  (set! discards (cons c discards))
-		  ;; Did we just discard an 8?
-		  (when (= 8 (send (car discards) get-value))
+		  ;; Did we just discard an 8? (And we still have cards?)
+		  (when (and (= 8 (send (car discards) get-value))
+			     (pair? (player-hand p)))
 		    ;; Pick a suit based on our hand
 		    (let ([counts (map (lambda (v)
 					 (cons v
@@ -458,7 +445,7 @@
                                             click-card
                                             (if drag-mode?
                                                 void
-                                                bell)))
+						(lambda (x) (bell)))))
 	(when (null? deck)
 	  (if on?
 	      (send t add-region pass-button)
@@ -485,6 +472,7 @@
 	(send t add-region spades-region)
 	(send t add-region clubs-region)
 	(send t add-region diamonds-region)
+	(send t set-status PICK-A-SUIT)
 	;; Clicking one of these regions returns a clonable 8 card:
 	(let ([got-8 (yield msg)])
 	  (reset-8 got-8))
@@ -561,66 +549,147 @@
       (unless drag-mode?
         (send t set-single-click-action click-card))
 
-      ;; Run the game loop
-      (let loop ()
-	;; Ready deck and/or pass button:
-	(when (pair? deck)
-          (when drag-mode?
-            (send (car deck) user-can-move #t))
-	  (send (car deck) home-region deck-region))
-	(when (null? deck)
-	  (send t add-region pass-button))
-	;; Tell the player what to do:
-	(send t set-status (format YOUR-TURN-MESSAGE
-				   (let ([v (send (car discards) get-value)]
-					 [suit (case (send (car discards) get-suit)
-						 [(hearts) "heart"]
-						 [(spades) "spade"]
-						 [(diamonds) "diamond"]
-						 [(clubs) "club"])])
-				     (if (= v 8)
-					 suit
-					 (format "~a, ~a," 
-						 suit
-						 (case v
-						   [(1) "ace"]
-						   [(11) "jack"]
-						   [(12) "queen"]
-						   [(13) "king"]
-						   [else v]))))
-				   (if (null? deck)
-				       "pass"
-				       "draw")))
-	;; What for something to happen:
-	(let ([what (yield msg)])
-	  ;; Discarded a crazy 8?
-	  (when (and (eq? what 'discard)
-		     (= 8 (send (car discards) get-value)))
-	    ;; Yes, so pick suit before continuing
-	    (pick-suit))
-	  ;; What did we do?
-	  (case what
-	    [(draw)
-	     ;; Go again
-	     (loop)]
-	    [(discard pass)
-	     ;; Hide pass button...
-	     (when (null? deck)
-	       (send t remove-region pass-button))
-	     ;; ... and run opponents
-	     (send t set-status "Opponent's turn...")
-	     (unless (null? (player-hand you))
-	       (let oloop ([l opponents])
-		 (cond
-		  [(null? l) (loop)]
-		  [else (when (play-opponent (car l))
-			  (oloop (cdr l)))])))])))
-      
-      ;; Game over: disable player:
-      (allow-cards #f)
+      ;; Run a loop for multiple games
+      (let gloop ()
 
-      ;; Report result:
-      (send t set-status (if (null? (player-hand you))
-			     GAME-OVER-YOU-WIN
-			     GAME-OVER)))))
+	;; Card setup: Deal the cards
+	(for-each (lambda (player)
+		    (set-player-hand! player (quicksort (deal init-hand-size) card<))
+		    (send t stack-cards (player-hand player))
+		    (send t move-cards-to-region 
+			  (player-hand player)
+			  (player-hand-r player)))
+		  players)
+
+	;; Opponents's cards and deck initally can't be moved
+	(for-each
+	 (lambda (card) (send card user-can-move #f))
+	 (append
+	  (apply append
+		 (map player-hand (if drag-mode? opponents players)))
+	  deck))
+	;; Your cards stay home:
+	(for-each (lambda (c) (send c home-region (player-r you)))
+		  (player-hand you))
+      
+	;; Initial discard
+	;;  If it's an eight, then shuffle and try again
+	(let loop ()
+	  (when (= 8 (send (car deck) get-value))
+	    (set! deck (shuffle-list deck 1))
+	    (send t stack-cards deck)
+	    (loop)))
+	(set! discards (deal 1))
+	(send t flip-cards discards)
+	(send t move-cards-to-region discards discard-region)
+      
+	;; Show your cards
+	(send t flip-cards (player-hand you))
+      
+	;; Run a single-game loop
+	(let loop ()
+	  ;; Ready deck and/or pass button:
+	  (when (pair? deck)
+	    (when drag-mode?
+	      (send (car deck) user-can-move #t))
+	    (send (car deck) home-region deck-region))
+	  (when (null? deck)
+	    (send t add-region pass-button))
+	  ;; Tell the player what to do:
+	  (send t set-status (format YOUR-TURN-MESSAGE
+				     (let ([v (send (car discards) get-value)]
+					   [suit (case (send (car discards) get-suit)
+						   [(hearts) "heart"]
+						   [(spades) "spade"]
+						   [(diamonds) "diamond"]
+						   [(clubs) "club"])])
+				       (if (= v 8)
+					   suit
+					   (format "~a, ~a," 
+						   suit
+						   (case v
+						     [(1) "ace"]
+						     [(11) "jack"]
+						     [(12) "queen"]
+						     [(13) "king"]
+						     [else v]))))
+				     (if (null? deck)
+					 "pass"
+					 "draw")))
+	  ;; What for something to happen:
+	  (let ([what (yield msg)])
+	    ;; Discarded a crazy 8? (And not as our last card?)
+	    (when (and (eq? what 'discard)
+		       (= 8 (send (car discards) get-value))
+		       (pair? (player-hand you)))
+	      ;; Yes, so pick suit before continuing
+	      (pick-suit))
+	    ;; What did we do?
+	    (case what
+	      [(draw)
+	       ;; Go again
+	       (loop)]
+	      [(discard pass)
+	       ;; Hide pass button...
+	       (when (null? deck)
+		 (send t remove-region pass-button))
+	       ;; ... and run opponents
+	       (send t set-status "Opponent's turn...")
+	       (unless (null? (player-hand you))
+		 (let oloop ([l opponents])
+		   (cond
+		    [(null? l) 
+		     ;; Check for a stuck game here:
+		     (unless (stuck-game?)
+		       (loop))]
+		    [else (when (play-opponent (car l))
+			    (oloop (cdr l)))])))])))
+      
+	;; Game over: disable player:
+	(allow-cards #f)
+	
+	;; Report result:
+	(send t set-status (cond
+			    [(null? (player-hand you))
+			     GAME-OVER-YOU-WIN]
+			    [(stuck-game?)
+			     GAME-OVER-STUCK]
+			    [else
+			     GAME-OVER]))
+
+	(let ([button
+	       (make-button-region 
+		(+ (region-x discard-region) cw (* 2 MARGIN))
+		(+ (region-y discard-region) (/ (- ch LABEL-H) 2))
+		NEW-GAME-W LABEL-H
+		NEW-GAME (lambda ()
+			   (async-channel-put msg 'new-game)))])
+	  (send t add-region button)
+	  (yield msg)
+	  (send t remove-region button))
+
+	(let ([all (send t all-cards)])
+	  ;; Gather up cards, with animation
+	  (let ([flip (filter
+		       (lambda (c)
+			 (not (send c face-down?)))
+		       all)])
+	    (send t flip-cards flip)
+	    (send t move-cards-to-region all deck-region))
+	  ;; Reset all cards (no animation)
+	  (send t begin-card-sequence)
+	  (send t remove-cards all)
+	  (send t add-cards-to-region all-cards deck-region)
+	  (set! deck (shuffle-list all-cards 7))
+	  (for-each (lambda (c)
+		      (unless (send c face-down?)
+			(send c flip)))
+		    deck)
+	  (send t stack-cards deck)
+	  (send t end-card-sequence))
+
+	;; Re-enable player:
+	(allow-cards #t)
+
+	(gloop)))))
 

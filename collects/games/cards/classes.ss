@@ -345,6 +345,12 @@
 	     (do-on-double-click s)]
 	    [else (void)]))])
       (public
+	[get-all-list
+	 (lambda ()
+	   (let loop ([t (find-first-snip)][accum null])
+	     (cond
+	      [(not t) (reverse accum)]
+	      [else (loop (send t next) (cons t accum))])))]
 	[get-full-box
 	 (lambda ()
 	   (let ([xb (box 0)][yb (box 0)]
@@ -449,6 +455,9 @@
 	     (unless (send pb get-snip-location card x y)
 	       (raise-mismatch-error 'card-location "card not on table: " card))
 	     (values (unbox x) (unbox y))))]
+	[all-cards
+	 (lambda ()
+	   (send pb get-all-list))]
 	[remove-card
 	 (lambda (card)
 	   (remove-cards (list card)))]
