@@ -54,53 +54,29 @@
 			  (list (car red-pieces)
 				(car yellow-pieces))))))))
 
-      ;; hash-table for (listof piece) -> num
-      (define stack-ids (make-hash-table))
-      (for-each (lambda (s)
-		  (hash-table-put! stack-ids s (hash-table-count stack-ids)))
-		all-stacks)
-
-      ;; vector for num -> (listof piece)
-      (define stacks (make-vector (length all-stacks) #f))
-      (hash-table-for-each stack-ids
-			   (lambda (k v)
-			     (vector-set! stacks v k)))
-
-      (define stack-cdrs (make-bytes (add1 (length all-stacks))))
-      (hash-table-for-each stack-ids
-			   (lambda (k v)
-			     (unless (null? k)
-			       (bytes-set! stack-cdrs v (hash-table-get stack-ids (cdr k))))))
-      
-      (for-each (lambda (p)
-		  (let ([tab (make-bytes (vector-length stacks))])
-		    (hash-table-for-each (piece-gobble-table p)
-					 (lambda (k v)
-					   (bytes-set! tab
-						       (hash-table-get stack-ids k)
-						       (hash-table-get stack-ids v))))
-		    (set-piece-gobble-table! p tab)))
-		(append red-pieces yellow-pieces))
-
       ;; A board is a 
       ;;  (vector (vector (list piece ...) ...) ...)
 
       (define empty-board
-	(make-bytes (* BOARD-SIZE BOARD-SIZE) (hash-table-get stack-ids null)))
+	(make-vector BOARD-SIZE (make-vector BOARD-SIZE null)))
 
       ;; board-ref : board num num -> piece
       (define (board-ref a i j)
-	(vector-ref stacks (raw-board-ref a i j)))
-
-      (define (raw-board-ref a i j)
-	(bytes-ref a (+ i (* j BOARD-SIZE))))
+	(vector-ref (vector-ref a i) j))
 
       ;; board-set : board num num piece -> board
       (define (board-set a i j p)
-	;; We implement functional update by copying the string
-	(let ([a2 (bytes-copy a)])
-	  (bytes-set! a2 (+ i (* j BOARD-SIZE)) p)
+	;; We implement functional update by copying two vectors
+	;;  and modifying them.
+	(let ([a2 (copy-vector a)]
+	      [r2 (copy-vector (vector-ref a i))])
+	  (vector-set! a2 i r2)
+	  (vector-set! r2 j p)
 	  a2))
+      
+      ;; copy-vector : vector -> vector
+      (define (copy-vector v)
+	(list->vector (vector->list v)))
 
       ;; Utilities ------------------------------
 
@@ -133,8 +109,7 @@
       ;; board, or disallows and calls the failure continuation.
       ;; The given piece and its source must be correct and ok to move.
       (define (move board p from-i from-j to-i to-j k fail-k)
-	(let* ([pl-id (raw-board-ref board to-i to-j)]
-	       [pl (vector-ref stacks pl-id)])
+	(let ([pl (board-ref board to-i to-j)])
 	  ;; The move is allowed if the target space is empty or the
 	  ;;  top piece is smaller than this one:
 	  (if (or (null? pl)
@@ -149,17 +124,17 @@
 	      (let ([new-board (if from-i
 				   ;; Remove the piece from the old spot:
 				   (board-set board from-i from-j 
-					      (bytes-ref stack-cdrs (raw-board-ref board from-i from-j)))
+					      (cdr (board-ref board from-i from-j)))
 				   ;; Wasn't on the board, yet:
 				   board)])
 		;; Add the piece at its new spot, and continue
-		(k (board-set new-board to-i to-j (gobble p pl-id))))
+		(k (board-set new-board to-i to-j (gobble p pl))))
 	      ;; Not allowed; fail
 	      (fail-k))))
 
-      ;; gobble : piece num -> num
-      (define (gobble p id)
-	(bytes-ref (piece-gobble-table p) id))
+      ;; gobble : piece (listof piece) -> (listof piece)
+      (define (gobble p l)
+	(hash-table-get (piece-gobble-table p) l))
 
       ;; - - - - - - - - - - - - - - - - - -
       
@@ -325,101 +300,108 @@
 	    (list 
 	     (lambda (v) v)
 	     (lambda (v) (bytes (bytes-ref v 0) (bytes-ref v 3) (bytes-ref v 6) (bytes-ref v 1) (bytes-ref v 4)
-				(bytes-ref v 7) (bytes-ref v 2) (bytes-ref v 5) (bytes-ref v 8)))
+				 (bytes-ref v 7) (bytes-ref v 2) (bytes-ref v 5) (bytes-ref v 8)))
 	     (lambda (v) (bytes (bytes-ref v 2) (bytes-ref v 5) (bytes-ref v 8) (bytes-ref v 1) (bytes-ref v 4)
-				(bytes-ref v 7) (bytes-ref v 0) (bytes-ref v 3) (bytes-ref v 6)))
+				 (bytes-ref v 7) (bytes-ref v 0) (bytes-ref v 3) (bytes-ref v 6)))
 	     (lambda (v) (bytes (bytes-ref v 8) (bytes-ref v 5) (bytes-ref v 2) (bytes-ref v 7) (bytes-ref v 4)
-				(bytes-ref v 1) (bytes-ref v 6) (bytes-ref v 3) (bytes-ref v 0)))
+				 (bytes-ref v 1) (bytes-ref v 6) (bytes-ref v 3) (bytes-ref v 0)))
 	     (lambda (v) (bytes (bytes-ref v 6) (bytes-ref v 3) (bytes-ref v 0) (bytes-ref v 7) (bytes-ref v 4)
-				(bytes-ref v 1) (bytes-ref v 8) (bytes-ref v 5) (bytes-ref v 2)))
+				 (bytes-ref v 1) (bytes-ref v 8) (bytes-ref v 5) (bytes-ref v 2)))
 	     (lambda (v) (bytes (bytes-ref v 2) (bytes-ref v 1) (bytes-ref v 0) (bytes-ref v 5) (bytes-ref v 4)
-				(bytes-ref v 3) (bytes-ref v 8) (bytes-ref v 7) (bytes-ref v 6)))
+				 (bytes-ref v 3) (bytes-ref v 8) (bytes-ref v 7) (bytes-ref v 6)))
 	     (lambda (v) (bytes (bytes-ref v 8) (bytes-ref v 7) (bytes-ref v 6) (bytes-ref v 5) (bytes-ref v 4)
-				(bytes-ref v 3) (bytes-ref v 2) (bytes-ref v 1) (bytes-ref v 0)))
+				 (bytes-ref v 3) (bytes-ref v 2) (bytes-ref v 1) (bytes-ref v 0)))
 	     (lambda (v) (bytes (bytes-ref v 6) (bytes-ref v 7) (bytes-ref v 8) (bytes-ref v 3) (bytes-ref v 4)
-				(bytes-ref v 5) (bytes-ref v 0) (bytes-ref v 1) (bytes-ref v 2))))
+				 (bytes-ref v 5) (bytes-ref v 0) (bytes-ref v 1) (bytes-ref v 2))))
 	    (list
 	     (lambda (v) v)
 	     (lambda (v) (bytes (bytes-ref v 0) (bytes-ref v 4) (bytes-ref v 8) (bytes-ref v 12) (bytes-ref v 1)
-				(bytes-ref v 5) (bytes-ref v 9) (bytes-ref v 13) (bytes-ref v 2) (bytes-ref v 6)
-				(bytes-ref v 10) (bytes-ref v 14)
-				(bytes-ref v 3) (bytes-ref v 7) (bytes-ref v 11) (bytes-ref v 15)))
+				 (bytes-ref v 5) (bytes-ref v 9) (bytes-ref v 13) (bytes-ref v 2) (bytes-ref v 6)
+				 (bytes-ref v 10) (bytes-ref v 14)
+				 (bytes-ref v 3) (bytes-ref v 7) (bytes-ref v 11) (bytes-ref v 15)))
 	     (lambda (v) (bytes (bytes-ref v 12) (bytes-ref v 13) (bytes-ref v 14) (bytes-ref v 15) (bytes-ref v 8) 
-				(bytes-ref v 9) (bytes-ref v 10) (bytes-ref v 11) (bytes-ref v 4) (bytes-ref v 5)
-				(bytes-ref v 6) (bytes-ref v 7)
-				(bytes-ref v 0) (bytes-ref v 1) (bytes-ref v 2) (bytes-ref v 3)))
+				 (bytes-ref v 9) (bytes-ref v 10) (bytes-ref v 11) (bytes-ref v 4) (bytes-ref v 5)
+				 (bytes-ref v 6) (bytes-ref v 7)
+				 (bytes-ref v 0) (bytes-ref v 1) (bytes-ref v 2) (bytes-ref v 3)))
 	     (lambda (v) (bytes (bytes-ref v 3) (bytes-ref v 2) (bytes-ref v 1) (bytes-ref v 0) (bytes-ref v 7) 
-				(bytes-ref v 6) (bytes-ref v 5) (bytes-ref v 4) (bytes-ref v 11) (bytes-ref v 10)
-				(bytes-ref v 9) (bytes-ref v 8)
-				(bytes-ref v 15) (bytes-ref v 14) (bytes-ref v 13) (bytes-ref v 12)))
+				 (bytes-ref v 6) (bytes-ref v 5) (bytes-ref v 4) (bytes-ref v 11) (bytes-ref v 10)
+				 (bytes-ref v 9) (bytes-ref v 8)
+				 (bytes-ref v 15) (bytes-ref v 14) (bytes-ref v 13) (bytes-ref v 12)))
 	     (lambda (v) (bytes (bytes-ref v 15) (bytes-ref v 11) (bytes-ref v 7) (bytes-ref v 3) (bytes-ref v 14)
-				(bytes-ref v 10) (bytes-ref v 6) (bytes-ref v 2) (bytes-ref v 13) (bytes-ref v 9)
-				(bytes-ref v 5) (bytes-ref v 1)
-				(bytes-ref v 12) (bytes-ref v 8) (bytes-ref v 4) (bytes-ref v 0)))
+				 (bytes-ref v 10) (bytes-ref v 6) (bytes-ref v 2) (bytes-ref v 13) (bytes-ref v 9)
+				 (bytes-ref v 5) (bytes-ref v 1)
+				 (bytes-ref v 12) (bytes-ref v 8) (bytes-ref v 4) (bytes-ref v 0)))
 	     (lambda (v) (bytes (bytes-ref v 12) (bytes-ref v 8) (bytes-ref v 4) (bytes-ref v 0) (bytes-ref v 13) 
-				(bytes-ref v 9) (bytes-ref v 5) (bytes-ref v 1) (bytes-ref v 14) (bytes-ref v 10)
-				(bytes-ref v 6) (bytes-ref v 2) 
-				(bytes-ref v 15) (bytes-ref v 11) (bytes-ref v 7) (bytes-ref v 3)))
+				 (bytes-ref v 9) (bytes-ref v 5) (bytes-ref v 1) (bytes-ref v 14) (bytes-ref v 10)
+				 (bytes-ref v 6) (bytes-ref v 2) 
+				 (bytes-ref v 15) (bytes-ref v 11) (bytes-ref v 7) (bytes-ref v 3)))
 	     (lambda (v) (bytes (bytes-ref v 15) (bytes-ref v 14) (bytes-ref v 13) (bytes-ref v 12) (bytes-ref v 11)
-				(bytes-ref v 10) (bytes-ref v 9) (bytes-ref v 8) (bytes-ref v 7) (bytes-ref v 6)
-				(bytes-ref v 5) (bytes-ref v 4)
-				(bytes-ref v 3) (bytes-ref v 2) (bytes-ref v 1) (bytes-ref v 0)))
+				 (bytes-ref v 10) (bytes-ref v 9) (bytes-ref v 8) (bytes-ref v 7) (bytes-ref v 6)
+				 (bytes-ref v 5) (bytes-ref v 4)
+				 (bytes-ref v 3) (bytes-ref v 2) (bytes-ref v 1) (bytes-ref v 0)))
 	     (lambda (v) (bytes (bytes-ref v 3) (bytes-ref v 7) (bytes-ref v 11) (bytes-ref v 15) (bytes-ref v 2)
-				(bytes-ref v 6) (bytes-ref v 10) (bytes-ref v 14) (bytes-ref v 1) (bytes-ref v 5)
-				(bytes-ref v 9) (bytes-ref v 13)
-				(bytes-ref v 0) (bytes-ref v 4) (bytes-ref v 8) (bytes-ref v 12))))))
-
-      (define stack-flips (make-bytes (vector-length stacks))) 
-      (for-each (lambda (s)
-		  (let ([inverse (let loop ([s s])
-				   (if (null? s)
-				       (hash-table-get stack-ids null)
-				       (gobble (if (eq? (piece-color (car s)) 'red)
-						   (list-ref yellow-pieces (piece-size (car s)))
-						   (list-ref red-pieces (piece-size (car s))))
-					       (loop (cdr s)))))])
-		    (bytes-set! stack-flips 
-				(hash-table-get stack-ids s)
-				inverse)))
-		all-stacks)
+				 (bytes-ref v 6) (bytes-ref v 10) (bytes-ref v 14) (bytes-ref v 1) (bytes-ref v 5)
+				 (bytes-ref v 9) (bytes-ref v 13)
+				 (bytes-ref v 0) (bytes-ref v 4) (bytes-ref v 8) (bytes-ref v 12))))))
 
       ;; Generates the compact representation of a board, which is
       ;; good for hashing, but bad for applying moves
-      (define flip-board
+      (define flatten-board
 	(if (= BOARD-SIZE 3)
-	    (lambda (board)
-	      (bytes (bytes-ref stack-flips (bytes-ref board 0))
-		     (bytes-ref stack-flips (bytes-ref board 1))
-		     (bytes-ref stack-flips (bytes-ref board 2))
-		     (bytes-ref stack-flips (bytes-ref board 3))
-		     (bytes-ref stack-flips (bytes-ref board 4))
-		     (bytes-ref stack-flips (bytes-ref board 5))
-		     (bytes-ref stack-flips (bytes-ref board 6))
-		     (bytes-ref stack-flips (bytes-ref board 7))
-		     (bytes-ref stack-flips (bytes-ref board 8))))
-	    (lambda (board)
-	      (bytes (bytes-ref stack-flips (bytes-ref board 0))
-		     (bytes-ref stack-flips (bytes-ref board 1))
-		     (bytes-ref stack-flips (bytes-ref board 2))
-		     (bytes-ref stack-flips (bytes-ref board 3))
-		     (bytes-ref stack-flips (bytes-ref board 4))
-		     (bytes-ref stack-flips (bytes-ref board 5))
-		     (bytes-ref stack-flips (bytes-ref board 6))
-		     (bytes-ref stack-flips (bytes-ref board 7))
-		     (bytes-ref stack-flips (bytes-ref board 8))
-		     (bytes-ref stack-flips (bytes-ref board 9))
-		     (bytes-ref stack-flips (bytes-ref board 10))
-		     (bytes-ref stack-flips (bytes-ref board 11))
-		     (bytes-ref stack-flips (bytes-ref board 12))
-		     (bytes-ref stack-flips (bytes-ref board 13))
-		     (bytes-ref stack-flips (bytes-ref board 14))
-		     (bytes-ref stack-flips (bytes-ref board 15))))))
+	    (lambda (board stack-ids)
+	      (bytes (hash-table-get stack-ids (board-ref board 0 0))
+		      (hash-table-get stack-ids (board-ref board 1 0))
+		      (hash-table-get stack-ids (board-ref board 2 0))
+		      (hash-table-get stack-ids (board-ref board 0 1))
+		      (hash-table-get stack-ids (board-ref board 1 1))
+		      (hash-table-get stack-ids (board-ref board 2 1))
+		      (hash-table-get stack-ids (board-ref board 0 2))
+		      (hash-table-get stack-ids (board-ref board 1 2))
+		      (hash-table-get stack-ids (board-ref board 2 2))))
+	    (lambda (board stack-ids)
+	      (bytes (hash-table-get stack-ids (board-ref board 0 0))
+		      (hash-table-get stack-ids (board-ref board 1 0))
+		      (hash-table-get stack-ids (board-ref board 2 0))
+		      (hash-table-get stack-ids (board-ref board 3 0))
+		      (hash-table-get stack-ids (board-ref board 0 1))
+		      (hash-table-get stack-ids (board-ref board 1 1))
+		      (hash-table-get stack-ids (board-ref board 2 1))
+		      (hash-table-get stack-ids (board-ref board 3 1))
+		      (hash-table-get stack-ids (board-ref board 0 2))
+		      (hash-table-get stack-ids (board-ref board 1 2))
+		      (hash-table-get stack-ids (board-ref board 2 2))
+		      (hash-table-get stack-ids (board-ref board 3 2))
+		      (hash-table-get stack-ids (board-ref board 0 3))
+		      (hash-table-get stack-ids (board-ref board 1 3))
+		      (hash-table-get stack-ids (board-ref board 2 3))
+		      (hash-table-get stack-ids (board-ref board 3 3))))))
+
+
+      ;; Generate a numerical ID for each stack. This numerical
+      ;;  ID must stay constant for all of time, because we
+      ;;  record boards in compact form using these numbers.
+      ;;  (For example, see "plays-3x3.ss".)
+      (define red-stack-ids (make-hash-table))
+      (define yellow-stack-ids (make-hash-table))
+      (for-each (lambda (s)
+		  (hash-table-put! red-stack-ids s (hash-table-count red-stack-ids)))
+		all-stacks)
+      (for-each (lambda (s)
+		  (let ([inverse (let loop ([s s])
+				   (if (null? s)
+				       null
+				       (hash-table-get (piece-gobble-table
+							(if (eq? (piece-color (car s)) 'red)
+							    (list-ref yellow-pieces (piece-size (car s)))
+							    (list-ref red-pieces (piece-size (car s)))))
+						       (loop (cdr s)))))])
+		    (hash-table-put! yellow-stack-ids s (hash-table-get red-stack-ids inverse))))
+		all-stacks)
 
       ;; Applies an appropriate flattener
       (define (compact-board board who)
-	(if (eq? who 'red)
-	    board
-	    (flip-board board)))
+	(flatten-board board
+		       (if (eq? who 'red) red-stack-ids yellow-stack-ids)))
 
       ;; make-canonicalize : -> (union (board sym -> (cons compact xform))
       ;;                               (compact #f -> (cons compact xform)))
