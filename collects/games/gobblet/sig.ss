@@ -17,7 +17,7 @@
   (define-signature explore^
     (make-search 
      apply-play ; a play is (list piece from-i from-j to-i to-j)
-     (struct plan (piece from-i from-j to-i to-j xform))))
+     (struct plan (size from-i from-j to-i to-j xform))))
 
   (define-signature model^
     (move 

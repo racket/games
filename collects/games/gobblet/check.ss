@@ -26,7 +26,7 @@
 		    (define (mk-search)
 		      (make-search make-3x3-rate-board make-3x3-canned-moves))
 		    
-		    (define FLUSH-CACHE-COUNT 1000)
+		    (define FLUSH-CACHE-COUNT 10)
 
 		    (let ([search (mk-search)]
 			  [cnt 0]
@@ -103,6 +103,7 @@
 			     3))]))
 		      (hash-table-for-each move-map
 					   (lambda (k v)
-					     (printf "~s~n" (cons k v))))))
+					     (when (> (list-ref v 3) 1)
+					       (printf "~s~n" (cons k v)))))))
 		  CONFIG EXPLORE MODEL HEURISTICS)])
     (export))))

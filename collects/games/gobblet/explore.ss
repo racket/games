@@ -28,7 +28,7 @@
 			       (build-path (find-system-path 'addon-dir)
 					   (format "gobblet-memory-~a.ss" BOARD-SIZE))))
 
-      (define-struct plan (piece from-i from-j to-i to-j xform turns))
+      (define-struct plan (size from-i from-j to-i to-j xform turns))
 
       (define (xlate m xform)
 	(let-values ([(from-i from-j)
@@ -41,7 +41,7 @@
 		      (unapply-xform xform (apply-xform (plan-xform m)
 							(plan-to-i m)
 							(plan-to-j m)))])
-	  (make-plan (plan-piece m) from-i from-j to-i to-j xform (plan-turns m))))
+	  (make-plan (plan-size m) from-i from-j to-i to-j xform (plan-turns m))))
 
 
       (define (float->string v)
@@ -174,7 +174,7 @@
 					     (cond
 					      [(null? canned-goodness) sizes]
 					      [(not (plan-from-j (cdar canned-goodness)))
-					       (let ([sz (piece-size (plan-piece (cdar canned-goodness)))])
+					       (let ([sz (plan-size (cdar canned-goodness))])
 						 (if (member sz sizes)
 						     (loop sizes (cdr canned-goodness))
 						     (loop (cons sz sizes) (cdr canned-goodness))))]
@@ -218,7 +218,8 @@
 							(best span
 							      v
 							      (list (cons (- (caar sv))
-									  (make-plan p #f #f i j xform (add1 (get-depth (car sv)))))))))
+									  (make-plan (piece-size p) #f #f i j 
+										     xform (add1 (get-depth (car sv)))))))))
 						    (lambda () v))))
 					v)))])))]
 			  [move-piece-goodness
@@ -254,7 +255,8 @@
 							 (best span
 							       v 
 							       (list (cons (- (caar sv))
-									   (make-plan (car l) from-i from-j to-i to-j xform 
+									   (make-plan (piece-size (car l)) from-i from-j to-i to-j 
+										      xform 
 										      (add1 (get-depth (car sv)))))))))
 						     (lambda ()
 						       v))))
@@ -326,7 +328,7 @@
 				(list (list-ref (if (eq? me 'red)
 						    red-pieces
 						    yellow-pieces)
-						(piece-size (plan-piece m)))
+						(plan-size m))
 				      (plan-from-i m)
 				      (plan-from-j m)
 				      (plan-to-i m)
@@ -406,10 +408,7 @@
 					(cons (if (eq? 'win (car v)) +inf.0 -inf.0)
 					      (let ([n (caddr v)])
 						(make-plan
-						 (list-ref (if (eq? 'red (car n))
-							       red-pieces
-							       yellow-pieces)
-							   (cadr n))
+						 (cadr n)
 						 (list-ref n 2) (list-ref n 3) (list-ref n 4) (list-ref n 5)
 						 (cdr board-key+xform)
 						 (list-ref n 6)))))))
@@ -419,7 +418,7 @@
 	(define init-memory (make-hash-table 'equal))
 	(define canonicalize (make-canonicalize))
 	(define rate-board (make-rate-board canonicalize))
-	(define canned-moves (make-canned-moves canonicalize))
+	(define canned-moves (make-canned-moves canonicalize init-memory))
 	(when learn?
 	  (load-memory init-memory canonicalize))
 	(lambda (timeout max-steps one-step-depth

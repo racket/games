@@ -34,28 +34,27 @@
       (define GOOD 1000.0)
       (define BAD -1000.0)
       
-      (define (make-3x3-canned-moves canonicalize) 
-	(let ([ht (make-hash-table 'equal)])
-	  (for-each (lambda (play)
-		      (let ([key+xform (canonicalize (car play) #f)])
-			(hash-table-put! ht
-					 (car key+xform)
-					 (let-values ([(from-i from-j)
-						       (if (list-ref play 2)
-							   (unapply-xform (cdr key+xform) (list-ref play 2))
-							   (values #f #f))]
-						      [(to-i to-j)
-						       (unapply-xform (cdr key+xform) (list-ref play 3))])
-					   (list
-					    (cons +inf.0
-						  (make-plan
-						   (list-ref red-pieces (list-ref play 1))
-						   from-i from-j to-i to-j
-						   (cdr key+xform)
-						   (sub1 (list-ref play 4)))))))))
-		    3x3-plays)
+      (define (make-3x3-canned-moves canonicalize init-memory) 
+	(for-each (lambda (play)
+		    (let ([key+xform (canonicalize (car play) #f)])
+		      (hash-table-put! init-memory
+				       (car key+xform)
+				       (let-values ([(from-i from-j)
+						     (if (list-ref play 2)
+							 (unapply-xform (cdr key+xform) (list-ref play 2))
+							 (values #f #f))]
+						    [(to-i to-j)
+						     (unapply-xform (cdr key+xform) (list-ref play 3))])
+					 (list
+					  (cons +inf.0
+						(make-plan
+						 (list-ref play 1)
+						 from-i from-j to-i to-j
+						 (cdr key+xform)
+						 (list-ref play 4))))))))
+		  3x3-plays)
 	  (lambda (board me k xform)
-	    (hash-table-get ht k (lambda () null)))))
+	    null))
 
       (define (make-3x3-rate-board canon)
 	(lambda (board me to-i to-j)
@@ -67,7 +66,7 @@
 		   0))
 	     (random))))
 
-      (define (make-4x4-canned-moves canon) 
+      (define (make-4x4-canned-moves canon init-memory) 
 	(lambda (board me k xform)
 	  null))
 
