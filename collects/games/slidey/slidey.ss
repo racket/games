@@ -1,21 +1,81 @@
 (require-library "function.ss")
 
+(define (get-bitmap bitmap)
+  (define f (make-object dialog% "Choose Size" #f #f #f #f #f '(resize-border)))
+  (define bm-panel (make-object vertical-panel% f))
+  (define bm-message (make-object message% bitmap bm-panel))
+  (define size-message (make-object message% 
+                         (format "Image size: ~a x ~a pixels"
+                                 (send bitmap get-width)
+                                 (send bitmap get-height))
+                         bm-panel))
+  (define wide-panel (make-object vertical-panel% f '(border)))
+  (define sw (make-object slider% "Tiles (width)" 2 30 wide-panel
+               (lambda (_1 _2)
+                 (update-horizontal-cutoff))))
+  (define tall-panel (make-object vertical-panel% f '(border)))
+  (define sh (make-object slider% "Tiles (height)" 2 30 tall-panel
+               (lambda (_1 _2)
+                 (update-vertical-cutoff))))
+  (define button-panel (make-object horizontal-panel% f))
+  
+  (define cancelled? #t)
+  
+  (define cancel (make-object button% "Cancel" button-panel (lambda (_1 _2) (send f show #f))))
+  (define ok (make-object button% "OK" button-panel (lambda (_1 _2)
+                                                      (set! cancelled? #f) 
+                                                      (send f show #f)) '(border)))
+  
+  (define vertical-cutoff 0)
+  (define vertical-cutoff-message (make-object message% "" tall-panel))
+
+  (define horizontal-cutoff 0)
+  (define horizontal-cutoff-message (make-object message% "" wide-panel))
+
+  (define (update-vertical-cutoff)
+    (set! vertical-cutoff (modulo (send bitmap get-height) (send sh get-value)))
+    (send vertical-cutoff-message set-label 
+          (if (= 0 vertical-cutoff)
+              ""
+              (format "Vertical cutoff ~a pixels" vertical-cutoff))))
+  (define (update-horizontal-cutoff) 
+    (set! horizontal-cutoff (modulo (send bitmap get-width) (send sw get-value)))
+    (send horizontal-cutoff-message set-label 
+          (if (= 0 horizontal-cutoff)
+              ""
+              (format "Horizontal cutoff ~a pixels" horizontal-cutoff))))
+
+  (send horizontal-cutoff-message stretchable-width #t)
+  (send vertical-cutoff-message stretchable-width #t)
+  (update-vertical-cutoff)
+  (update-horizontal-cutoff)
+  (send button-panel set-alignment 'right 'center)
+  (send button-panel stretchable-height #f)
+  (send bm-panel set-alignment 'center 'center)
+  (send wide-panel stretchable-height #f)
+  (send tall-panel stretchable-height #f)
+  (make-object grow-box-spacer-pane% button-panel)
+  (send f show #t)
+  
+  (if cancelled? 
+      (values #f #f #f)
+      (let* ([nb (make-object bitmap% 
+                   (- (send bitmap get-width) horizontal-cutoff)
+                   (- (send bitmap get-height) vertical-cutoff))]
+             [bdc (make-object bitmap-dc% nb)])
+        (send bdc draw-bitmap-section bitmap 0 0 0 0
+              (- (send bitmap get-width) horizontal-cutoff)
+              (- (send bitmap get-width) vertical-cutoff))
+        (send bdc set-bitmap #f)
+        (values nb (send sw get-value) (send sh get-value)))))
+
 (define-struct loc (x y))
 ;; board = (vector-of (vector-of (union #f (make-loc n1 n2))))
 
 ;; need to make sure that the bitmap divides nicely
-(define bitmap (make-object bitmap% (build-path (current-load-relative-directory) "11.jpg")))
-(define board-width 6)
-(define board-height 5)
-
-(define board
-  (build-vector
-   board-width
-   (lambda (i)
-     (build-vector
-      board-height
-      (lambda (j)
-	(make-loc i j))))))
+;(define bitmap (make-object bitmap% (build-path (current-load-relative-directory) "11.jpg")))
+;(define board-width 6)
+;(define board-height 5)
 
 (define (board-for-each board f)
   (let loop ([i (vector-length board)])
@@ -31,7 +91,7 @@
 	    (loop (- j 1))])))
       (loop (- i 1))])))
 
-(define (move-one from-i from-j to-i to-j)
+(define (move-one board from-i from-j to-i to-j)
   (let ([from-save (board-ref board from-i from-j)]
         [to-save (board-ref board to-i to-j)])
     (board-set! board from-i from-j to-save)
@@ -42,57 +102,62 @@
 (define (board-ref board i j)
   (vector-ref (vector-ref board i) j))
 
-(define hole-i (- board-width 1))
-(define hole-j (- board-height 1))
-(board-set! board hole-i hole-j #f)
+(define (get-board-width board)
+  (vector-length board))
+(define (get-board-height board)
+  (vector-length (vector-ref board 0)))
 
-(define (randomize-board)
-  (let loop ([no-good #f]
-             [i (* 10 board-width board-height)]
-             [m-hole-i hole-i]
-             [m-hole-j hole-j])
-    (cond
-      [(zero? i) ;; move hole back to last spot
-       (let ([i-diff (abs (- m-hole-i hole-i))])
-         (let loop ([i 0])
-           (unless (= i i-diff)
-             (move-one  
-              (+ m-hole-i i)
-              m-hole-j 
-              (+ m-hole-i i (if (< m-hole-i hole-i) +1 -1))
-              m-hole-j)
-             (loop (+ i 1)))))
-       (let ([j-diff (abs (- m-hole-j hole-j))])
-         (let loop ([j 0])
-           (unless (= j j-diff)
-             (move-one
-              hole-i
-              (+ m-hole-j j)
-              hole-i
-              (+ m-hole-j j (if (< m-hole-j hole-j) +1 -1)))
-             (loop (+ j 1)))))]
-      [else 
-       (let ([this-dir (get-random-number 4 no-good)])
-         (let-values ([(new-i new-j)
-                       (case this-dir
-                         ; up
-                         [(0) (values (- m-hole-i 1) m-hole-j)]
-                         [(1) (values (+ m-hole-i 1) m-hole-j)]
-                         [(2) (values m-hole-i (- m-hole-j 1))]
-                         [(3) (values m-hole-i (+ m-hole-j 1))])])
-           (if (and (<= 0 new-i)
-                    (< new-i board-width)
-                    (<= 0 new-j)
-                    (< new-j board-height))
-               (let ([next-no-good
-                      (case this-dir
-                        [(0) 1]
-                        [(1) 0]
-                        [(2) 3]
-                        [(3) 2])])
-                 (move-one new-i new-j m-hole-i m-hole-j)
-                 (loop next-no-good (- i 1) new-i new-j))
-               (loop no-good (- i 1) m-hole-i m-hole-j))))])))
+(define (randomize-board board hole-i hole-j)
+  (let ([board-width (get-board-width board)]
+        [board-height (get-board-height board)])
+    (let loop ([no-good #f]
+               [i (* 10 board-width board-height)]
+               [m-hole-i hole-i]
+               [m-hole-j hole-j])
+      (cond
+        [(zero? i) ;; move hole back to last spot
+         (let ([i-diff (abs (- m-hole-i hole-i))])
+           (let loop ([i 0])
+             (unless (= i i-diff)
+               (move-one  
+                board
+                (+ m-hole-i i)
+                m-hole-j 
+                (+ m-hole-i i (if (< m-hole-i hole-i) +1 -1))
+                m-hole-j)
+               (loop (+ i 1)))))
+         (let ([j-diff (abs (- m-hole-j hole-j))])
+           (let loop ([j 0])
+             (unless (= j j-diff)
+               (move-one
+                board
+                hole-i
+                (+ m-hole-j j)
+                hole-i
+                (+ m-hole-j j (if (< m-hole-j hole-j) +1 -1)))
+               (loop (+ j 1)))))]
+        [else 
+         (let ([this-dir (get-random-number 4 no-good)])
+           (let-values ([(new-i new-j)
+                         (case this-dir
+                           ; up
+                           [(0) (values (- m-hole-i 1) m-hole-j)]
+                           [(1) (values (+ m-hole-i 1) m-hole-j)]
+                           [(2) (values m-hole-i (- m-hole-j 1))]
+                           [(3) (values m-hole-i (+ m-hole-j 1))])])
+             (if (and (<= 0 new-i)
+                      (< new-i board-width)
+                      (<= 0 new-j)
+                      (< new-j board-height))
+                 (let ([next-no-good
+                        (case this-dir
+                          [(0) 1]
+                          [(1) 0]
+                          [(2) 3]
+                          [(3) 2])])
+                   (move-one board new-i new-j m-hole-i m-hole-j)
+                   (loop next-no-good (- i 1) new-i new-j))
+                 (loop no-good (- i 1) m-hole-i m-hole-j))))]))))
 
 (define (get-random-number bound no-good)
   (let ([raw (random (- bound 1))])
@@ -110,10 +175,34 @@
 (define white-brush (send the-brush-list find-or-create-brush "white" 'solid))
 (define white-pen (send the-pen-list find-or-create-pen "white" 1 'solid))
 
-(define solved? #f)
-
 (define slidey-canvas%
-  (class canvas% args
+  (class canvas% (bitmap board-width board-height . args)
+    
+    (private
+      [show-mistakes? #f])
+    (public
+      [show-mistakes
+       (lambda (nv)
+         (set! show-mistakes? nv)
+         (unless solved?
+           (on-paint)))])
+    
+    (private
+      [solved? #f]
+      
+      [board
+       (build-vector
+        board-width
+        (lambda (i)
+          (build-vector
+           board-height
+           (lambda (j)
+             (make-loc i j)))))]
+      [hole-i (- board-width 1)]
+      [hole-j (- board-height 1)])
+    (sequence
+      (board-set! board hole-i hole-j #f))
+    
     (override
       [on-paint
        (lambda ()
@@ -154,9 +243,9 @@
                 [(= new-hole-i i) (void)]
                 [else
                  (let ([next (if (< i hole-i)
-                                sub1
-                                add1)])
-                   (move-one (next new-hole-i) hole-j new-hole-i hole-j)
+                                 sub1
+                                 add1)])
+                   (move-one board (next new-hole-i) hole-j new-hole-i hole-j)
                    (draw-cell new-hole-i hole-j)
                    (draw-cell (next new-hole-i) hole-j)
                    (loop (next new-hole-i)))]))
@@ -170,9 +259,9 @@
                 [(= new-hole-j j) (void)]
                 [else
                  (let ([next (if (< j hole-j)
-                                sub1
-                                add1)])
-                   (move-one hole-i (next new-hole-j) hole-i new-hole-j)
+                                 sub1
+                                 add1)])
+                   (move-one board hole-i (next new-hole-j) hole-i new-hole-j)
                    (draw-cell hole-i new-hole-j)
                    (draw-cell hole-i (next new-hole-j))
                    (loop (next new-hole-j)))]))
@@ -181,7 +270,7 @@
             (when solved?
               (on-paint))]
            [else (void)]))]
-
+      
       [xy->ij
        (lambda (x y)
 	 (let-values ([(w h) (get-client-size)])
@@ -209,7 +298,7 @@
                      (send dc set-pen pict-pen)
                      (send dc set-brush pict-brush)
                      (send dc draw-bitmap-section bitmap xd yd xs ys wd hd)
-                     (if (and (send show-mistakes get-value)
+                     (if (and show-mistakes?
                               (or (not (= draw-i bm-i))
                                   (not (= draw-j bm-j))))
                          (begin
@@ -226,18 +315,41 @@
     (inherit stretchable-width stretchable-height min-client-width min-client-height)
     (sequence
       (apply super-init args)
+      (randomize-board board hole-i hole-j)
       (stretchable-width #f)
       (stretchable-height #f)
       (min-client-width (send bitmap get-width))
       (min-client-height (send bitmap get-height)))))
 
-(define f (make-object frame% "slidey"))
-(define slidey-canvas (make-object slidey-canvas% f))
-
+(define f (make-object frame% "Slidey"))
+(define p (make-object horizontal-panel% f))
+(send p set-alignment 'center 'center)
+(define slidey-canvas (make-object slidey-canvas% 
+                        (make-object bitmap% 
+                          (build-path (current-load-relative-directory) "11.jpg"))
+                        6 6 p))
 (define bp (make-object horizontal-panel% f))
+(send bp stretchable-height #f)
 (define show-mistakes
-  (make-object check-box% "Show misplaced pieces" bp (lambda ___ (unless solved? (send slidey-canvas on-paint)))))
+  (make-object check-box% "Show misplaced pieces" bp 
+    (lambda ___ (send slidey-canvas show-mistakes (send show-mistakes get-value)))))
 (make-object grow-box-spacer-pane% bp)
 
-(randomize-board)
+(define (change-bitmap)
+  (let ([fn (get-file)])
+    (when fn
+      (let ([bm (make-object bitmap% fn)])
+        (cond
+          [(send bm ok?)
+           (let-values ([(bitmap w h) (get-bitmap bm)])
+             (when bitmap
+               (send p change-children (lambda (l) null))
+               (set! slidey-canvas (make-object slidey-canvas% bitmap w h p))))]
+          [else (message-box "Slidey" (format "Could not open bitmap: ~a" fn))])))))
+
+(define mb (make-object menu-bar% f))
+(define file-menu (make-object menu% "File" mb))
+(make-object menu-item% "Open Bitmap" file-menu (lambda (_1 _2) (change-bitmap)) #\o)
+(make-object menu-item% "Close Window" file-menu (lambda (_1 _2) (send f show #f)) #\w)
+
 (send f show #t)
