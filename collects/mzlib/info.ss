@@ -7,9 +7,9 @@
 	     "cmdlines.ss" "dates.ss" "strings.ss"
 	     "compats.ss" "files.ss" "threads.ss" "transcrs.ss"
 	     "compiles.ss" "functios.ss" "pconvers.ss"
-	     "inflates.ss" "prettys.ss" "zmaths.ss"
-	     "cores.ss"
-	     "mzlibs.ss")])
+	     "inflates.ss" "prettys.ss" "maths.ss"
+	     "cores.ss" "coreflats.ss"
+	     "mzlibs.ss" "mzlibflats.ss")])
   (lambda (request failure)
     (case request
       [(name) "MzLib"]
