@@ -22,11 +22,12 @@
                       (info 'name (lambda () g)))))
             games)))
                
-   (define f (make-object (class100 frame% (name)
-			    (override
-			      [on-close (lambda () (exit))])
-			    (sequence (super-init name)))
-			  "PLT Games"))
+   (define f (new (class frame%
+		    (override*
+		      [on-close (lambda () (exit))])
+		    (super-new))
+		  [label "PLT Games"]
+		  [style '(metal)]))
    (define hp (make-object horizontal-panel% f))
    (define main (make-object vertical-panel% hp))
    (send f set-alignment 'left 'top)

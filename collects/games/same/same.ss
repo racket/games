@@ -303,7 +303,7 @@
           [define/override on-close
             (lambda ()
               (semaphore-post semaphore))]
-          (super-new)))
+          (super-new [style '(metal)])))
       
       (define find-largest-connected-region
         (let ([biggest-so-far 0]
