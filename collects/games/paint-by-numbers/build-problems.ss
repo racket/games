@@ -74,12 +74,12 @@ yet defined.
     (define games-set (build-set "Games Magazine"
 				 "games"
 				 "raw-problems.ss"))
+
     (define misc-set (build-set "Misc"
 				"misc"
 				"raw-misc.ss"))
 
-    ;(define sets (cons games-set (cons misc-set hattori-sets)))
-    (define sets (list misc-set))
+    (define sets (cons games-set (cons misc-set hattori-sets)))
 
     (define (sum-list l) (apply + l))
     (define (sum-lists ls) (sum-list (map sum-list ls)))

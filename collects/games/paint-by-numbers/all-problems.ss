@@ -27,7 +27,7 @@
 				   [new : paint-by-numbers:problem-set^]
 				   paint-by-numbers:problem^)
 			   
-			   (for-each 
+			   '(for-each 
 			    (lambda (problem)
 			      (unless (problem-solution problem)
 			        (printf "No solution for ~a~n" (problem-name problem))))
