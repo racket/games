@@ -36,7 +36,8 @@
 					  (queue-callback
 					   (lambda ()
 					     (unless help
-					       (set! help (show-help (list "games" "gobblet") "Gobblet Help" #f)))
+					       (set! help (show-help (list "games" "gobblet")
+                                                                     "Gobblet Help" #f)))
 					     (help)))))))]
 	       [MODEL : model^ (model-unit CONFIG)]
 	       [HEURISTICS : heuristics^ (heuristics-unit CONFIG MODEL EXPLORE)]

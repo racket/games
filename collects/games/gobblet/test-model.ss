@@ -45,8 +45,9 @@
      (define-values/invoke-unit/sig model^
        model-unit #f config^)
      (test '((2 2) (1 1) (0 0)) (available-off-board empty-board 'red))
-     (test '((2 2) (1 1) (0)) (available-off-board (move empty-board (list-ref red-pieces 0) #f #f 1 1 values void)
-						     'red))
+     (test '((2 2) (1 1) (0)) (available-off-board 
+                               (move empty-board (list-ref red-pieces 0) #f #f 1 1 values void)
+                               'red))
      (let ([b2 (move empty-board (list-ref red-pieces 2) #f #f 1 1 values void)])
        (test '((2) (1 1) (0 0)) (available-off-board b2 'red))
        (let ([b3 (move b2 (list-ref yellow-pieces 1) #f #f 2 2 values void)])

@@ -120,8 +120,10 @@
 		     (label "Gobblet") (width 800) (height 600)))
       (define gui-board
 	(new gl-board% (parent f)  (who "Gobblet")
-	     (min-x (if JR? (- 1 BOARD-SIZE) -1)) (max-x (if JR? (sub1 (* 2 BOARD-SIZE)) (add1 BOARD-SIZE)))
-	     (min-y 0) (max-y BOARD-SIZE)
+	     (min-x (if JR? (- 1 BOARD-SIZE) -1))
+             (max-x (if JR? (sub1 (* 2 BOARD-SIZE)) (add1 BOARD-SIZE)))
+	     (min-y 0)
+             (max-y BOARD-SIZE)
 	     (lift 1.2)
 	     (move gui-move)
 	     (theta 30)))
@@ -246,9 +248,12 @@
 					       [cw (list-ref c 2)]
 					       [naw (quotient (+ aw cw) 2)])
 					  (list
-					   (list (car a) (cadr a) naw (cadddr a))
-					   (list (+ (car b) (- naw aw)) (cadr b) (caddr b) (cadddr b))
-					   (list (+ naw (caddr b)) (cadr c) (- (+ cw aw) naw) (cadddr c)))))
+					   (list (car a) (cadr a) 
+                                                 naw (cadddr a))
+					   (list (+ (car b) (- naw aw)) (cadr b) 
+                                                 (caddr b) (cadddr b))
+					   (list (+ naw (caddr b)) (cadr c)
+                                                 (- (+ cw aw) naw) (cadddr c)))))
 				      r)))
 			      (super-new))
 			    (parent f)
@@ -341,17 +346,19 @@
 					   [label "Auto-play Think Time (seconds):"]
 					   [parent d]
 					   [init-value (number->string timeout)]
-					   [callback (lambda (t e)
-						       (let* ([e (send t get-editor)]
-							      [val (string->number (send e get-text))]
-							      [bad? (or (not val)
-									(not (real? val))
-									(val . < . 0))])
-							 (send ok-button enable (not bad?))
-							 (send e change-style 
-							       (send (make-object style-delta%) set-delta-background 
-								     (if bad? "yellow" "white"))
-							       0 (send e last-position))))])]
+					   [callback 
+                                            (lambda (t e)
+                                              (let* ([e (send t get-editor)]
+                                                     [val (string->number (send e get-text))]
+                                                     [bad? (or (not val)
+                                                               (not (real? val))
+                                                               (val . < . 0))])
+                                                (send ok-button enable (not bad?))
+                                                (send e change-style 
+                                                      (send (make-object style-delta%)
+                                                            set-delta-background 
+                                                            (if bad? "yellow" "white"))
+                                                      0 (send e last-position))))])]
 		       [button-panel (new horizontal-pane% 
 					  [parent d]
 					  [alignment '(right center)]
@@ -361,8 +368,11 @@
 			     [label "Ok"] [parent button-panel] [style '(border)]
 			     [callback (lambda (b e)
 					 (set! smart? (= 0 (send mode get-selection)))
-					 (set! timeout (string->number (send timeout-field get-value)))
-					 (put-preferences '(gobblet:auto-play-smart?) (list smart?) void)
+					 (set! timeout (string->number
+                                                        (send timeout-field get-value)))
+					 (put-preferences '(gobblet:auto-play-smart?) 
+                                                          (list smart?)
+                                                          void)
 					 (send d show #f))])])
 		(new button%
 		     [label "Cancel"] [parent button-panel]

@@ -178,43 +178,50 @@
 	    0))
 
       ;; Keeps the best move --- up to `span' of them --- in `a' and `b'.
-      ;;  The two lists are sorted, and the result should keep them that way.
+      ;;  The two lists are sorted, and the result should keep them sorted.
       ;;  For -inf.0 ratings, prefer the move farthest from the end of the
       ;;  game, otherwise prefer the move closest.
       (define (best span a b)
 	(cond
-	 [(zero? span) null]
-	 [(null? a)
-	  (if (null? b)
-	      null
-	      (cons (car b) (best (sub1 span) null (cdr b))))]
-	 [(null? b)
-	  (cons (car a) (best (sub1 span) null (cdr a)))]
-	 [(> (caar a) (caar b))
-	  (cons (car a) (best (sub1 span) (cdr a) b))]
-	 [(= (caar a) (caar b))
-	  (cond
-	   [(and delay-loss? 
-		 (= (caar a) -inf.0))
-	    (if (> (get-depth (car a)) (get-depth (car b)))
-		(cons (car a) (best (sub1 span) (cdr a) b))
-		(cons (car b) (best (sub1 span) a (cdr b))))]
-	   [(< (get-depth (car a)) (get-depth (car b)))
-	    (cons (car a) (best (sub1 span) (cdr a) b))]
-	   [else (cons (car b) (best (sub1 span) a (cdr b)))])]
-	 [else
-	  (cons (car b) (best (sub1 span) a (cdr b)))]))
+          ;; First, cases where span, a, or b goes to zero/null: 
+          [(zero? span) null]
+          [(null? a)
+           (if (null? b)
+               null
+               (cons (car b) (best (sub1 span) null (cdr b))))]
+          [(null? b)
+           (cons (car a) (best (sub1 span) null (cdr a)))]
+          ;; Pick best from first of a and first of b:
+          ;; - Case 1: a is rated better
+          [(> (caar a) (caar b))
+           (cons (car a) (best (sub1 span) (cdr a) b))]
+          ;; - Case 2: b is rated better
+          [(< (caar a) (caar b))
+           (cons (car b) (best (sub1 span) a (cdr b)))]
+          ;; - Case 3: same ratings, so pick based on distance to end-of-game
+          ;;  - Subcase 1: we're picking between losses, and we want to delay the loss
+          [(and delay-loss? 
+                (= (caar a) -inf.0))
+           (if (> (get-depth (car a)) (get-depth (car b)))
+               (cons (car a) (best (sub1 span) (cdr a) b))
+               (cons (car b) (best (sub1 span) a (cdr b))))]
+          ;;  - Subcase 2: a reaches the end first
+          [(< (get-depth (car a)) (get-depth (car b)))
+           (cons (car a) (best (sub1 span) (cdr a) b))]
+          ;;  - Subcase 3: b reaches the end first (or no later than a)
+          [else (cons (car b) (best (sub1 span) a (cdr b)))]))
 
       ;; --- TESTS ---
       #;
       (let* ([plan1 (make-plan 0 0 0 0 0 0 1)]
 	     [plan2 (make-plan 0 0 0 0 0 0 2)]
 	     [plan1s (list (cons 2 plan1) (cons 1 plan1))])
-	;; Check empty combinations:
+	;; Check empty/zero combinations:
 	(test null (best 20 null null))
 	(test plan1s (best 2 plan1s null))
 	(test plan1s (best 2 null plan1s))
 	(test plan1s (best 20 null plan1s))
+	(test null (best 0 plan1s plan1s))
 	;; Check rating choice
 	(test (list (cons 2 plan1)) (best 1 (list (cons 2 plan1)) (list (cons 1 plan1))))
 	(test (list (cons 1 plan1)) (best 1 (list (cons 1 plan1)) (list (cons -inf.0 plan2))))
@@ -224,7 +231,8 @@
 							  (list (cons 10 plan2) (cons 1 plan1))))
 	;; Check time-til-end choice:
 	(test (list (cons 1 plan1)) (best 1 (list (cons 1 plan1)) (list (cons 1 plan2))))
-	(test (list (cons -inf.0 plan2)) (best 1 (list (cons -inf.0 plan1)) (list (cons -inf.0 plan2)))))
+	(test (list (cons -inf.0 plan2)) (best 1 (list (cons -inf.0 plan1))
+                                               (list (cons -inf.0 plan2)))))
 
       ;; ------------------------------------------------------------
       ;;  Multi-step minmax (non-exhaustive):
@@ -247,10 +255,12 @@
 	  (let ([choices
 		 (cond
 		  ;; Check for known win/loss at arbitrary depth:
-		  [(hash-table-get (config-memory config) board-key (lambda () #f)) => (lambda (x) x)]
+		  [(hash-table-get (config-memory config) board-key (lambda () #f)) 
+                   => (lambda (x) x)]
 		  ;; Check for known result at specific remaining depth:
-		  [(hash-table-get (config-memory config) key (lambda () #f)) => (lambda (x) x)]
-		  ;; Check for immediate loss (only rating matters)
+		  [(hash-table-get (config-memory config) key (lambda () #f)) 
+                   => (lambda (x) x)]
+		  ;; Check for immediate loss (only rating matters; plan is never used)
 		  [(winner? board (other me))
 		   (hash-table-put! (config-memory config) board-key '((-inf.0)))
 		   '((-inf.0))]
@@ -261,7 +271,8 @@
 		  ;; Check for depth
 		  [(depth . >= . (config-max-depth config))
 		   (set! depth-count (add1 depth-count))
-		   (let ([l (list (list ((config-rate-board config) board me last-to-i last-to-j)))])
+		   (let ([l (list 
+                             (list ((config-rate-board config) board me last-to-i last-to-j)))])
 		     (hash-table-put! (config-memory config) key l)
 		     l)]
 		  ;; Otherwise, we explore this state...
@@ -356,7 +367,8 @@
 				      (other me) new-board
 				      to-i to-j)])
 		  #;
-		  (when (zero? depth) (show-recur (piece-size p) from-i from-j to-i to-j his-choices))
+		  (when (zero? depth)
+                    (show-recur (piece-size p) from-i from-j to-i to-j his-choices))
 		  ;; Construct a plan for this choice, and rate it
 		  ;;  opposite of the minmax result
 		  (list (cons (- (caar his-choices))
@@ -408,16 +420,20 @@
 					   (list (cons (+ i j) plan)))))
 
 	;; pick-enters
-	(let* ([one-red (move empty-board (list-ref red-pieces (sub1 BOARD-SIZE)) #f #f 0 0 values void)]
-	       [two-red (move one-red (list-ref red-pieces (- BOARD-SIZE 2)) #f #f 1 1 values void)]
-	       [three-red (move two-red (list-ref red-pieces (sub1 BOARD-SIZE)) #f #f 2 2 values void)]
+	(let* ([one-red (move empty-board (list-ref red-pieces (sub1 BOARD-SIZE)) 
+                              #f #f 0 0 values void)]
+	       [two-red (move one-red (list-ref red-pieces (- BOARD-SIZE 2))
+                              #f #f 1 1 values void)]
+	       [three-red (move two-red (list-ref red-pieces (sub1 BOARD-SIZE))
+                                #f #f 2 2 values void)]
 	       [place-all (lambda (l)
 			    (cdr
 			     (fold-board (lambda (i j l+b)
 					   (if (null? (car l+b))
 					       l+b
 					       (cons (cdr (car l+b))
-						     (move (cdr l+b) (caar l+b) #f #f i j values void))))
+						     (move (cdr l+b) (caar l+b) 
+                                                           #f #f i j values void))))
 					 (cons l empty-board))))])
 	  (test (if (= BOARD-SIZE 3) '(2 1 0) '(3))
 		(pick-enters empty-board 'red))
@@ -428,7 +444,8 @@
 	  (test (if (= BOARD-SIZE 3) '(1 0) '(3 2 1))
 		(pick-enters three-red 'red))
 
-	  (let ([all-red-pieces (apply append (vector->list (make-vector (sub1 BOARD-SIZE) red-pieces)))])
+	  (let ([all-red-pieces (apply append 
+                                       (vector->list (make-vector (sub1 BOARD-SIZE) red-pieces)))])
 	    (test null (pick-enters (place-all all-red-pieces) 'red))
 	    (test '(2) (pick-enters (place-all (remq (list-ref red-pieces 2) 
 						     all-red-pieces))
@@ -490,30 +507,13 @@
 	    ;; Record what we've learned...
 	    (when (and learn?
 		       (= steps 1))
-	      (when (or (found-win? plays)
-			(found-lose? plays))
-		(let ([board-key+xform ((config-canonicalize config) board me)])
-		  (hash-table-get init-memory 
-				  (car board-key+xform)
-				  (lambda ()
-				    ;; This is new...
-				    (with-output-to-file MEMORY-FILE
-				      (lambda ()
-					(let ([m (cdar plays)])
-					  (printf "(~a ~a ~a)~n#|~n~a|#~n" 
-						  (if (found-win? plays) 'win 'lose)
-						  (car board-key+xform)
-						  (list
-						   (piece-color (list-ref m 0))
-						   (piece-size (list-ref m 0))
-						   (list-ref m 1) (list-ref m 2) (list-ref m 3) (list-ref m 4)
-						   (list-ref m 5))
-						  (board->string 0 board))))
-				      'append))))))
+              (record-result plays board me config init-memory))
 
 	    (if (or (steps . <= . 1) first-move?)
 		(car plays)
 		(let ([nexts 
+                       ;; See what the other player thinks about our candidate moves,
+                       ;;  and pick the one that looks worst to the other player.
 		       (if ((caar plays) . < . +inf.0)
 			   (mergesort
 			    (map
@@ -522,7 +522,8 @@
 					   (make-string indent #\space) (play->string play))
 			       (if (= -inf.0 (car play))
 				   (begin
-				     (log-printf 4 indent " ~a>>>> losing\n" (make-string indent #\space))
+				     (log-printf 4 indent " ~a>>>> losing\n" 
+                                                 (make-string indent #\space))
 				     play)
 				   (let ([r (cons (- (car (multi-step-minmax 
 							   (sub1 steps) span config 
@@ -531,7 +532,8 @@
 							   (apply-play board (cdr play)))))
 						  (cdr play))])
 				     (log-printf 4 indent " ~a>>>> deeper = ~a\n" 
-						 (make-string indent #\space) (float->string (car r)))
+						 (make-string indent #\space)
+                                                 (float->string (car r)))
 				     r)))
 			     plays)
 			    (lambda (a b)
@@ -547,6 +549,29 @@
 			       (build-path (find-system-path 'addon-dir)
 					   (format "gobblet-memory-~a.ss" BOARD-SIZE))))
 
+      (define (record-result plays board me config init-memory)
+        (when (or (found-win? plays)
+                  (found-lose? plays))
+          (let ([board-key+xform ((config-canonicalize config) board me)])
+            (hash-table-get init-memory 
+                            (car board-key+xform)
+                            (lambda ()
+                              ;; This is new...
+                              (with-output-to-file MEMORY-FILE
+                                (lambda ()
+                                  (let ([m (cdar plays)])
+                                    (printf "(~a ~a ~a)~n#|~n~a|#~n" 
+                                            (if (found-win? plays) 'win 'lose)
+                                            (car board-key+xform)
+                                            (list
+                                             (piece-color (list-ref m 0))
+                                             (piece-size (list-ref m 0))
+                                             (list-ref m 1) (list-ref m 2)
+                                             (list-ref m 3) (list-ref m 4)
+                                             (list-ref m 5))
+                                            (board->string 0 board))))
+                                'append))))))
+      
       ;; to load what we've learned from previous runs
       (define (load-memory init-memory canonicalize)
 	(with-handlers ([exn:fail:filesystem? void])
@@ -563,7 +588,8 @@
 					      (let ([n (caddr v)])
 						(make-plan
 						 (cadr n)
-						 (list-ref n 2) (list-ref n 3) (list-ref n 4) (list-ref n 5)
+						 (list-ref n 2) (list-ref n 3)
+                                                 (list-ref n 4) (list-ref n 5)
 						 (cdr board-key+xform)
 						 (list-ref n 6)))))))
 		    (loop))))))))
