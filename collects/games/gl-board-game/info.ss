@@ -1,2 +1,2 @@
 (module info (lib "infotab.ss" "setup")
-  (define name "Checkers"))
+  (define name "3D board game library"))

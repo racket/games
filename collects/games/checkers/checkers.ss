@@ -84,7 +84,7 @@
 			      " - must take jump"
 			      "")))))
       
-      (define f (new frame% (label "gl-checkers") (width 800) (height 600)))
+      (define f (new frame% (label "Checkers") (width 800) (height 600)))
       (define board
         (new gl-board% (parent f) (min-x 0.0) (max-x 8.0) (min-y 0.0) (max-y 8.0)
              (lift .35)
