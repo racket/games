@@ -164,8 +164,8 @@
        (send bdc draw-rectangle 0 0 label-size label-size)
        (send bdc set-bitmap #F))
      
-     (f on-label "green")
-     (f off-label "white"))
+     (f on-label "ORANGE")
+     (f off-label "BLACK"))
    
    (define toggle-button%
      (class button% (label panel callback)
