@@ -5,7 +5,8 @@
   ; solve : ((list-of (list-of nat)) (list-of (list-of nat)) (num num symbol -> void) (num -> void) -> void)
 
   (require (lib "list.ss")
-           (lib "etc.ss"))
+           (lib "etc.ss")
+           (lib "contracts.ss"))
   
   ; filter! : returns a list of all elements in a-list which 
   ; satisfy the predicate.  
@@ -88,7 +89,10 @@
 	    ;    
             ; (type: board-row (list-of (union 'off 'on 'unknown)))
             ; (type: tally-row (list-of (union 'off 'on 'unknown 'maybe-off 'maybe-on 'mixed)))
-            ; (type: try-row (list-of (union 'maybe-off 'maybe-on)))
+            ; (type: try-row (list-of (union 'maybe-off 'maybe-on 'unknown)))
+            (define try-row? (listof (symbols 'maybe-off 'maybe-on 'unknown)))
+            (define try-batch? (listof (or/f false? (listof try-row?))))
+            
             ;    
             ; (type: board (list-of board-row))
             
@@ -97,6 +101,18 @@
             
 	    (define (board-ref board row col)
               (list-ref (list-ref board row) col))
+            
+            ; board-width : returns the width of the board
+            ; (board -> num)
+            
+            (define (board-width board)
+              (length (car board)))
+            
+            ; board-height : returns the height of the board
+            ; (board -> num)
+            
+            (define (board-height board)
+              (length board))
 	    
 	    ; extract-rows : returns the board as a list of rows
             ; (board -> board)
@@ -121,8 +137,24 @@
             
 	    (define (reassemble-cols board-line-list)
 	      (transpose board-line-list))
+            
+            ; entirely-unknown : does this row consist entirely of 'unknown?
+            
+            (define (entirely-unknown row)
+              (andmap (lambda (x) (eq? x 'unknown)) row))
 	    
 
+            ; threshold info : the threshold is the limit at which
+            ; memoize-tries will simply give up.  
+            
+            (define initial-threshold 2000)
+            
+            (define (too-high threshold)
+              (>= threshold 50000))
+            
+            (define (next-threshold threshold)
+              (+ threshold 3000))
+            
             ; procedures to simplify the construction of test cases:
             
             ; condensed->long-form : takes a tree of short-form symbols and
@@ -184,41 +216,34 @@
 	    ; make-row-formulator:
 	    ; given a set of block lengths, create a function which accepts a 
 	    ; set of pads and formulates a try-row:
-	    ; (num-list -> (num-list -> (list-of (union 'maybe-off 'maybe-on))))
+	    ; (num-list -> (num-list num -> (list-of (union 'maybe-off 'maybe-on 'unknown))))
 	    
-	    (define (make-row-formulator block-lens)
+	    (define (make-row-formulator blocks)
 	      (lambda (pads)
-		(append (build-list (car pads) (lambda (x) 'maybe-off))
-			(apply 
-			 append
-			 (map (lambda (block-len pad-len)
-				(append (build-list block-len (lambda (x) 'maybe-on))
-					(build-list pad-len (lambda (x) 'maybe-off))))
-			      block-lens
-			      (cdr pads))))))
+                (apply append       
+                       (let loop ([pads pads]
+                                  [blocks blocks])
+                         (cond [(null? (cdr pads)) 
+                                (if (null? blocks)
+                                    (list (build-list (car pads) (lambda (x) 'maybe-off)))
+                                    (list (cons 'maybe-off (build-list (apply + -1 (car pads) blocks) (lambda (x) 'unknown)))))]
+                               [else 
+                                (cons (build-list (car pads) (lambda (x) 'maybe-off))
+                                      (cons (build-list (car blocks) (lambda (x) 'maybe-on))
+                                            (loop (cdr pads) (cdr blocks))))])))))
 	    
-	    #|
+            #|
 	    (equal? ((make-row-formulator '(3 1 1 5)) '(1 2 1 3 3))
 		    '(maybe-off maybe-on maybe-on maybe-on maybe-off maybe-off maybe-on maybe-off maybe-on 
 				maybe-off maybe-off maybe-off maybe-on maybe-on maybe-on maybe-on maybe-on
 				maybe-off maybe-off maybe-off))
-	    |#
-	    
-	    #| pad-pads: 
-	    add one to every element of a list except the first and last
-	    ((list-of num) -> (list-of num))
-	    |#
-
-	    (define (pad-pads num-list)
-	      (cons (car num-list)
-		    (let loop ((lon (cdr num-list)))
-		      (cond
-			((null? lon) null)
-			((= (length lon) 1) lon)
-			(else (cons (+ 1 (car lon)) (loop (cdr lon))))))))
-	    
-	    #|
-	    (equal? (pad-pads '(3 1 2 4 3 2 1)) '(3 2 3 5 4 3 1))
+            
+            (equal? ((make-row-formulator '(3 1 1 5)) '(2 4 4))
+                    '(maybe-off maybe-off
+                      maybe-on maybe-on maybe-on
+                      maybe-off maybe-off maybe-off maybe-off
+                      maybe-on
+                      unknown unknown unknown unknown unknown unknown unknown unknown unknown unknown))
 	    |#
 	    
 	    #| check-try : 
@@ -229,10 +254,11 @@
 	    (define (check-try tally-list)
 	      (lambda (try-list)
 		(andmap (lambda (tally try)
-			  (case tally
-			    ((off) (eq? try 'maybe-off))
-			    ((on) (eq? try 'maybe-on))
-			    (else #t)))
+                          (or (eq? try 'unknown)
+                              (case tally
+                                ((off) (eq? try 'maybe-off))
+                                ((on) (eq? try 'maybe-on))
+                                (else #t))))
 			tally-list
 			try-list)))
 	    
@@ -244,66 +270,78 @@
 	    (equal? ((check-try '(unknown off on unknown unknown unknown))
 		     '(maybe-off maybe-off maybe-on maybe-on maybe-on maybe-off))
 		    #t)
+            
+            (equal? ((check-try '(unknown off on unknown unknown unknown))
+                     '(unknown unknown unknown unknown unknown unknown))
+                    #t)
 	    |#
 	    
 	    #| build-possibles:
 	    builds a list of the possible rows.  given a number of spaces, and a number
 	    of bins to put the spaces in, and a row-formulator, and a line-checker predicate,
 	    build-possibles makes a list of every possible row which passes the predicate.
+            If the number of possibilities grows larger than the threshold, the search is
+            aborted.
 	    
-	    (num num ((list-of num) -> try-row) (try-row -> bool) -> (list-of try-row))
+	    (num num ((list-of num) -> try-row) (try-row -> bool) num -> (or/f (list-of try-row) #f))
 	    |#
 	    
-	    (define (build-possibles things bins row-formulator line-checker)
-	      (let ([built-list null])
-		(let tree-traverse ([things things]
-				    [bins bins]
-				    [so-far null])
-		  (if (= bins 1)
-		      (let* ([this-try (cons things so-far)]
-			     [padded (pad-pads this-try)]
-			     [formulated (row-formulator padded)])
-			(when (line-checker formulated)
-			  (set! built-list (cons formulated built-list))))
-		      (let try-loop ([in-this-bin 0])
-			(if (> in-this-bin things)
-			    #f
-			    (begin
-			      (tree-traverse (- things in-this-bin)
-					     (- bins 1)
-					     (cons in-this-bin so-far))
-			      (try-loop (+ in-this-bin 1)))))))
-		built-list))
+	    (define (build-possibles things total-bins row-formulator line-checker threshold)
+              (let/ec escape
+                (let* ([built-list null]
+                       [list-length 0]
+                       [add-to-built-list
+                        (lambda (new) 
+                          (if (= list-length threshold)
+                              (escape #f)
+                              (begin (set! built-list (cons new built-list))
+                                     (set! list-length (+ list-length 1)))))])
+                  (let tree-traverse ([things things]
+                                      [bins total-bins]
+                                      [so-far-rev null])
+                    (let* ([this-try-rev (cons things so-far-rev)]
+                           [formulated (row-formulator (reverse this-try-rev))])
+                      (when (line-checker formulated)
+                        (if (= bins 1)
+                            (add-to-built-list formulated)
+                            (let try-loop ([in-this-bin (if (= bins total-bins)
+                                                            0
+                                                            1)])
+                              (unless (> (+ in-this-bin (- bins 2)) things)
+                                (tree-traverse (- things in-this-bin)
+                                               (- bins 1)
+                                               (cons in-this-bin so-far-rev))
+                                (try-loop (+ in-this-bin 1))))))))
+                  built-list)))
+                      
 	    
-	    #| 
-	    build-possibles test case
-	    
-	    (let* ([row-formulator-one (make-row-formulator '(2))]
-		   [line-checker (check-try '(unknown unknown unknown on unknown unknown))]
-		   [test-one (build-possibles 4 2 row-formulator-one line-checker)]
-		   [row-formulator-two (make-row-formulator '(1 1))]
-		   [test-two (build-possibles 3 3 row-formulator-two line-checker)])
-	      (and (equal? test-one
-			   '((maybe-off maybe-off maybe-on maybe-on maybe-off maybe-off)
-			     (maybe-off maybe-off maybe-off maybe-on maybe-on maybe-off)))
-		   (equal? test-two
-			   '((maybe-on maybe-off maybe-off maybe-on maybe-off maybe-off)
-			     (maybe-off maybe-on maybe-off maybe-on maybe-off maybe-off)
-			     (maybe-off maybe-off maybe-off maybe-on maybe-off maybe-on)))))
-	    
+	   #| 
+	    ;build-possibles test case
+             (let* ([row-formulator-one (make-row-formulator '(2))]
+                    [line-checker (check-try '(unknown unknown unknown on unknown unknown))]
+                    [test-one (build-possibles 4 2 row-formulator-one line-checker 10000)]
+                    [row-formulator-two (make-row-formulator '(1 1))]
+                    [test-two (build-possibles 4 3 row-formulator-two line-checker 10000)])
+               (and 
+                (equal? test-one
+                        '((maybe-off maybe-off maybe-off maybe-on maybe-on maybe-off)
+                          (maybe-off maybe-off maybe-on maybe-on maybe-off maybe-off)))
+                (equal? test-two
+                        '((maybe-off maybe-off maybe-off maybe-on maybe-off maybe-on)
+                          (maybe-off maybe-on maybe-off maybe-on maybe-off maybe-off)
+                          (maybe-on maybe-off maybe-off maybe-on maybe-off maybe-off)))))
 	    |#
 	    
 	    #| spare-spaces:
 	    calculates the number of spare spaces in a line. In other words,
-	    line-length - sum-of-all-blocks - spaces-between-blocks
+	    line-length - sum-of-all-blocks
 	    
 	    ((list-of num) num -> num)
 	    |#
 	    
 	    (define (spare-spaces block-list line-length)
 	      (let* ([black-spaces (apply + block-list)]
-		     [inter-spaces (max (- (length block-list) 1) 0)]
-		     [spare-spaces (- line-length (+ black-spaces inter-spaces))])
+		     [spare-spaces (- line-length black-spaces)])
 		spare-spaces))
 	    
 	    ; first-pass:
@@ -315,7 +353,7 @@
 	    (define (first-pass info-list line-length)
 	      (let ((row-pass
 		     (lambda (block-list)
-		       (let* ([spares (spare-spaces block-list line-length)]
+		       (let* ([spares (- (spare-spaces block-list line-length) (max 0 (- (length block-list) 1)))]
 			      [shortened-blocks
 			       (map (lambda (block-length) (- block-length spares))
 				    block-list)]
@@ -380,18 +418,32 @@
 	    #| memoize-tries:
 	    given the black block widths and the line length and some initial board
 	    and a progress-bar updater, calculate all possibilities for each row.
+            If skip-unknowns is #t, rows whose content is entirely unknown will be 
+            skipped, and #f returned for that row.
 	    effect: updates the progress bar
-	    ((list-of (list-of num)) num (list-of board-row) (-> void) -> (list-of try-row))
+	    ((list-of (list-of num)) num (list-of board-row) (-> void) boolean -> (or/f (list-of try-row) #f))
 	    |#
 	    
-	    (define (memoize-tries info-list line-length board-rows update-progress)
-	      (map (lambda (block-list board-row)
+	    (define (memoize-tries info-list line-length board-rows update-progress old-tries threshold)
+	      (map (lambda (old-try-set block-list board-row)
 		     (update-progress)
-		     (let ([spaces (spare-spaces block-list line-length)]
-			   [bins (+ (length block-list) 1)]
-			   [row-formulator (make-row-formulator block-list)]
-			   [line-checker (check-try board-row)])
-		       (build-possibles spaces bins row-formulator line-checker)))
+                     (if old-try-set
+                         (begin
+                           (fprintf (current-error-port) "row already memoized\n")
+                           old-tries)
+                         (let ([result
+                                (begin (fprintf (current-error-port) "memoizing with threshold ~v\n" threshold)
+                                       (let ([spaces (spare-spaces block-list line-length)]
+                                             [bins (+ (length block-list) 1)]
+                                             [row-formulator (make-row-formulator block-list)]
+                                             [line-checker (check-try board-row)])
+                                         (build-possibles spaces bins row-formulator line-checker threshold)))
+                                ])
+                           (if result
+                               (fprintf (current-error-port) "length of list generated: ~v\n" (length result))
+                               (fprintf (current-error-port) "search aborted\n" ))
+                           result)))
+                   old-tries
 		   info-list
 		   board-rows))
 	    
@@ -411,15 +463,17 @@
 	    take a board-line list and a list of possibles, and trim it down by 
 	    checking each try-list against the appropriate board-line
 	    
-	    ((list-of board-row) (list-of (list-of try-row)) -> (list-of (list-of try-row)))
+	    ((list-of board-row) (list-of (or/f (list-of try-row) #f)) -> (list-of (or/f (list-of try-row) #f)))
 	    |#
 	    
 	    (define (batch-try board-line-list try-list-list-list)
 	      (map (lambda (line try-list-list)
-		     (filter! ; filter-rev
-		      (let ([f (check-try line)])
-			(lambda (try-list) (f try-list)))
-		      try-list-list))
+                     (if try-list-list
+                         (filter! ; filter-rev
+                          (let ([f (check-try line)])
+                            (lambda (try-list) (f try-list)))
+                          try-list-list)
+                         #f))
 		   board-line-list
 		   try-list-list-list))
 	    
@@ -460,12 +514,14 @@
 	    
 	    ; batch-tabulate : take a board-line-list and a list of sets of tries which check with the board
 	    ;  and tabulate them all to produce a new board line list (before rectification)
-	    ; (board-line-list try-list-list-list) -> tally-list
-	    (define (batch-tabulate board-line-list try-list-list-list)
-	      (map (lambda (board-line try-list-list)
-		     (foldl (lambda (x y) (tabulate-try y x)) board-line try-list-list))
+	    ; (board-line-list try-list-list-opt-list) -> tally-list
+	    (define (batch-tabulate board-line-list try-list-list-opt-list)
+	      (map (lambda (board-line try-list-list-opt)
+                     (if try-list-list-opt
+                         (foldl (lambda (x y) (tabulate-try y x)) board-line try-list-list-opt)
+                         board-line))
 		   board-line-list
-		   try-list-list-list))
+		   try-list-list-opt-list))
 	    
 	    
 	    ;  (equal? (batch-tabulate '((unknown unknown unknown off)
@@ -515,55 +571,81 @@
 	    
 	    ; do-lines takes a board-line-list and a try-list-list-list and returns two things: a tally-list-list
 	    ; and a new try-list-list-list
-	    ; (board-line-list try-list-list-list) -> (tally-list-list try-list-list-list)
-	    (define (do-lines board-line-list try-list-list-list)
-	      (let ([new-tries (batch-try board-line-list try-list-list-list)])
-		(values (batch-tabulate board-line-list new-tries)
-			new-tries)))
+	    ; (board-line-list try-list-list-opt-list) -> (tally-list-list try-list-list-opt-list)
+	    (define do-lines 
+              (contract
+               (->* (any? try-batch?)
+                    ((listof (listof any?))  try-batch?))
+               (lambda (board-line-list try-list-list-opt-list)
+                 (let ([new-tries (batch-try board-line-list try-list-list-opt-list)])
+                   (values (batch-tabulate board-line-list new-tries)
+                           new-tries)))
+               'do-lines
+               'caller))
 	    
 	    ; full-set takes a board and a pair of try-list-list-lists and returns a new board, a new pair
 	    ; of try-list-list-lists, and a boolean (whether it's changed)
-	    (define (full-set board row-try-list-list-list col-try-list-list-list)
-	      (let*-values ([(board-rows new-row-tries)
-			     (do-lines (extract-rows board) row-try-list-list-list)]
-			    [(row-changed)
-			     (ormap check-changed board-rows)]
-			    [(new-board)
-			     (reassemble-rows (map rectify board-rows))]
-			    [( _ )
-			     (if row-changed
-				 (animate-changes new-board draw-rows-thunk 
-						  (length board-rows)
-						  (length (car board-rows))))]
-			    [(board-cols new-col-tries)
-			     (do-lines (extract-cols new-board) col-try-list-list-list)]
-			    [(col-changed)
-			     (ormap check-changed board-cols)]
-			    [(final-board)
-			     (reassemble-cols (map rectify board-cols))]
-			    [( _ )
-			     (if col-changed
-				 (animate-changes final-board draw-cols-thunk
-						  (length board-cols)
-						  (length (car board-cols))))])
-		(values final-board new-row-tries new-col-tries (or row-changed col-changed))))
+	    (define full-set
+              (contract
+               (->* (any? try-batch? try-batch?)
+                    (any? try-batch? try-batch? boolean?))
+               (lambda (board row-try-list-list-opt-list col-try-list-list-opt-list)
+                 (let*-values ([(board-rows new-row-tries)
+                                (do-lines (extract-rows board) row-try-list-list-opt-list)]
+                               [(row-changed)
+                                (ormap check-changed board-rows)]
+                               [(new-board)
+                                (reassemble-rows (map rectify board-rows))]
+                               [( _ )
+                                (if row-changed
+                                    (animate-changes new-board draw-rows-thunk 
+                                                     (board-height new-board)
+                                                     (board-width new-board)))]
+                               [(board-cols new-col-tries)
+                                (do-lines (extract-cols new-board) col-try-list-list-opt-list)]
+                               [(col-changed)
+                                (ormap check-changed board-cols)]
+                               [(final-board)
+                                (reassemble-cols (map rectify board-cols))]
+                               [( _ )
+                                (if col-changed
+                                    (animate-changes final-board draw-cols-thunk
+                                                     (board-width final-board)
+                                                     (board-height final-board)))])
+                   (values final-board new-row-tries new-col-tries (or row-changed col-changed))))
+              'full-set
+              'caller))
 	    
+            ; on 2002-10-17, I wrapped another layer of looping around the inner loop.
+            ; the purpose of this outer loop is to assow the solver to ignore rows (or
+            ; columns) about which the solver knows nothing for as long as possible.
+            
 	    (define (local-solve row-info col-info)
 	      (let* ([rows (length row-info)]
 		     [cols (length col-info)]
-		     [update-progress (setup-progress (+ rows cols))]
 		     [initial-board (whole-first-pass row-info col-info cols rows)]
-		     [row-try-list-list-list (memoize-tries row-info cols initial-board update-progress)]
-		     [col-try-list-list-list (memoize-tries col-info rows (transpose initial-board) update-progress)]
-		     [board (reassemble-rows initial-board)])
-		(let loop ([board board] 
-			   [row-tries row-try-list-list-list]
-			   [col-tries col-try-list-list-list]
-			   [changed #t])
-		  (if changed
-		      (call-with-values (lambda () (full-set board row-tries col-tries))
-					loop)
-		      board))))
+                     [_ (animate-changes initial-board draw-cols-thunk
+                                         (board-width initial-board)
+                                         (board-height initial-board))])
+                (let outer-loop ([outer-board initial-board]
+                                 [skip-threshold initial-threshold]
+                                 [old-row-tries (build-list (board-height initial-board) (lambda (x) #f))]
+                                 [old-col-tries (build-list (board-width initial-board) (lambda (x) #f))])
+                  (let* ([update-progress (setup-progress (+ rows cols))]
+                         [row-try-list-list-opt-list (memoize-tries row-info cols initial-board update-progress old-row-tries skip-threshold)]
+                         [col-try-list-list-opt-list (memoize-tries col-info rows (transpose initial-board) update-progress old-col-tries skip-threshold)])
+                    (let loop ([board outer-board] 
+                               [row-tries row-try-list-list-opt-list]
+                               [col-tries col-try-list-list-opt-list]
+                               [changed #t])
+                      (if changed
+                          (call-with-values (lambda () (full-set board row-tries col-tries))
+                                            loop)
+                          (if (too-high skip-threshold)
+                              board
+                              (if (equal? outer-board board)
+                                  (outer-loop board (next-threshold skip-threshold) row-tries col-tries)
+                                  (outer-loop board skip-threshold row-tries col-tries)))))))))
 
 	    #|
 	    (let* ([row-info '((2)
