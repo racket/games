@@ -324,7 +324,11 @@ paint by numbers.
 
     (define-struct problem (name rows cols))
     (define problems
-      (list (make-problem "First"
+      (list
+       (make-problem "Solver Breaker"
+		     '((1) (2 2) (1 1) (1) (2 2) (1))
+		     '((1) (2 2) (1) (2) (2 2) (1)))
+       (make-problem "First"
 			  '((2) (1 1) (4)   (2 1) (3 1) (8) (8) (7) (5) (3))
 			  '((1) (2)   (1 6) (9)   (6)   (5) (5) (4) (3) (4)))
 	    (make-problem "Second"
