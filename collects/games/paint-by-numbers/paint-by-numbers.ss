@@ -296,8 +296,7 @@
              set-entry
              setup-progress)))]
       
-      (super-instantiate ()
-        (label game-name))
+      (super-new (label game-name))
       
       [define wrong-item #f]
       [define solve-item #f]
@@ -341,7 +340,6 @@
                                (set-problem (list-ref problems (send choice get-selection)))))]
       [define canvas/spacer-panel (make-object horizontal-panel% (get-area-container))]
       [define canvas-panel (make-object vertical-pane% canvas/spacer-panel)]
-      [define spacer (make-object grow-box-spacer-pane% canvas/spacer-panel)]
       [define canvas #f]
       (send top-panel change-children (lambda (l) (list set-choice board-choice gap help-button)))
       
@@ -402,7 +400,6 @@
       (inherit get-area-container)
       [define space/canvas-panel (make-object horizontal-panel% (get-area-container))]
       [define canvas-panel (make-object vertical-pane% space/canvas-panel)]
-      [define spacer (make-object grow-box-spacer-pane% canvas-panel)]
       
       (cond
         [(pair? indicator)
