@@ -68,7 +68,7 @@
    (define BOARD-SIZE 3)
    (define-values/invoke-unit/sig model^
      model-unit #f config^)
-   (let ([c (let ([cannon (make-canonicalize)])
+   (let ([c (let ([cannon (make-canonicalize +inf.0)])
 	      (lambda (b who)
 		(car (cannon b who))))])
      (test 0 (c empty-board 'red))
@@ -98,7 +98,7 @@
    (define BOARD-SIZE 4)
    (define-values/invoke-unit/sig model^
      model-unit #f config^)
-   (let ([c (let ([cannon (make-canonicalize)])
+   (let ([c (let ([cannon (make-canonicalize +inf.0)])
 	      (lambda (b who)
 		(car (cannon b who))))])
      (test 0 (c empty-board 'red))

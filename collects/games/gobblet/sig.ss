@@ -1,10 +1,18 @@
 (module sig mzscheme
   (require (lib "unitsig.ss"))
 
-  (provide config^ model^ restart^)
+  (provide config^ 
+	   heuristic^ explore^
+	   model^ restart^)
 
   (define-signature config^
     (BOARD-SIZE))
+
+  (define-signature heuristic^
+    (rate-board))
+
+  (define-signature explore^
+    (make-search apply-play))
 
   (define-signature model^
     (move 

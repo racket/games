@@ -15,13 +15,35 @@
       (define PIECE-COUNT (sub1 BOARD-SIZE))
       
       ;; A piece is
-      ;;  (make-piece num sym)
+      ;;  (make-piece num sym ht)
       ;;  where the sym is 'red or 'yellow
-      (define-struct piece (size color))  
+      (define-struct piece (size color gobble-table))  
 
-      (define red-pieces (map (lambda (sz) (make-piece sz 'red)) SIZES))
-      (define yellow-pieces (map (lambda (sz) (make-piece sz 'yellow)) SIZES))
-      
+      (define red-pieces (map (lambda (sz) (make-piece sz 'red (make-hash-table))) SIZES))
+      (define yellow-pieces (map (lambda (sz) (make-piece sz 'yellow (make-hash-table))) SIZES))
+
+      (define all-stacks
+	(let loop ([red-pieces red-pieces]
+		   [yellow-pieces yellow-pieces]
+		   [prev-stacks (list null)])
+	  (if (null? red-pieces)
+	      ;; Return all unique stacks:
+	      prev-stacks
+	      ;; Add stacks to first pieces' tables:
+	      (loop (cdr red-pieces)
+		    (cdr yellow-pieces)
+		    (apply
+		     append
+		     prev-stacks
+		     (map (lambda (p)
+			    (map (lambda (stack)
+				   (let ([new-stack (cons p stack)])
+				     (hash-table-put! (piece-gobble-table p) stack new-stack)
+				     new-stack))
+				 prev-stacks))
+			  (list (car red-pieces)
+				(car yellow-pieces))))))))
+
       ;; A board is a 
       ;;  (vector (vector (list piece ...) ...) ...)
 
@@ -95,9 +117,13 @@
 				   ;; Wasn't on the board, yet:
 				   board)])
 		;; Add the piece at its new spot, and continue
-		(k (board-set new-board to-i to-j (cons p pl))))
+		(k (board-set new-board to-i to-j (gobble p pl))))
 	      ;; Not allowed; fail
 	      (fail-k))))
+
+      ;; gobble : piece (listof piece) -> (listof piece)
+      (define (gobble p l)
+	(hash-table-get (piece-gobble-table p) l))
 
       ;; 3-in-a-row? : board num num color -> bool
       (define (3-in-a-row? board i j c)
@@ -278,32 +304,78 @@
 				 (vector-ref v 9) (vector-ref v 13)
 				 (vector-ref v 0) (vector-ref v 4) (vector-ref v 8) (vector-ref v 12))))))
 
+      (define flatten-board
+	(if (= BOARD-SIZE 3)
+	    (lambda (board stack-ids)
+	      (vector (hash-table-get stack-ids (board-ref board 0 0))
+		      (hash-table-get stack-ids (board-ref board 1 0))
+		      (hash-table-get stack-ids (board-ref board 2 0))
+		      (hash-table-get stack-ids (board-ref board 0 1))
+		      (hash-table-get stack-ids (board-ref board 1 1))
+		      (hash-table-get stack-ids (board-ref board 2 1))
+		      (hash-table-get stack-ids (board-ref board 0 2))
+		      (hash-table-get stack-ids (board-ref board 1 2))
+		      (hash-table-get stack-ids (board-ref board 2 2))))
+	    (lambda (board stack-ids)
+	      (vector (hash-table-get stack-ids (board-ref board 0 0))
+		      (hash-table-get stack-ids (board-ref board 1 0))
+		      (hash-table-get stack-ids (board-ref board 2 0))
+		      (hash-table-get stack-ids (board-ref board 3 0))
+		      (hash-table-get stack-ids (board-ref board 0 1))
+		      (hash-table-get stack-ids (board-ref board 1 1))
+		      (hash-table-get stack-ids (board-ref board 2 1))
+		      (hash-table-get stack-ids (board-ref board 3 1))
+		      (hash-table-get stack-ids (board-ref board 0 2))
+		      (hash-table-get stack-ids (board-ref board 1 2))
+		      (hash-table-get stack-ids (board-ref board 2 2))
+		      (hash-table-get stack-ids (board-ref board 3 2))
+		      (hash-table-get stack-ids (board-ref board 0 3))
+		      (hash-table-get stack-ids (board-ref board 1 3))
+		      (hash-table-get stack-ids (board-ref board 2 3))
+		      (hash-table-get stack-ids (board-ref board 3 3))))))
+
+      (define red-stack-ids (make-hash-table))
+      (define yellow-stack-ids (make-hash-table))
+
+      (for-each (lambda (s)
+		  (hash-table-put! red-stack-ids s (hash-table-count red-stack-ids)))
+		all-stacks)
+      (for-each (lambda (s)
+		  (let ([inverse (let loop ([s s])
+				   (if (null? s)
+				       null
+				       (hash-table-get (piece-gobble-table
+							(if (eq? (piece-color (car s)) 'red)
+							    (list-ref yellow-pieces (piece-size (car s)))
+							    (list-ref red-pieces (piece-size (car s)))))
+						       (loop (cdr s)))))])
+		    (hash-table-put! yellow-stack-ids s (hash-table-get red-stack-ids inverse))))
+		all-stacks)
+
+      	    
+
       ;; make-canonicalize : -> (board sym -> (cons num xform))
       (define (make-canonicalize max-c)
 	(let ([memory (make-hash-table 'equal)])
 	  ;; Convert the board into a flat vector, normalizing player:
 	  (lambda (board who)
-	    (let ([v (make-vector (* BOARD-SIZE BOARD-SIZE))])
-	      (fold-board (lambda (i j vd)
-			    (vector-set! v (+ i (* j BOARD-SIZE))
-					 (map (lambda (p)
-						(if (eq? (piece-color p) who)
-						    (piece-size p)
-						    (+ BOARD-SIZE (piece-size p))))
-					      (board-ref board i j))))
-			  (void))
-	      ;; Find mapping
-	      (hash-table-get memory v
-			      (lambda ()
-				(let* ([n (hash-table-count memory)]
-				       [pr (cons n (car xforms))])
-				  (hash-table-put! memory v pr)
-				  (when (n . < . max-c)
-				    ;; Add each equivalent to table:
-				    (for-each (lambda (xform xform-proc)
-						(hash-table-put! memory (xform-proc v) (cons n xform)))
-					      (cdr xforms) (cdr xform-procs)))
-				  pr)))))))
+	    (let ([v (flatten-board board
+				    (if (eq? who 'red) red-stack-ids yellow-stack-ids))])
+	      (if ((hash-table-count memory) . < . max-c)
+		  ;; Find cannonical mapping.
+		  (hash-table-get memory v
+				  (lambda ()
+				    (let* ([n (hash-table-count memory)]
+					   [pr (cons n (car xforms))])
+				      (hash-table-put! memory v pr)
+				      ;; Add each equivalent to table:
+				      (for-each (lambda (xform xform-proc)
+						  (hash-table-put! memory (xform-proc v) (cons n xform)))
+						(cdr xforms) (cdr xform-procs))
+				      pr)))
+		  ;; Don't try to cannonicalize, because it mostly
+		  ;;  pays off only at the beginning
+		  (cons v (car xforms)))))))
 
       (define (apply-xform xform i j)
 	(vector-ref xform (+ (* j BOARD-SIZE) i)))
