@@ -16,16 +16,15 @@
       [(_)
        (with-syntax ([(unit-names ...)
                       (let loop ([files
-                                  (call-with-input-file (build-path (this-expression-source-directory)
-                                                                    "problems"
-                                                                    "directory")
+                                  (call-with-input-file
+                                      (build-path (collection-path "games" "paint-by-numbers")
+                                                  "problems" "directory")
                                     read)])
                         (cond
                           [(null? files) null]
                           [(or (equal? (car files) "CVS")
-                               (not (file-exists? (build-path (this-expression-source-directory)
-                                                              "problems"
-                                                              (car files)))))
+                               (not (file-exists? (build-path (collection-path "games" "paint-by-numbers")
+                                                              "problems" (car files)))))
                            (loop (cdr files))]
                           [else
                            (cons (car files)
