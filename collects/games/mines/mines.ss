@@ -1,10 +1,14 @@
 
-;; This is a simple implementation of the ever-popular Minesweeper game.
-;; Ok, the graphics are primitive, and there are no frills, but what
-;; do you expect in 400 lines?
-;;  -Matthew
+;; An example implementation of the ever-popular Minesweeper game.
 
-(require-library "function.ss")
+;; The graphics are primitive, but the event-handling is general.  For
+;; example, clicking on a tile hilites the tile, but moving the mouse
+;; off the tile before releasing the mouse button unhilites the tile
+;; and ignores the click.
+
+;;;;;;;;;;;;;;;;; Configuration ;;;;;;;;;;;;;;;;;;
+
+(require-library "function.ss") ; defines build-vector
 
 (define TILE-HW 24)        ; height/width of a tile
 (define B-WIDTH 16)        ; number of tiles across
@@ -13,9 +17,8 @@
 
 (define DIGIT-COLOR-NAMES
   ; 0th is background; 8th is foreground
-  (vector "LIGHT GRAY" 
-	  "BLUE" "GREEN" "RED" "PURPLE" 
-	  "ORANGE" "YELLOW" "BROWN" "BLACK"))
+  (vector "LIGHT GRAY"  "BLUE"  "GREEN"  "RED"  "PURPLE" 
+	  "ORANGE"  "YELLOW"  "BROWN"  "BLACK"))
 
 (define DIGIT-COLORS
   (build-vector 9 (lambda (i)
@@ -26,28 +29,24 @@
 (define FG-COLOR (vector-ref DIGIT-COLORS 8))
 (define EXPLODE-COLOR (send the-color-database find-color "RED"))
 
-(define BG-PEN (send the-pen-list find-or-create-pen BG-COLOR 1 'solid))
-(define FG-PEN (send the-pen-list find-or-create-pen FG-COLOR 1 'solid))
+(define BG-PEN (make-object pen% BG-COLOR 1 'solid))
+(define FG-PEN (make-object pen% FG-COLOR 1 'solid))
 
-;; There's a lot of number-based loops below
-(define step-while
-  (case-lambda 
-   [(first test until step f)
-    (step-while first test until step f void (void))]
-   [(first test until step f accum)
-    (step-while first test until step f accum (void))]
-   [(first test until step f accum init)
-    (let loop ([n first][a init])
-      (if (test n until)
-	  (loop (step n) (accum a (f n)))
-	  a))]))
+;; A general function for looping over numbers:
+(define (step-while first test until  f accum init)
+  (let loop ([n first][a init])
+    (if (test n until)
+	(loop (add1 n) (accum a (f n)))
+	a)))
 
-; Class for a basic tile
+;;;;;;;;;;;;;;;;; Tiles ;;;;;;;;;;;;;;;;;;
+
+; Class for a tile object
 (define tile:plain%
   (class object% ()
     (private
-      [state 'covered]
-      [neighbor-bomb-count 0])
+      [state 'covered]    ; 'covered, 'flagged, 'semi-flagged, or 'uncovered
+      [neighbor-bomb-count 0]) ; 0 to 8
     (public
       [set-state
        (lambda (newstate)
@@ -72,9 +71,8 @@
 		 (add1 x) (add1 y) 
 		 (- w 2) (- h 2)))
 	 (when str
-	   (if color
-	       (send dc set-text-foreground color)
-	       (send dc set-text-foreground FG-COLOR))
+	   (send dc set-text-foreground (or color FG-COLOR))
+	   ; Draw text centered in the tile's box:
 	   (let-values ([(tw th d a) (send dc get-text-extent str)])
 	     (send dc draw-text str 
 		   (+ x (/ (- w tw) 2))
@@ -99,7 +97,7 @@
     (inherit get-state draw-text-tile)
     (rename [super-draw draw])
     (private
-      [explode-source? #f])
+      [explode-source? #f]) ; draw this bomb as the one that exploded?
     (public
       [set-explode-source
        (lambda (s?)
@@ -114,18 +112,24 @@
     (sequence
       (super-init))))
 
+(define (is-bomb? x)
+  (is-a? x tile:bomb%))
+
+;;;;;;;;;;;;;;;;; Board Operations ;;;;;;;;;;;;;;;;;;
 ;; A board is a vector of vectors of tiles
 
-(define (get-tile b x y)
-  (vector-ref (vector-ref b x) y))
+(define board #f) ; initialized by calling make-board!
 
-(define (set-tile! b x y t)
-  (vector-set! (vector-ref b x) y t))
+(define (get-tile x y)
+  (vector-ref (vector-ref board x) y))
 
-(define (do-surrounding b x y accum start default f)
-  (step-while -1 <= 1 add1
+(define (set-tile! x y t)
+  (vector-set! (vector-ref board x) y t))
+
+(define (do-surrounding x y accum start default f)
+  (step-while -1 <= 1
 	      (lambda (dx)
-		(step-while -1 <= 1 add1
+		(step-while -1 <= 1
 			   (lambda (dy)
 			     (if (and (not (and (zero? dx) (zero? dy)))
 				      (< -1 (+ x dx) B-WIDTH)
@@ -135,91 +139,95 @@
 			   accum start))
 	      accum start))
 
-(define (is-bomb? x)
-  (is-a? x tile:bomb%))
-
-(define (count-surrounding-bombs b x y)
+(define (count-surrounding-bombs x y)
   (do-surrounding 
-   b x y + 0 0
+   x y + 0 0
    (lambda (dx dy)
-     (if (is-bomb? (get-tile b (+ x dx) (+ y dy)))
+     (if (is-bomb? (get-tile (+ x dx) (+ y dy)))
 	 1
 	 0))))
 
-(define (for-each-tile b f)
-  (step-while 0 < B-WIDTH add1
+(define (for-each-tile f)
+  (step-while 0 < B-WIDTH
 	      (lambda (x)
-		(step-while 0 < B-HEIGHT add1
+		(step-while 0 < B-HEIGHT
 			    (lambda (y)
-			      (f (get-tile b x y) x y))))))
+			      (f (get-tile x y) x y))
+			    void (void)))
+	      void (void)))
 
-(define (make-board)
-  (let ([b (build-vector B-WIDTH
-			 (lambda (i)
-			   (build-vector B-HEIGHT
-					 (lambda (j)
-					   (make-object tile:plain%)))))])
-    (let loop ([n THE-BOMB-COUNT])
-      (unless (zero? n)
-	(let rloop ()
-	  (let* ([x (random B-WIDTH)]
-		 [y (random B-HEIGHT)]
-		 [t (get-tile b x y)])
-	    (if (is-a? t tile:bomb%)
-		(rloop)
-		(begin
-		  (set-tile! b x y (make-object tile:bomb%))
-		  (loop (sub1 n))))))))
-    (for-each-tile b (lambda (t x y)
-		       (send t
-			     set-neighbor-bomb-count
-			     (count-surrounding-bombs b x y))))
-    b))
+(define (make-board!)
+  ; Create the board
+  (set! board
+	(build-vector B-WIDTH
+		      (lambda (i)
+			(build-vector B-HEIGHT
+				      (lambda (j)
+					(make-object tile:plain%))))))
+  ; Randomly insert bombs
+  (let loop ([n THE-BOMB-COUNT])
+    (unless (zero? n)
+      (let rloop ()
+	(let* ([x (random B-WIDTH)]
+	       [y (random B-HEIGHT)]
+	       [t (get-tile x y)])
+	  (if (is-a? t tile:bomb%)
+	      (rloop)
+	      (begin
+		(set-tile! x y (make-object tile:bomb%))
+		(loop (sub1 n))))))))
+  ; Set surrounding-bomb counts for each tile:
+  (for-each-tile (lambda (t x y)
+		   (send t
+			 set-neighbor-bomb-count
+			 (count-surrounding-bombs x y)))))
+
+;;;;;;;;;;;;;;;;; Graphic Interface ;;;;;;;;;;;;;;;;;;
+
+;; Make a frame:
+(define frame (make-object frame% "Minesweeper"))
+
+;; Make the row of controls at the top of the frame:
+(define panel (make-object horizontal-panel% frame))
+(send panel stretchable-height #f)
+(define (make-centering-pane parent)
+  (let ([p (make-object vertical-pane% parent)])
+    (send p set-alignment 'center 'center)
+    p))
+
+(define time (make-object message% "Time: 00000" (make-centering-pane panel)))
+(make-object button% "Reset" (make-centering-pane panel)
+	     (lambda (b e) (send board-canvas reset)))
+(define count (make-object message% "Count: 000" (make-centering-pane panel)))
+
+(define (set-time t)
+  (send time set-label (string-append "Time: " (number->string t))))
+(define (set-count c)
+  (send count set-label (string-append "Bombs: " (number->string c))))
 
 ;; Most of the work is in this class, which extends the basic canvas
-;; class for drawing to the screen. It isn't necessary to put everything
-;; in this class, but it's convenient.
-(define ms:canvas%
-  (class canvas% (vpanel)
+;;  class for drawing the Minesweeper board and handling clicks.
+(define board-canvas%
+  (class canvas% (frame)
     (inherit get-dc min-client-width min-client-height 
 	     stretchable-width stretchable-height)
     (private
-      [panel (make-object horizontal-panel% vpanel)])
-    (sequence
-      (send panel stretchable-height #f))
-    (private
-      [lspace (make-object vertical-panel% panel)]
-      [time (make-object message% "Time: 00000" panel)]
-      [lmspace (make-object vertical-panel% panel)]
-      [button (make-object button% "Reset" panel (lambda (b e) (reset)))]
-      [rmspace (make-object vertical-panel% panel)]
-      [count (make-object message% "Count: 000" panel)]
-      [rspace (make-object vertical-panel% panel)]
-
-      [set-time
-       (lambda (t)
-	 (send time set-label (string-append "Time: " (number->string t))))]
-      [set-count
-       (lambda (c)
-	 (send count set-label (string-append "Bombs: " (number->string c))))]
-      
-      [clicking #f]
-      [clicking-x 0]
-      [clicking-y 0]
-      [ready? #t]
-      [start-time #f]
-      [elapsed-time 0]
-      [timer #f]
-      [bomb-count THE-BOMB-COUNT]
-      [cover-count (* B-HEIGHT B-WIDTH)]
-      [board null])
+      [clicking #f]    ; #t => click in progress
+      [clicking-x 0]   ; x position of click in progress
+      [clicking-y 0]   ; y position of click in progress
+      [ready? #t]      ; #t => accept clicks
+      [start-time #f]  ; time of first click
+      [elapsed-time 0] ; seconds since first click
+      [timer #f]       ; a timer that updates elapsed-time
+      [bomb-count THE-BOMB-COUNT] ; number of bombs minus the number of flags
+      [cover-count (* B-HEIGHT B-WIDTH)]) ; number of uncovered tiles
     (public
-      (stop-timer
+      [stop-timer      ; stop the clock
        (lambda ()
 	 (when timer
 	   (send timer stop)
-	   (set! timer #f))))
-      (start-timer
+	   (set! timer #f)))]
+      [start-timer     ; start the clock
        (lambda ()
 	 (set! start-time (current-seconds))
 	 (set! timer
@@ -234,22 +242,22 @@
 			   (set-time e))))])
 		  (sequence
 		    (super-init)))))
-	 (send timer start 100 #f)))
-      (end-of-game
+	 (send timer start 100 #f))] ; check time roughly every .1 secs
+      [end-of-game     ; stop the game
        (lambda (win?)
 	 (stop-timer)
 	 (set! ready? #f)
 	 (set! start-time #f)
 	 (unless win?
 	   (show-all-bombs))
-	 (set-count THE-BOMB-COUNT)))
-      (explode
+	 (set-count THE-BOMB-COUNT))]
+      [explode         ; stop the game because the player hit a bomb
        (lambda ()
-	 (end-of-game #f)))
-      (win
+	 (end-of-game #f))]
+      [win             ; stop the game because the player won
        (lambda ()
-	 (end-of-game #t)))
-      (reset
+	 (end-of-game #t))]
+      [reset           ; quit the current game and reset the board
        (lambda ()
 	 (stop-timer)
 	 (set! ready? #t)
@@ -260,31 +268,30 @@
 	 (set-time 0)
 	 (set! bomb-count THE-BOMB-COUNT)
 	 (set-count THE-BOMB-COUNT)
-	 (set! board (make-board))
-	 (on-paint)))
-      (show-all-bombs
+	 (make-board!)
+	 (on-paint))]
+      [show-all-bombs  ; show the location of each bomb (after end-of-game)
        (lambda ()
-	 (for-each-tile board
-			(lambda (t x y)
+	 (for-each-tile (lambda (t x y)
 			  (when (is-bomb? t)
 			    (change-state t (send t get-state) 'uncovered #f)
-			    (paint-one t x y))))))
-      (autoclick-surrounding 
+			    (paint-one t x y)))))]
+      [autoclick-surrounding   ; autoclick tiles (after a 0 tile is uncovered)
        (lambda (x y)
 	 (do-surrounding 
-	  board x y void (void) (void)
+	  x y void (void) (void)
 	  (lambda (dx dy)
 	    (let* ([x2 (+ x dx)]
 		   [y2 (+ y dy)]
-		   [t (get-tile board x2 y2)]
+		   [t (get-tile x2 y2)]
 		   [state (send t get-state)]
 		   [nc (send t get-neighbor-bomb-count)])
 	      (unless (eq? state 'uncovered)
 		(change-state t state 'uncovered #t)
 		(paint-one t x2 y2)
 		(when (zero? nc)
-		  (autoclick-surrounding x2 y2))))))))
-      (change-state
+		  (autoclick-surrounding x2 y2)))))))]
+      [change-state         ; update counters after a tile changes
        (lambda (t old-state new-state update-count?)
 	 (send t set-state new-state)
 	 (when (and update-count? (not (eq? new-state old-state)))
@@ -297,10 +304,10 @@
 	     (set-count bomb-count))
 	   (when (eq? old-state 'flagged)
 	     (set! bomb-count (add1 bomb-count))
-	     (set-count bomb-count)))))
-      (do-select
+	     (set-count bomb-count))))]
+      [do-select            ; handle a click on a tile
        (lambda (x y flag?)
-	 (let* ([t (get-tile board x y)]
+	 (let* ([t (get-tile x y)]
 		[state (send t get-state)]
 		[new-state
 		 (case state
@@ -326,57 +333,64 @@
 		   (when (zero? nc)
 		     (autoclick-surrounding x y))))
 	     (when (and ready? (= cover-count THE-BOMB-COUNT))
-	       (win))))))
-      (paint-one
+	       (win)))))]
+      [paint-one        ; draw one tile
        (lambda (t x y)
 	 (let ([xloc (* x TILE-HW)]
 	       [yloc (* y TILE-HW)])
 	   (send t draw dc xloc yloc TILE-HW TILE-HW
-		 (eq? t clicking))))))
+		 (eq? t clicking))))])
     (override
-      (on-event
+      [on-event        ; handle a click
        (lambda (e)
 	 (when ready?
-	   (unless start-time
+	   (unless start-time    ; if the timer's not running, start it
 	     (when (send e button-down?)
 	       (start-timer)))
-	   (let* ([x (quotient (inexact->exact 
-				(floor (send e get-x))) TILE-HW)]
-		  [y (quotient (inexact->exact 
-				(floor (send e get-y))) TILE-HW)]
+	   ; Find the time for an (x,y) pixel position in the canvas
+	   (let* ([x (quotient (inexact->exact (floor (send e get-x))) 
+			       TILE-HW)]
+		  [y (quotient (inexact->exact (floor (send e get-y)))
+			       TILE-HW)]
 		  [t (if (and (< -1 x B-WIDTH)
 			      (< -1 y B-HEIGHT))
-			 (get-tile board x y)
-			 #f)])
+			 (get-tile x y)
+			 #f)]) ; not a tile
 	     (cond
-	       [(and clicking (or (not (eq? t clicking))
+	      [(and clicking (or (not (eq? t clicking))
 				  (not (or (send e button-up?)
 					   (send e dragging?)))))
-		(let ([old clicking])
-		  (set! clicking #f)
-		  (paint-one old clicking-x clicking-y))]
-	       [(and t
-		     (not (eq? (send t get-state) 'uncovered))
-		     (or (send e button-down?)
-			 (and (send e dragging?)
-			      (= x clicking-x)
-			      (= y clicking-y))))
-		(set! clicking t)
-		(set! clicking-x x)
-		(set! clicking-y y)
-		(paint-one t x y)]
-	       [(send e button-down?) ; click not on a tile
-		(set! clicking-x -1)]
-	       [(and clicking (send e button-up?))
-		(set! clicking #f)
-		(do-select x y (send e button-up? 'right))]
-	       [else 'ok])))))
-      (on-paint
+	       ; We're already in the middle of a click, and the mouse
+	       ;   was moved. Paint the tile to show whether releasing the
+	       ;   mouse button selects the tile.
+	       (let ([old clicking])
+		 (set! clicking #f)
+		 (paint-one old clicking-x clicking-y))]
+	      [(and t
+		    (not (eq? (send t get-state) 'uncovered))
+		    (or (send e button-down?)
+			(and (send e dragging?)
+			     (= x clicking-x)
+			     (= y clicking-y))))
+	       ; Start a click on a covered tile
+	       (set! clicking t)
+	       (set! clicking-x x)
+	       (set! clicking-y y)
+	       (paint-one t x y)]
+	      [(send e button-down?) 
+	       ; fallthough to here => clicking, but not on a tile
+	       (set! clicking-x -1)]
+	      [(and clicking (send e button-up?))
+	       ; User released the button
+	       (set! clicking #f)
+	       (do-select x y (send e button-up? 'right))]
+	      [else 'ok]))))]
+      [on-paint       ; refresh the board
        (lambda ()
-	 (for-each-tile board (lambda (t x y)
-				(paint-one t x y))))))
+	 (for-each-tile paint-one))])
     (sequence
-      (super-init vpanel)
+      (super-init frame)
+      ; Make canvas size always match the board size:
       (min-client-width (* TILE-HW B-WIDTH))
       (min-client-height (* TILE-HW B-HEIGHT))
       (stretchable-width #f)
@@ -384,13 +398,14 @@
     (private
       [dc (get-dc)])
     (sequence
-      (reset)
+      (reset)  ; initialize the game
       (send dc set-text-background BG-COLOR)
       (send dc set-brush (send the-brush-list find-or-create-brush 
 			       BG-COLOR 'solid)))))
 
-;; Make a frame, install the game, and then show the frame
-(define f (make-object frame% "Minesweeper"))
-(make-object ms:canvas% f)
-(send f show #t)
+; Make the board canvas:
+(define board-canvas (make-object board-canvas% frame))
+
+; Show the frame and handle events:
+(send frame show #t)
 (yield (make-semaphore))
