@@ -116,7 +116,7 @@
       (send card home-region you-region)
       (send card user-can-move #t))
     you-hand)
-	 
+
    ; More card setup: Show your cards
    (send t cards-face-up you-hand)
 
@@ -418,10 +418,12 @@
 		   (let ([card (car discards)])
 		     (set! discards (cdr discards))
 		     (send t card-face-down card)
+		     (send card user-can-move #f)
 		     (set! machine-hand (cons card machine-hand)))
 		   (let ([card (car deck)])
 		     (send t card-to-front card)
 		     (set! deck (cdr deck))
+		     (send card user-can-move #f)
 		     (set! machine-hand (cons card machine-hand))))
 	       (send t move-cards-to-region machine-hand machine-display-region)
 

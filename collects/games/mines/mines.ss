@@ -75,11 +75,10 @@
 	   (if color
 	       (send dc set-text-foreground color)
 	       (send dc set-text-foreground FG-COLOR))
-	   (let ([tw (box 0)][th (box 0)])
-	     (send dc get-text-extent str tw th)
+	   (let-values ([(tw th d a) (send dc get-text-extent str)])
 	     (send dc draw-text str 
-		   (+ x (/ (- w (unbox tw)) 2))
-		   (+ y (/ (- h (unbox th)) 2))))))]
+		   (+ x (/ (- w tw) 2))
+		   (+ y (/ (- h th) 2))))))]
       [draw
        (lambda (dc x y w h hilite?)
 	 (case state

@@ -129,17 +129,15 @@
 		    (send dc draw-rectangle (+ dx sx) (+ dy sy) sw sh)
 		    (when (region-hilite? region)
 		      (send dc set-brush old-b))
-		    (let ([xb (box 0)]
-			  [yb (box 0)]
-			  [text (region-label region)]
+		    (let ([text (region-label region)]
 			  [old-f (send dc get-font)])
 		      (send dc set-font nice-font)
-		      (send dc get-text-extent text xb yb)
-		      (send dc draw-text text
-			    (+ dx sx (/ (- sw (unbox xb)) 2))
-			    (if (region-button? region)
-				(+ dy sy (/ (- sh (unbox yb)) 2))
-				(+ dy sy 5)))
+		      (let-values ([(x y d a) (send dc get-text-extent text)])
+			(send dc draw-text text
+			      (+ dx sx (/ (- sw x) 2))
+			      (if (region-button? region)
+				  (+ dy sy (/ (- sh y) 2))
+				  (+ dy sy 5))))
 		      (send dc set-font old-f)))))
 	      regions)))]
 	[after-select
@@ -209,9 +207,6 @@
 	      regions)))]
 	[on-default-event
 	 (lambda (e)
-	   ; Left click: move one
-	   ; Middle click: carry above
-	   ; Right click: carry below
 	   (let ([click (or (and (send e button-down? 'left) 'left)
 			    (and (send e button-down? 'right) 'right)
 			    (and (send e button-down? 'middle) 'middle))])
@@ -257,11 +252,13 @@
 			    ((region-interactive-callback region) in? (get-reverse-selected-list)))
 			  (invalidate-bitmap-cache sx sy sw sh))))))
 		regions))
+	     ; Can't move => no raise, either
+	     (unless (or (not click-base) (send click-base user-can-move))
+	       (set! raise-to-front? #f))
 	     (let ([was-bg? bg-click?])
 	       (if (send e button-down?)
 		   (set! bg-click? (not s))
-		   (when (and bg-click?
-			      (not (send e dragging?)))
+		   (when (and bg-click? (not (send e dragging?)))
 		     (set! bg-click? #f)))
 	       (unless bg-click?
 		 (super-on-default-event e))
