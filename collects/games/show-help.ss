@@ -4,8 +4,9 @@
   
   (provide show-help)
   
-  (define (show-help collections frame-title)
-    (let* ([f #f]
+  (define (show-help collections frame-title . verbatim?)
+    (let* ([verbatim? (and (pair? verbatim?) (car verbatim?))]
+           [f #f]
            [f%
             (class frame%
               (define/override (on-close)
@@ -28,6 +29,9 @@
                     (let ([l (read-line p)])
                       (unless (eof-object? l)
                         (cond
+                          [verbatim?
+                           (send t insert l)
+                           (send t insert #\newline)]
                           [(string=? l "")
                            (send t insert #\newline)
                            (send t insert #\newline)]
