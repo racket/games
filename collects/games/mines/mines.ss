@@ -4,7 +4,7 @@
 ;; do you expect in 400 lines?
 ;;  -Matthew
 
-(require-library "core.ss")
+(require-library "function.ss")
 
 (define TILE-HW 24)        ; height/width of a tile
 (define B-WIDTH 16)        ; number of tiles across
@@ -13,7 +13,7 @@
 
 (define DIGIT-COLOR-NAMES
   ; 0th is background; 8th is foreground
-  (vector "LIGHT GREY" 
+  (vector "LIGHT GRAY" 
 	  "BLUE" "GREEN" "RED" "PURPLE" 
 	  "ORANGE" "YELLOW" "BROWN" "BLACK"))
 
