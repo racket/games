@@ -38,22 +38,26 @@
     (make-board (string-copy (board-str b)) (board-n b) (board-rotation b)))
   
   (define (unrotate-indices board row col)
-    (case (board-rotation board)
-      [(0) (values row col)]
-      [(1) (values (- (sub1 n) col) row)]
-      [(2) (values (- (sub1 n) row) (- (sub1 n) col))]
-      [(3) (values col (- (sub1 n) row))]))
-  
+    (let ([n (current-board-size)])
+      (case (board-rotation board)
+        [(0) (values row col)]
+        [(1) (values (- (sub1 n) col) row)]
+        [(2) (values (- (sub1 n) row) (- (sub1 n) col))]
+        [(3) (values col (- (sub1 n) row))])))
+    
   (define (board-cell board col row)
-    (let-values ([(row col) (unrotate-indices board row col)])
+    (let-values ([(row col) (unrotate-indices board row col)]
+                 [(n) (current-board-size)])
       (string-ref (board-str board) (+ col (* row n)))))
   
   (define (set-cell! board col row v)
-    (let-values ([(row col) (unrotate-indices board row col)])
+    (let-values ([(row col) (unrotate-indices board row col)]
+                 [(n) (current-board-size)])
       (string-set! (board-str board) (+ col (* row n)) v)))
   
   (define (xpush board c r inc-c inc-r piece)
-    (let ([board (dup board)])
+    (let ([board (dup board)]
+          [n (current-board-size)])
       (let loop ([c c][r r][old piece])
         (when (and (< -1 c n) (< -1 r n))
           (let ([v (board-cell board c r)])
@@ -67,12 +71,13 @@
   
   (define push
     (lambda (board dir i piece)
-      (case dir
-        [(left) (xpush board 0 i add1 identity piece)]
-        [(right) (xpush board (sub1 n) i sub1 identity piece)]
-        [(top) (xpush board i 0 identity add1 piece)]
-        [(bottom) (xpush board i (sub1 n) identity sub1 piece)]
-        [else (error 'push "bad directrion ~a" dir)])))
+      (let ([n (current-board-size)])
+        (case dir
+          [(left) (xpush board 0 i add1 identity piece)]
+          [(right) (xpush board (sub1 n) i sub1 identity piece)]
+          [(top) (xpush board i 0 identity add1 piece)]
+          [(bottom) (xpush board i (sub1 n) identity sub1 piece)]
+          [else (error 'push "bad directrion ~a" dir)]))))
   
   (define (rotate-cw board amt)
     (let* ([b (dup board)]

@@ -38,14 +38,15 @@
     (case-lambda
       [(b) (print-board b (current-output-port))]
       [(b port)
-       (n-times n (lambda (j)
-		    (n-times n (lambda (i)
-				 (fprintf port "~a " (let ([v (board-cell b i j)])
-						       (cond
-                                                         [(eq? v none) '-]
-                                                         [(eq? v x) 'x]
-                                                         [(eq? v o) 'o])))))
-		    (newline port)))]))
+       (let ([n (current-board-size)])
+         (n-times n (lambda (j)
+                      (n-times n (lambda (i)
+                                   (fprintf port "~a " (let ([v (board-cell b i j)])
+                                                         (cond
+                                                           [(eq? v none) '-]
+                                                           [(eq? v x) 'x]
+                                                           [(eq? v o) 'o])))))
+                      (newline port))))]))
   
   ; Given a player (board cell value), get the other one
   (define (other-player as-player)
@@ -55,30 +56,31 @@
   
   ; See if the board has a winner; returns o, x, or #f
   (define (find-winner board)
-    (let ([row-wins-x (make-vector n 1)]
-          [row-wins-o (make-vector n 1)]
-          [col-wins-x (make-vector n 1)]
-          [col-wins-o (make-vector n 1)])
-      (n-map n (lambda (i)
-                 (n-map n (lambda (j)
-                            (let ([v (board-cell board i j)])
-                              (cond
-				[(eq? v x) (vector-set! col-wins-o i 0)
-                                 (vector-set! row-wins-o j 0)]
-				[(eq? v o) (vector-set! col-wins-x i 0)
-                                 (vector-set! row-wins-x j 0)]
-				[else (vector-set! col-wins-o i 0)
-				      (vector-set! row-wins-o j 0)
-				      (vector-set! col-wins-x i 0)
-				      (vector-set! row-wins-x j 0)]))))))
-      (let ([o-wins (+ (apply + (vector->list row-wins-o))
-                       (apply + (vector->list col-wins-o)))]
-            [x-wins (+ (apply + (vector->list row-wins-x))
-                       (apply + (vector->list col-wins-x)))])
-        (cond
-	  [(= o-wins x-wins) #f]
-	  [(> o-wins x-wins) o]
-	  [else x]))))
+    (let ([n (current-board-size)])
+      (let ([row-wins-x (make-vector n 1)]
+            [row-wins-o (make-vector n 1)]
+            [col-wins-x (make-vector n 1)]
+            [col-wins-o (make-vector n 1)])
+        (n-map n (lambda (i)
+                   (n-map n (lambda (j)
+                              (let ([v (board-cell board i j)])
+                                (cond
+                                  [(eq? v x) (vector-set! col-wins-o i 0)
+                                   (vector-set! row-wins-o j 0)]
+                                  [(eq? v o) (vector-set! col-wins-x i 0)
+                                   (vector-set! row-wins-x j 0)]
+                                  [else (vector-set! col-wins-o i 0)
+                                        (vector-set! row-wins-o j 0)
+                                        (vector-set! col-wins-x i 0)
+                                        (vector-set! row-wins-x j 0)]))))))
+        (let ([o-wins (+ (apply + (vector->list row-wins-o))
+                         (apply + (vector->list col-wins-o)))]
+              [x-wins (+ (apply + (vector->list row-wins-x))
+                         (apply + (vector->list col-wins-x)))])
+          (cond
+            [(= o-wins x-wins) #f]
+            [(> o-wins x-wins) o]
+            [else x])))))
   
   (define quicksort
     (lambda (l less-than)

@@ -7,8 +7,11 @@
            "../show-help.ss"
            (lib "framework.ss" "framework")
            (lib "class.ss")
+           (lib "unit.ss")
            (lib "pretty.ss")
            (lib "mred.ss" "mred"))
+  
+  (provide game-unit)
   
   (define default-font (send the-font-list find-or-create-font 10 'roman 'normal 'normal #f))
   (preferences:set-default 'paint-by-numbers:font default-font (lambda (f) (is-a? f font%)))
@@ -20,10 +23,7 @@
                                        (send font get-style)
                                        (send font get-weight)
                                        (send font get-underlined)))
-                               (lambda (lst) (apply 
-                                              (lambda (args)
-                                                (send the-font-list find-or-create-font . args))
-                                              lst)))
+                               (lambda (lst) (send the-font-list find-or-create-font . lst)))
   
   (define problems (car problemss))
   
@@ -497,8 +497,12 @@
 	(send (send f get-canvas) set-grid state)
 	(send f show #t))]))
   
-  (player)
-  ;(editor #f)
-  )
+  (define game-unit
+    (unit
+      (import)
+      (export)
+      (player)
+      ;(editor #f)
+      )))
 
 ;(require paint-by-numbers)

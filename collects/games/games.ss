@@ -1,21 +1,26 @@
 (module games mzscheme
   (require (lib "mred.ss" "mred")
 	   (lib "class.ss")
+           (lib "unit.ss")
 	   (lib "class100.ss")
-	   (lib "list.ss"))
+	   (lib "list.ss")
+           (lib "getinfo.ss" "setup"))
 
    (define game-mapping 
-     '(("slidey" "slidey.ss" "Slidey" #f)
-       ("lights-out" "lights-out.ss" "Lights Out" #f)
-       ("same" "same.ss" "Same" #f)
-       ("paint-by-numbers" "paint-by-numbers.ss" "Paint By Numbers" #f)
-       ("gofish" "gofish.ss" "Go Fish" #t)
-       ("blackjack" "blackjack.ss" "Blackjack" #t)
-       ("ginrummy" "ginrummy.ss" "Gin Rummy" #t)
-       ("mines" "mines.ss" "Minesweeper" #f)
-       ("pousse" "pousse.ss" "Pousse" #f)
-       ("aces" "aces.scm" "Aces" #t)))
-   
+     (let ([games (let ([d (collection-path "games")])
+                    (filter (lambda (f)
+                              (let ([p (build-path d f)])
+                                (and (directory-exists? p)
+                                     (with-handlers ([not-break-exn? (lambda (x) #f)])
+                                       ((get-info (list "games" f)) 'game (lambda () #f))))))
+                            (directory-list d)))])
+       (map (lambda (g)
+              (let ([info (get-info `("games" ,g))])
+                (list g 
+                      (info 'game (lambda () "wrong.ss"))
+                      (info 'name (lambda () g)))))
+            games)))
+               
    (define f (make-object (class100 frame% (name)
 			    (override
 			      [on-close (lambda () (exit))])
@@ -34,21 +39,23 @@
      (let* ([collect (car desc)]
 	    [file (cadr desc)]
 	    [name (caddr desc)]
-	    [cards? (cadddr desc)]
 	    [dir (with-handlers ([void (lambda (x) #f)])
 		   (collection-path "games" collect))])
        (when dir
 	 (make-object button% name p
 		      (lambda (b e)
-			(when cards? (dynamic-require '(lib "cards.ss" "games" "cards") #f))
-			(let ([c (make-custodian)])
-			  (parameterize ([current-custodian c])
-			    (parameterize ([current-eventspace (make-eventspace)])
-			      (queue-callback
-			       (lambda ()
-				 (exit-handler (lambda (v) 
-						 (custodian-shutdown-all c)))
-				 (dynamic-require `(file ,(build-path dir file)) #f)))))))))))
+			(let ([game-unit (dynamic-wind
+                                          begin-busy-cursor
+                                          (lambda () (dynamic-require `(file ,(build-path dir file)) 'game-unit))
+                                          end-busy-cursor)])
+                          (let ([c (make-custodian)])
+                            (parameterize ([current-custodian c])
+                              (parameterize ([current-eventspace (make-eventspace)])
+                                (queue-callback
+                                 (lambda ()
+                                   (exit-handler (lambda (v) 
+                                                   (custodian-shutdown-all c)))
+                                   (invoke-unit game-unit))))))))))))
 
    (map game-button game-mapping)
 
@@ -57,9 +64,7 @@
 
    (make-object grow-box-spacer-pane% hp)
    
-   (send f show #t)
-
-   (yield (make-semaphore 0)))
+   (send f show #t))
 
 
 				     
