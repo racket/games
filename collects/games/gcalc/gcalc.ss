@@ -585,17 +585,17 @@
         (message-box "Open" (format "~s does not exists." f)
                      gcalc-frame '(ok))))))
 (define (save-as)
-  (let ([f (path->string (get-file "Save-as" gcalc-frame))])
+  (let ([f (get-file "Save-as" gcalc-frame)])
     (when f
       (if (directory-exists? f)
         (message-box
-         "Save-as" (format "~s names a directory." f) gcalc-frame '(ok))
+         "Save-as" (format "\"~a\" is a directory." f) gcalc-frame '(ok))
         (when (or (not (file-exists? f))
                   (eq? 'yes
                        (message-box
-                        "Save-as" (format "~s exists, overwrite?" f)
+                        "Save-as" (format "\"~a\" exists, overwrite?" f)
                         gcalc-frame '(yes-no))))
-          (set-file-name! f)
+          (set-file-name! (path->string f))
           (save))))))
 (define (maybe-save)
   (when (and modified?
