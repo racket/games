@@ -158,8 +158,8 @@ paint by numbers.
 				    [(eq? prev UNKNOWN-BRUSH) ON-BRUSH]
 				    [(eq? prev ON-BRUSH) OFF-BRUSH]
 				    [(eq? prev OFF-BRUSH) UNKNOWN-BRUSH]
-				    [else (error 'internal-error "unkown brush in board ~s~n" (vector-ref (vector-ref grid i) j))]))))
-		  (on-paint)))))]
+				    [else (error 'internal-error "unkown brush in board ~s~n" (vector-ref (vector-ref grid i) j))]))
+		      (paint-rect i j)))))))]
 
 	 [on-paint
 	  (lambda ()
@@ -254,8 +254,6 @@ paint by numbers.
 				(apply max (map get-string-width (get-vert-label-strings l))))
 			      vert-numbers))))
 	  
-	  
-
 	  (min-width (inexact->exact (+ horiz-label-width (* grid-size vert-label-width))))
 	  (min-height (inexact->exact (+ vert-label-height (* grid-size horiz-label-height)))))))))
 
@@ -265,11 +263,52 @@ paint by numbers.
     (import GUI^
 	    mred^)
 
-    (define horiz-numbers '((1) (2)   (1 6) (9)   (6)   (5) (5) (4) (3) (4)))
-    (define vert-numbers  '((2) (1 1) (4)   (2 1) (3 1) (8) (8) (7) (5) (3)))
+    (define-struct problem (name rows cols))
+    (define problems
+      (list (make-problem "First"
+			  '((1) (2)   (1 6) (9)   (6)   (5) (5) (4) (3) (4))
+			  '((2) (1 1) (4)   (2 1) (3 1) (8) (8) (7) (5) (3)))
+	    (make-problem "Second"
+			  '((1) (2 3 1) (9) (8) (8)
+			    (3 2 1) (6 6) (9 4) (11 2) (13)
+			    (2 10) (7 11) (8 5 5) (8 4 3) (8 4 2)
+			    (2 5 5) (1 4 2 3 2) (2 1 4 2) (9 3) (7))
+			  '((5) (9) (7 2) (3 6 2) (3 6 2)
+			   (4 6 2) (4 6 2) (5 4 2) (6 1 2) (11 2)
+			   (14 2) (6 10) (6 10) (3 2 4 4) (8 2 2)
+			   (8 3 2) (4 2 3) (5 3 2) (2 4 2) (3)))
+	    (make-problem "Third"
+			  '((2) (3) (3) (2) (2)
+			    (2) (4 2) (6 2) (6 3) (1 2 1 6)
+			    (2 2 9) (1 1 7) (1 1 5) (3 1 2) (2 6)
+			    (11) (13) (13) (4 10 2) (4 10 4)
+			    (4 10 4) (4 10 4) (4 9 4) (4 9 4) (3 8 3)
+			    (3 11 3) (3 3 2 3) (5 5 4 2) (3 1 10 4) (3 1 8 5))
+			  '((3) (5) (7) (7) (6 3)
+			    (6) (7 3) (7 5) (12 5) (3 1 1 3 5 1 3)
+			    (4 1 11 3) (4 12 2) (3 1 13 2) (19 3) (12 3)
+			    (16 2) (16 1) (3 12 2) (4 6 4) (4 1 8)
+			    (3 8 2) (4 8 1) (10 6) (11 3) (3)))))
+
 
     (define frame (make-object frame% "Paint by Numbers"))
-    (define canvas (make-object paint-by-numbers-canvas% frame horiz-numbers vert-numbers))
+
+    (define choice (make-object choice%
+		     "Choose a Board"
+		     (map problem-name problems)
+		     frame
+		     (lambda (choice evt)
+		       (set-problem (list-ref problems (send choice get-selection))))))
+							    
+    (define (set-problem problem)
+      (send frame change-children (lambda (x) (list choice)))
+      (make-object paint-by-numbers-canvas%
+	frame
+	(problem-rows problem)
+	(problem-cols problem)))
+
+    (set-problem (car problems))
+
     (send frame show #t)))
 
 (invoke-unit/sig
