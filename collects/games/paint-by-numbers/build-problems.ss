@@ -96,7 +96,7 @@ yet defined.
       (newline (current-error-port))
       (build-progress-outputer max))
 
-    (define time-limit 10) ;; in seconds
+    (define time-limit 30) ;; in seconds
 
     (define (solve name rows cols)
       (cond
@@ -109,19 +109,24 @@ yet defined.
 			      (lambda (i) (make-vector row-count 'unknown))))
 	  (set! known 0)
 	  (set! solving-progress-output (build-progress-outputer (* row-count col-count))))
-	(let* ([done (make-semaphore 0)]
-	       [sucessful? #f]
-	       [t (thread
+	(letrec ([done (make-semaphore 0)]
+		 [kill (make-semaphore 1)]
+		 [sucessful? #f]
+		 [t (thread
+		     (lambda ()
+		       (SOLVE:solve rows cols)
+		       (set! sucessful? #t)
+		       (semaphore-wait kill)
+		       (kill-thread k)
+		       (semaphore-post done)))]
+		 [k
+		  (thread
 		   (lambda ()
-		     (SOLVE:solve rows cols)
-		     (set! sucessful? #t)
+		     (sleep time-limit)
+		     (semaphore-wait kill)
+		     (kill-thread t)
+		     (fprintf (current-error-port) "~ntime limit expired.~n")
 		     (semaphore-post done)))])
-	  (thread
-	   (lambda ()
-	     (sleep time-limit)
-	     (kill-thread t)
-	     (fprintf (current-error-port) "~ntime limit expired.~n")
-	     (semaphore-post done)))
 	  (semaphore-wait done)
 	  (newline (current-error-port))
 	  (newline (current-error-port))
