@@ -30,6 +30,7 @@
 		      (right #f #t #f))]
 
 	[do-on-double-click 'flip]
+	[do-on-single-click void]
 
 	[selecting? #f]
 	[dragging? #f]
@@ -221,81 +222,83 @@
 		   (set! select-one? one?)
 		   (set! select-backward? backward?)
 		   (set! raise-to-front? raise?)
-		   (no-selected)))))
-	   (let*-values ([(lx ly) (dc-location-to-editor-location 
-				   (send e get-x) 
-				   (send e get-y))]
-			 [(s) (find-snip lx ly)])
-	     ; Clicking on a "selected" card unselects others
-	     ; in this interface
-	     (when (send e button-down?)
-	       (unless (or (not click-base) (not s) (eq? s click-base))
-		 (no-selected))
-	       (set! click-base s))
-	     (when (and dragging? click-base (send click-base user-can-move))
-	       (for-each
-		(lambda (region)
-		  (when (and (not (region-button? region))
-			     (region-callback region)
-			     (or (not (region-decided-start? region))
-				 (region-can-select? region)))
-		    (let-values ([(sx sy sw sh) (get-region-box region)])
-		      (let ([in? (and (<= sx lx (+ sx sw))
-				      (<= sy ly (+ sy sh)))])
-			(unless (region-decided-start? region)
-			  (set-region-decided-start?! region #t)
-			  (set-region-can-select?! region (not in?)))
-			(when (and (not (eq? in? (region-hilite? region)))
-				   (region-can-select? region))
-			  (set-region-hilite?! region in?)
-			  (when (region-interactive-callback region)
-			    ((region-interactive-callback region) in? (get-reverse-selected-list)))
-			  (invalidate-bitmap-cache sx sy sw sh))))))
-		regions))
-	     ; Can't move => no raise, either
-	     (unless (or (not click-base) (send click-base user-can-move))
-	       (set! raise-to-front? #f))
-	     (let ([was-bg? bg-click?])
-	       (if (send e button-down?)
-		   (set! bg-click? (not s))
-		   (when (and bg-click? (not (send e dragging?)))
-		     (set! bg-click? #f)))
-	       (unless bg-click?
-		 (super-on-default-event e))
-	       (when bg-click?
-		 ; Check for clicking on a button region:
+		   (no-selected))))
+	     (let*-values ([(lx ly) (dc-location-to-editor-location 
+				     (send e get-x) 
+				     (send e get-y))]
+			   [(s) (find-snip lx ly)])
+	       ; Clicking on a "selected" card unselects others
+	       ; in this interface
+	       (when (send e button-down?)
+		 (unless (or (not click-base) (not s) (eq? s click-base))
+		   (no-selected))
+		 (set! click-base s))
+	       (when (and dragging? click-base (send click-base user-can-move))
 		 (for-each
 		  (lambda (region)
-		    (when (and (region-button? region)
-			       (region-callback region))
+		    (when (and (not (region-button? region))
+			       (region-callback region)
+			       (or (not (region-decided-start? region))
+				   (region-can-select? region)))
 		      (let-values ([(sx sy sw sh) (get-region-box region)])
 			(let ([in? (and (<= sx lx (+ sx sw))
 					(<= sy ly (+ sy sh)))])
 			  (unless (region-decided-start? region)
 			    (set-region-decided-start?! region #t)
-			    (set-region-can-select?! region in?))
+			    (set-region-can-select?! region (not in?)))
 			  (when (and (not (eq? in? (region-hilite? region)))
 				     (region-can-select? region))
 			    (set-region-hilite?! region in?)
+			    (when (region-interactive-callback region)
+			      ((region-interactive-callback region) in? (get-reverse-selected-list)))
 			    (invalidate-bitmap-cache sx sy sw sh))))))
 		  regions))
-	       (when (and was-bg? (not bg-click?))
-		 ; Callback hilighted button:
-		 (for-each
-		  (lambda (region)
-		    (when (region-button? region) 
-		      (set-region-decided-start?! region #f)
-		      (when (region-hilite? region)
-			(mred:queue-callback
-			 ; Call it outside the current edit sequence
-			 (lambda ()
-			   ((region-callback region))
-			   (unhilite-region region))))))
-		  regions)))
-	     (when (and (send e button-down?)
-			click-base
-			(not (send click-base user-can-move)))
-	       (no-selected))))]
+	       ; Can't move => no raise, either
+	       (unless (or (not click-base) (send click-base user-can-move))
+		 (set! raise-to-front? #f))
+	       (let ([was-bg? bg-click?])
+		 (if (send e button-down?)
+		     (set! bg-click? (not s))
+		     (when (and bg-click? (not (send e dragging?)))
+		       (set! bg-click? #f)))
+		 (unless bg-click?
+		   (super-on-default-event e))
+		 (when bg-click?
+		   ; Check for clicking on a button region:
+		   (for-each
+		    (lambda (region)
+		      (when (and (region-button? region)
+				 (region-callback region))
+			(let-values ([(sx sy sw sh) (get-region-box region)])
+			  (let ([in? (and (<= sx lx (+ sx sw))
+					  (<= sy ly (+ sy sh)))])
+			    (unless (region-decided-start? region)
+			      (set-region-decided-start?! region #t)
+			      (set-region-can-select?! region in?))
+			    (when (and (not (eq? in? (region-hilite? region)))
+				       (region-can-select? region))
+			      (set-region-hilite?! region in?)
+			      (invalidate-bitmap-cache sx sy sw sh))))))
+		    regions))
+		 (when (and was-bg? (not bg-click?))
+		   ; Callback hilighted button:
+		   (for-each
+		    (lambda (region)
+		      (when (region-button? region) 
+			(set-region-decided-start?! region #f)
+			(when (region-hilite? region)
+			  (mred:queue-callback
+			   ; Call it outside the current edit sequence
+			   (lambda ()
+			     ((region-callback region))
+			     (unhilite-region region))))))
+		    regions)))
+	       (when (and (send e button-down?)
+			  click-base
+			  (not (send click-base user-can-move)))
+		 (no-selected)))
+	     (when (and click click-base)
+	       (do-on-single-click click-base))))]
 	[on-double-click
 	 (lambda (s e)
 	   (cond
@@ -348,6 +351,9 @@
 	[set-double-click-action
 	 (lambda (a)
 	   (set! do-on-double-click a))]
+	[set-single-click-action
+	 (lambda (a)
+	   (set! do-on-single-click a))]
 	[set-button-action
 	 (lambda (button action)
 	   (let ([map
@@ -482,6 +488,9 @@
 	[set-double-click-action
 	 (lambda (a)
 	   (send pb set-double-click-action a))]
+	[set-single-click-action
+	 (lambda (a)
+	   (send pb set-single-click-action a))]
 	[pause
 	 (lambda (duration)
 	   (let ([s (make-semaphore)])

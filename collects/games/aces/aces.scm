@@ -125,7 +125,7 @@ possible to remap single click (instead of double click)?
 	 (move-one cadddr)
 	 (set! draw-pile (cddddr draw-pile)))))
 
-   (send table set-double-click-action
+   (send table set-single-click-action
 	 (lambda (card)
 	   (cond
 	    [(send card face-down?) (handle-draw)]
