@@ -232,6 +232,16 @@
       (set! go-fish? (not (ask-player-for-match you player (car cards))))
       (semaphore-post something-happened)))
 
+  ;; Visual info to go fish
+  (define wiggle-top-card
+    (lambda ()
+      (let ([top (car deck)]
+	    [x (/ (- w cw) 2)]
+	    [y (- (/ (- h ch) 2) (/ ch 3))])
+	(send t move-card top (- x 10) y)
+	(send t move-card top (+ x 10) y)
+	(send t move-card top x y))))
+
   ;; Callback for going fishing
   (define fishing
     (lambda (cards)
@@ -318,6 +328,7 @@
 		  ;; Draw a card (wait for the user to drag it)
 		  (begin
 		    (send t set-status-text GO-FISH-MESSAGE)
+		    (wiggle-top-card)
 		    (enable-your-cards #f)
 		    (set-region-callback! (player-r player-1) #f)
 		    (set-region-callback! (player-r player-2) #f)
@@ -334,4 +345,7 @@
 		 (lambda ()
 		   (send t set-status-text PLAYER-2-NAME)
 		   (simulate-player player-2 player-1 loop))))))
-	(check-done loop))))
+	(check-done loop)))
+
+  (yield (make-semaphore 0)))
+
