@@ -1,10 +1,12 @@
+(require-library "function.ss")
 
 (invoke-unit/sig
  (unit/sig ()
-   (import mred^)
+   (import mred^ mzlib:function^)
 
    (define game-mapping 
      '(("same" "same.ss" "Same" #f)
+       ("paint-by-numbers" "paint-by-numbers.ss" "Paint By Numbers" #f)
        ("gofish" "gofish.ss" "Go Fish" #t)
        ("blackjack" "blackjack.ss" "Blackjack" #t)
        ("ginrummy" "ginrummy.ss" "Gin Rummy" #t)
@@ -44,10 +46,13 @@
 
    (map game-button game-mapping)
 
+   (let ([pred (lambda (x y) (<= (send x min-width) (send y min-width)))])
+     (send p change-children (lambda (l) (quicksort l pred))))
+
    (send f show #t)
 
    (yield (make-semaphore 0)))
- mred^)
+ mred^ mzlib:function^)
 
 
 				      

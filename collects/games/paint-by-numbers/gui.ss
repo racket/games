@@ -1,3 +1,28 @@
+#|
+
+The paint-by-numbers-canavas% class accepts two initalization
+arguments. They must be lists of lists of numbers and they must be the
+same length. paint-by-numbers-canvas% objects accepts four methods:
+
+  set-rect : (int int (union 'on 'off 'unknown) -> void)
+    Sets the grid point specified by the first two arguments to the third.
+    The coordinates are from the top-left and the x coordinate comes first.
+
+  get-rect : (int int ->  (union 'on 'off 'unknown))
+    Gets the value of the grid at the coordinates specified by the two integers
+
+  paint-rect : (int int -> void)
+    Draws the rectangle specified by the arguments.
+    Call this after calling set-rect to see the changes updated on the screen.
+
+  on-paint : (-> void)
+    Redraws the entire canvas. May be used if many rects were set.
+
+See the bottom of this file for the creation of a file and a test
+paint by numbers.
+
+|#
+
 (unit/sig GUI^
 
   (import mzlib:function^
