@@ -11,6 +11,7 @@
 	   white-brush
 	   hilite-brush
 	   black-pen
+	   dark-gray-pen
 	   no-pen
 	   black-color
 	   nice-font)
@@ -37,6 +38,11 @@
     (send the-pen-list
 	  find-or-create-pen
 	  black-color 1 'solid))
+
+  (define dark-gray-pen
+    (send the-pen-list
+	  find-or-create-pen
+	  "dark gray" 1 'solid))
 
   (define no-pen
     (send the-pen-list

@@ -132,9 +132,11 @@
 		  (let ([old-b (send dc get-brush)]
 			[old-p (send dc get-pen)])
 		    (let-values ([(sx sy sw sh) (get-region-box region)])
-		      (send dc set-pen black-pen)
 		      (send dc set-brush white-brush)
+		      (send dc set-pen no-pen)
 		      (send dc draw-rectangle (+ dx sx) (+ dy sy) sw sh)
+		      (send dc set-pen dark-gray-pen)
+		      (draw-roundish-rectangle dc (+ dx sx) (+ dy sy) sw sh)
 		      (let ([text (region-label region)])
 			(if (string? text)
 			    (let ([old-f (send dc get-font)])
@@ -143,7 +145,7 @@
 				(send dc draw-text text
 				      (+ dx sx (/ (- sw x) 2))
 				      (if (region-button? region)
-					  (+ dy sy (/ (- sh y) 2))
+					  (+ dy sy (/ (- sh (- y d a)) 2) (- a))
 					  (+ dy sy 5))))
 			      (send dc set-font old-f))
 			    (send dc draw-bitmap text
@@ -570,22 +572,37 @@
 						       (cons sy syl)
 						       (cons x dxl)
 						       (cons y dyl))))))))])
-		   (let loop ([n 1])
-		     (unless (> n ANIMATION-STEPS)
-		       (let ([start (current-milliseconds)]
-			     [scale (lambda (s d)
-				      (+ s (* n (/ (- d s) ANIMATION-STEPS))))])
-			 (begin-card-sequence)
-			 (for-each
-			  (lambda (c sx sy dx dy)
-			    (set c (scale sx dx) (scale sy dy)))
-			  moving-cards
-			  source-xs source-ys
-			  dest-xs dest-ys)
-			 (end-card-sequence)
-			 (pause (max 0 (- (/ ANIMATION-TIME ANIMATION-STEPS)
-					  (/ (- (current-milliseconds) start) 1000))))
-			 (loop (add1 n)))))))))]
+		   (let ([time-scale
+			  ;; An animation speed that looks good for
+			  ;; long moves looks too slow for short
+			  ;; moves. So scale the time back by as much
+			  ;; as 50% if the max distance for all cards
+			  ;; is short.
+			  (let ([max-delta (max (apply max 0 (map (lambda (sx dx)
+								    (abs (- sx dx)))
+								  source-xs dest-xs))
+						(apply max 0 (map (lambda (sy dy)
+								    (abs (- sy dy)))
+								  source-ys dest-ys)))])
+			    (if (max-delta . < . 100)
+				(/ (+ max-delta 100) 200.0)
+				1))])
+		     (let loop ([n 1])
+		       (unless (> n ANIMATION-STEPS)
+			 (let ([start (current-milliseconds)]
+			       [scale (lambda (s d)
+					(+ s (* (/ n ANIMATION-STEPS) (- d s))))])
+			   (begin-card-sequence)
+			   (for-each
+			    (lambda (c sx sy dx dy)
+			      (set c (scale sx dx) (scale sy dy)))
+			    moving-cards
+			    source-xs source-ys
+			    dest-xs dest-ys)
+			   (end-card-sequence)
+			   (pause (max 0 (- (/ (* time-scale ANIMATION-TIME) ANIMATION-STEPS)
+					    (/ (- (current-milliseconds) start) 1000))))
+			   (loop (add1 n))))))))))]
 	[position-cards-in-region
 	 (lambda (cards r set)
 	   (let-values ([(x y w h) (send pb get-region-box r)]
@@ -619,4 +636,10 @@
       (send c stretchable-height #f)
       (send this stretchable-width #f)
       (send this stretchable-height #f)
-      (send c set-editor pb))))
+      (send c set-editor pb)))
+
+  (define (draw-roundish-rectangle dc x y w h)
+    (send dc draw-line (+ x 1) y (+ x w -2) y)
+    (send dc draw-line (+ x 1) (+ y h -1) (+ x w -2) (+ y h -1))
+    (send dc draw-line x (+ y 1) x (+ y h -2))
+    (send dc draw-line (+ x w -1) (+ y 1) (+ x w -1) (+ y h -2))))
