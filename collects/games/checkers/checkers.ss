@@ -179,6 +179,7 @@
               (gl-push-matrix)
               (gl-translate 0.0 0.0 height)
               
+              ;(quadratic-texture list-id #t)
               (gl-disk q 0.0 .35 25 1)
               (gl-translate 0.0 0.0 0.05)
               
@@ -211,7 +212,6 @@
                  ])
               (gl-end)
               (gl-disable 'blend)
-              
               
               (gl-pop-matrix)
               (gl-disable 'texture-2d)
