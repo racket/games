@@ -69,6 +69,15 @@
       (define/public (add-piece x y z draw info)
         (set! pieces (cons (make-piece x y z draw info #t) pieces)))
 
+      ;; set-piece-draw: info (->) ->
+      ;; Sets the drawing method of all pieces whose info is equal to piece to d.
+      (define/public (set-piece-draw piece d)
+        (for-each
+         (lambda (p)
+           (when (equal? (piece-info p) piece)
+             (set-piece-draw! p d)))
+         pieces))
+      
       ;; enabled/disables dragging of a piece
       (define/public (enable-piece info on?)
 	(let ([p (ormap (lambda (p)

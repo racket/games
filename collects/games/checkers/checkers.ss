@@ -23,42 +23,34 @@
       (import move)
       (export add-space add-piece remove-piece move-piece set-turn show)
 
-  
       (define (add-space space color)
-        (send board with-gl-context
-          (lambda ()
-            (let ((list-id (gl-gen-lists 1)))
-              (gl-new-list list-id 'compile)
-              (gl-material-v 'front 'ambient-and-diffuse color)
-              (gl-push-matrix)
-              (gl-translate (space-info-x space) (space-info-y space) 0)
-              (gl-begin 'polygon)
-              (gl-vertex 0.0 0.0 0.0)
-              (gl-vertex 1.0 0.0 0.0)
-              (gl-vertex 1.0 1.0 0.0)
-              (gl-vertex 0.0 1.0 0.0)
-              (gl-end)
-              (gl-pop-matrix)
-              (gl-end-list)
-              (send board add-space (lambda () (gl-call-list list-id)) space)))))
+        (let ((list-id (if (eq? color 'red) red-square black-square)))
+          (send board add-space
+                (lambda ()
+                  (gl-push-matrix)
+                  (gl-translate (space-info-x space) (space-info-y space) 0)
+                  (gl-call-list list-id)
+                  (gl-pop-matrix))
+                space)))
+      
+      (define (get-piece-draw-fn piece glow?)
+        (let ((list-id (get-piece-dl (piece-info-color piece)
+                                     (piece-info-king? piece))))
+          (if glow?
+              (lambda ()
+                (gl-material-v 'front 'emission (gl-float-vector 0.2 0.2 0.2 1.0))
+                (gl-call-list list-id)
+                (gl-material-v 'front 'emission (gl-float-vector 0.0 0.0 0.0 1.0)))
+              (lambda () 
+                (gl-call-list list-id)))))
       
       (define add-piece
         (case-lambda
           ((piece) (add-piece piece #f))
           ((piece glow?)
-           (let ((list-id (get-piece-dl (piece-info-color piece)
-                                        (piece-info-king? piece))))
-             (send board with-gl-context
-               (lambda ()
-                 (send board add-piece (+ .5 (piece-info-x piece)) (+ .5 (piece-info-y piece)) 0.0
-                       (if glow?
-                           (lambda ()
-                             (gl-material-v 'front 'emission (gl-float-vector 0.2 0.2 0.2 1.0))
-                             (gl-call-list list-id)
-                             (gl-material-v 'front 'emission (gl-float-vector 0.0 0.0 0.0 1.0)))
-                           (lambda () 
-                             (gl-call-list list-id)))
-                     piece)))))))
+           (send board add-piece (+ .5 (piece-info-x piece)) (+ .5 (piece-info-y piece)) 0.0
+                 (get-piece-draw-fn piece glow?)
+                 piece))))
           
       (define (move-piece from to-x to-y)
         (remove-piece from)
@@ -74,16 +66,13 @@
       (define (set-turn turn moves)
 	(let* ([pieces (send board get-pieces)])
 	  (for-each (lambda (p)
-		      (unless (member p (moves-list moves))
-			(remove-piece p)
-			(add-piece p #f)
-			(send board enable-piece p #f)))
+                      (send board set-piece-draw p
+                            (get-piece-draw-fn p #f)))
 		    pieces)
 	  (for-each (lambda (p)
-		      (remove-piece p)
-		      (add-piece p #t)
-		      (send board enable-piece p #t))
-		    (moves-list moves)))
+                      (send board set-piece-draw p
+                            (get-piece-draw-fn p #t)))
+                    (moves-list moves)))
 	(send msg set-label
 	      (if (null? (moves-list moves))
 		  (format "~a wins!" (if (eq? turn 'red) "Black" "Red"))
@@ -105,13 +94,6 @@
         (send board with-gl-context
           (lambda () (gl-new-quadric))))
       
-      (define (get-piece-dl color king?)
-        (cond
-          ((eq? color 'red)
-           (if king? red-king red))
-          (else
-           (if king? black-king black))))
-      
       (define (make-piece-dl real-color height)
         (send board with-gl-context
           (lambda ()
@@ -130,10 +112,35 @@
               (gl-end-list)
               list-id))))
 
-      (define red (make-piece-dl dim-red .2))
+      (define red-piece (make-piece-dl dim-red .2))
       (define red-king (make-piece-dl dim-red .4))
-      (define black (make-piece-dl gray .2))
+      (define black-piece (make-piece-dl gray .2))
       (define black-king (make-piece-dl gray .4))
+
+      (define (get-piece-dl color king?)
+        (cond
+          ((eq? color 'red)
+           (if king? red-king red-piece))
+          (else
+           (if king? black-king black-piece))))
+      
+      (define (make-square-dl color)
+        (send board with-gl-context
+          (lambda ()
+            (let ((list-id (gl-gen-lists 1)))
+              (gl-new-list list-id 'compile)
+              (gl-material-v 'front 'ambient-and-diffuse color)
+              (gl-begin 'polygon)
+              (gl-vertex 0.0 0.0 0.0)
+              (gl-vertex 1.0 0.0 0.0)
+              (gl-vertex 1.0 1.0 0.0)
+              (gl-vertex 0.0 1.0 0.0)
+              (gl-end)
+              (gl-end-list)
+              list-id))))
+      
+      (define black-square (make-square-dl black))
+      (define red-square (make-square-dl red))
       
       (define (show)
         (send f show #t))))
@@ -152,7 +159,7 @@
           ((and (< j 8) (< i 8))
            (cond
              ((even? (+ i j))
-              (add-space (make-space-info j i) black)
+              (add-space (make-space-info j i) 'black)
               (cond
                 ((< i 3)
                  (array-set! board j i (cons 'red #f))
@@ -161,7 +168,7 @@
                  (array-set! board j i (cons 'black #f))
                  (add-piece (make-piece-info j i 'black #f)))))
              (else
-              (add-space (make-space-info j i) red)))
+              (add-space (make-space-info j i) 'red)))
            (loop i (add1 j)))
           ((< i 8) (loop (add1 i) 0))))
 
