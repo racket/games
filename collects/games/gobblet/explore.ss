@@ -21,8 +21,16 @@
 	  (cons (car a) (best (sub1 span) null (cdr a)))]
 	 [(> (caar a) (caar b))
 	  (cons (car a) (best (sub1 span) (cdr a) b))]
+	 [(and (= (caar a) (caar b))
+	       (< (get-depth (car a)) (get-depth (car b))))
+	  (cons (car a) (best (sub1 span) (cdr a) b))]
 	 [else
 	  (cons (car b) (best (sub1 span) a (cdr b)))]))
+
+      (define (get-depth a)
+	(if (vector? (cdr a))
+	    (vector-ref (cdr a) 6)
+	    0))
 
       (define no-goodness null)
 
@@ -101,7 +109,7 @@
 						  (best span
 							v
 							(list (cons (- (caar sv))
-								    (vector p #f #f i j xform))))))
+								    (vector p #f #f i j xform (add1 (get-depth (car sv)))))))))
 					      (lambda () v)))
 				      no-goodness)))])))]
 			   [move-piece-goodness
@@ -123,7 +131,8 @@
 						    (best span
 							  v 
 							  (list (cons (- (caar sv))
-								      (vector (car l) from-i from-j to-i to-j xform))))))
+								      (vector (car l) from-i from-j to-i to-j xform 
+									      (add1 (get-depth (car sv)))))))))
 						(lambda ()
 						  v)))
 					v)

@@ -15,8 +15,8 @@
 		    2
 		    2))
 
-  (define timeout 5.0)
-  (define cannon-size 1024)
+  (define timeout 3.0)
+  (define cannon-size 128)
 
   (invoke-unit/sig
    (compound-unit/sig
