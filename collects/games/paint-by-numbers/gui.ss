@@ -54,18 +54,30 @@ paint by numbers.
   (define-struct do (x y before after))
 
   (define paint-by-numbers-canvas%
-    (class canvas% (parent row-numbers col-numbers)
+    (class canvas% (parent _row-numbers _col-numbers)
       (inherit get-dc get-client-size)
-      (private
-	[longest-strs (apply max (map length col-numbers))]
 
+      (public
+	[get-row-numbers
+	 (lambda ()
+	   _row-numbers)]
+	[get-col-numbers
+	 (lambda ()
+	   _col-numbers)])
+
+      (public
+	[get-max-col-entries
+	 (lambda ()
+	   (apply max (map length (get-col-numbers))))])
+
+      (private
 	[canvas-width 200]
 	[canvas-height 200]
 	
 	[extra-space-every 5]
 
-	[grid-x-size (length col-numbers)]
-	[grid-y-size (length row-numbers)]
+	[grid-x-size (length (get-col-numbers))]
+	[grid-y-size (length (get-row-numbers))]
 	[y-margin 1]
 	[x-margin 3]
 	[row-label-width 10]
@@ -152,7 +164,7 @@ paint by numbers.
 	 (lambda (do current-sel new-sel)
 	   (let* ([x (do-x do)]
 		  [y (do-y do)]
-		  [actual (vector-ref (vector-ref grid x) y)]
+		  [actual (get-rect x y)]
 		  [current (current-sel do)]
 		  [new (new-sel do)]
 		  [color->val
@@ -166,7 +178,7 @@ paint by numbers.
 		      (color->val current)
 		      (color->val actual)
 		      x y))
-	     (vector-set! (vector-ref grid x) y new)
+	     (set-raw-rect x y new)
 	     (paint-rect x y)))]
 
 	[brush->symbol
@@ -183,7 +195,7 @@ paint by numbers.
 	     [(off) OFF-BRUSH]
 	     [(on) ON-BRUSH]
 	     [(wrong) WRONG-BRUSH]))])
-      
+
       (public
 
 	;; ((list-of (list-of (union 'unknown 'off 'on 'wrong))) -> void)
@@ -237,11 +249,9 @@ paint by numbers.
 		 (send dc set-brush WHITE-BRUSH)
 		 (send dc draw-rectangle left top width height)
 
-		 (let ([spacing (floor (/ width 5))])
+		 (let ([spacing 2])
 		   (send dc set-pen LINES/NUMBERS-PEN)
-		   (send dc set-brush 
-			 (new-brush (vector-ref (vector-ref grid i) j)
-				    modifier-on?))
+		   (send dc set-brush (new-brush (get-raw-rect i j) modifier-on?))
 		   (send dc draw-rectangle
 			 (+ left spacing)
 			 (+ top spacing)
@@ -250,21 +260,29 @@ paint by numbers.
 
 		[else
 		 (send dc set-pen LINES/NUMBERS-PEN)
-		 (send dc set-brush (vector-ref (vector-ref grid i) j))
+		 (send dc set-brush (get-raw-rect i j))
 		 (send dc draw-rectangle left top width height)]))))]
+
+
+	;; (int int -> (instance brush%))
+	[get-raw-rect
+	 (lambda (i j)
+	   (vector-ref (vector-ref grid i) j))]
 
 	;; (int int -> (union 'on 'off 'unknown 'wrong))
 	[get-rect
 	 (lambda (i j)
-	   (let ([res (vector-ref (vector-ref grid i) j)])
-	     (brush->symbol res)))]
+	   (brush->symbol (get-raw-rect i j)))]
+
+	;; (int int (instance brush%) -> void)
+	[set-raw-rect
+	 (lambda (i j brush)
+	   (vector-set! (vector-ref grid i) j brush))]
 
 	;; (int int (union 'on 'off 'unknown 'wrong) -> void)
 	[set-rect
 	 (lambda (i j sym)
-	   (vector-set! (vector-ref grid i)
-			j
-			(sym->brush sym)))]
+	   (set-raw-rect i j (sym->brush sym)))]
 
 
 	;; (-> void)
@@ -282,25 +300,14 @@ paint by numbers.
 	       (loop (- i 1))])))])
       
       (private
-	[new-brush
-	 (lambda (prev modifier?)
-	   (cond
-	     [(eq? prev UNKNOWN-BRUSH)
-	      (if modifier?
-		  OFF-BRUSH
-		  ON-BRUSH)]
-	     [(eq? prev ON-BRUSH) UNKNOWN-BRUSH]
-	     [(eq? prev OFF-BRUSH) UNKNOWN-BRUSH]
-	     [(eq? prev WRONG-BRUSH) UNKNOWN-BRUSH]
-	     [else
-	      (error 'internal-error
-		     "unkown brush in board ~s~n" prev)]))]
-
-
+	[highlight-row #f]
+	[highlight-col #f])
+      (public
 	[draw-row-label
-	 (lambda (n nums)
+	 (lambda (n)
 	   (let-values ([(gx gy gw gh) (grid->rect 0 n)])
-	     (let* ([dc (get-dc)]
+	     (let* ([nums (list-ref (get-row-numbers) n)]
+		    [dc (get-dc)]
 		    [str (get-row-label-string nums)]
 		    [str-height (get-string-height str)]
 		    [str-ascent (get-string-ascent str)]
@@ -314,17 +321,38 @@ paint by numbers.
 		    [y gy]
 		    [w gx]
 		    [h gh])
+
+	       (if (and highlight-row
+			(= highlight-row n))
+		   (begin
+		     (send dc set-pen BAR-PEN)
+		     (send dc set-brush BAR-BRUSH))
+		   (begin
+		     (send dc set-pen WHITE-PEN)
+		     (send dc set-brush WHITE-BRUSH)))
+
 	       (send dc draw-rectangle x y w h)
 	       (send dc draw-text str sx sy))))]
 	
 	[draw-col-label
-	 (lambda (n nums)
+	 (lambda (n)
 	   (let-values ([(gx gy gw gh) (grid->rect n 0)])
-	     (let ([strs (get-col-label-strings nums)]
-		   [dc (get-dc)])
+	     (let* ([nums (list-ref (get-col-numbers) n)]
+		    [strs (get-col-label-strings nums)]
+		    [dc (get-dc)])
+
+	       (if (and highlight-col
+			(= highlight-col n))
+		   (begin
+		     (send dc set-pen BAR-PEN)
+		     (send dc set-brush BAR-BRUSH))
+		   (begin
+		     (send dc set-pen WHITE-PEN)
+		     (send dc set-brush WHITE-BRUSH)))
+
 	       (send dc draw-rectangle gx 0 gw gy)
 	       (let loop ([ss strs]
-			  [line (- longest-strs (length strs))])
+			  [line (- (get-max-col-entries) (length strs))])
 		 (cond
 		  [(null? ss) (void)]
 		  [else
@@ -337,7 +365,22 @@ paint by numbers.
 			  [y (* line (+ str-height y-margin))])
 		     (send dc draw-text (car ss) x y)
 		     (loop (cdr ss)
-			   (+ line 1)))])))))]
+			   (+ line 1)))])))))])
+
+      (private
+	[new-brush
+	 (lambda (prev modifier?)
+	   (cond
+	     [(eq? prev UNKNOWN-BRUSH)
+	      (if modifier?
+		  OFF-BRUSH
+		  ON-BRUSH)]
+	     [(eq? prev ON-BRUSH) UNKNOWN-BRUSH]
+	     [(eq? prev OFF-BRUSH) UNKNOWN-BRUSH]
+	     [(eq? prev WRONG-BRUSH) UNKNOWN-BRUSH]
+	     [else
+	      (error 'internal-error
+		     "unkown brush in board ~s~n" prev)]))]
 
 	[check-modifier
 	 (lambda (evt)
@@ -362,7 +405,9 @@ paint by numbers.
 		 [y (send evt get-y)]
 		 [p (xy->grid x y)])
 	    (cond
-	     [(send evt moving?)
+	     [(or (send evt moving?)
+		  (send evt entering?)
+		  (send evt leaving?))
 
 	      ;; update depressed square
 	      (let ([this-modifier (check-modifier evt)])
@@ -384,39 +429,31 @@ paint by numbers.
 	      (let ([dc (get-dc)])
 
 		;; update the bars
-		(when (and last-p
-			   (or (send evt leaving?)
-			       (not p)
-			       (not (= (cdr p) (cdr last-p)))))
-		  (let ([last-row (cdr last-p)])
-		    (send dc set-pen WHITE-PEN)
-		    (send dc set-brush WHITE-BRUSH)
-		    (draw-row-label last-row (list-ref row-numbers last-row))))
-		(when (and p
-			   (or (send evt entering?)
-			       (not last-p)
-			       (not (= (cdr last-p) (cdr p)))))
-		  (let ([row (cdr p)])
-		    (send dc set-pen BAR-PEN)
-		    (send dc set-brush BAR-BRUSH)
-		    (draw-row-label row (list-ref row-numbers row))))
+		(let ([new-highlight-col
+		       (if (and p
+				(not (send evt leaving?)))
+			   (car p)
+			   #f)]
+		      [old-highlight-col highlight-col])
+		  (unless (equal? old-highlight-col new-highlight-col)
+		    (set! highlight-col new-highlight-col)
+		    (when new-highlight-col
+		      (draw-col-label new-highlight-col))
+		    (when old-highlight-col
+		      (draw-col-label old-highlight-col))))
 
-		(when (and last-p
-			   (or (send evt leaving?)
-			       (not p)
-			       (not (= (car p) (car last-p)))))
-		  (let ([last-col (car last-p)])
-		    (send dc set-pen WHITE-PEN)
-		    (send dc set-brush WHITE-BRUSH)
-		    (draw-col-label last-col (list-ref col-numbers last-col))))
-		(when (and p
-			   (or (send evt entering?)
-			       (not last-p)
-			       (not (= (car last-p) (car p)))))
-		  (let ([col (car p)])
-		    (send dc set-pen BAR-PEN)
-		    (send dc set-brush BAR-BRUSH)
-		    (draw-col-label col (list-ref col-numbers col))))
+		(let ([new-highlight-row
+		       (if (and p
+				(not (send evt leaving?)))
+			   (cdr p)
+			   #f)]
+		      [old-highlight-row highlight-row])
+		  (unless (equal? old-highlight-row new-highlight-row)
+		    (set! highlight-row new-highlight-row)
+		    (when new-highlight-row
+		      (draw-row-label new-highlight-row))
+		    (when old-highlight-row
+		      (draw-row-label old-highlight-row))))
 
 		(set! last-p p)
 
@@ -450,14 +487,14 @@ paint by numbers.
 		(set! modifier-on? #f)
 		(let* ([i (car p)]
 		       [j (cdr p)]
-		       [prev (vector-ref (vector-ref grid i) j)]
+		       [prev (get-raw-rect i j)]
 		       [new (new-brush prev (or (send evt get-alt-down)
 						(send evt get-control-down)
 						(send evt get-meta-down)
 						(send evt get-shift-down)))])
 		  (set! undo-history (cons (make-do i j prev new) undo-history))
 		  (set! redo-history null)
-		  (vector-set! (vector-ref grid i) j new)
+		  (set-raw-rect i j new)
 		  (paint-rect i j))]
 	       [else
 		(let ([old-draw-small-p draw-small-p])
@@ -484,24 +521,16 @@ paint by numbers.
 				(loop (- j 1))]))
 		       (loop (- i 1))]))
 
-	      (let loop ([l col-numbers]
+	      (let loop ([l (get-col-numbers)]
 			 [n 0])
 		(cond
 		 [(null? l) (void)]
 		 [else
-		  (if (and last-p
-			   (= (car last-p) n))
-		      (begin
-			(send dc set-pen BAR-PEN)
-			(send dc set-brush BAR-BRUSH))
-		      (begin
-			(send dc set-pen WHITE-PEN)
-			(send dc set-brush WHITE-BRUSH)))
 
-		  (draw-col-label n (car l))
+		  (draw-col-label n)
 		  (loop (cdr l) (+ n 1))]))
 
-	      (let loop ([l row-numbers]
+	      (let loop ([l (get-row-numbers)]
 			 [n 0])
 		(cond
 		 [(null? l) (void)]
@@ -514,50 +543,172 @@ paint by numbers.
 		      (begin
 			(send dc set-pen WHITE-PEN)
 			(send dc set-brush WHITE-BRUSH)))
-		  (draw-row-label n (car l))
+		  (draw-row-label n)
 		  (loop (cdr l)
 			(+ n 1))]))
 	      
 	      (void))))])
       
+      (public
+	[calculate-row-margins
+	 (lambda ()
+	   (let* ([dc (get-dc)])
+	     (set! row-label-width
+		   (max (get-string-width (loc->string grid-x-size grid-y-size))
+			(apply max (map (lambda (x) (+ x-margin
+						       (get-string-width (get-row-label-string x))
+						       x-margin))
+					(get-row-numbers)))))
+
+	     (let-values ([(width height descent ascent) (send dc get-text-extent "0123456789")])
+	       (set! row-label-height (+ y-margin height y-margin)))))]
+	[calculate-col-margins
+	 (lambda ()
+	   (let* ([dc (get-dc)])
+
+	     (set! col-label-height
+		   (max
+		    (get-string-height/descent (loc->string grid-x-size grid-y-size))
+		    (apply max
+			   (map (lambda (l)
+				  (let* ([strs (get-col-label-strings l)]
+					 [margins (* (length strs) y-margin)]
+					 [height (apply + (map get-string-height strs))])
+				    (+ margins height)))
+				(get-col-numbers)))))
+
+	     (set! col-label-width
+		   (apply max
+			  (map (lambda (l)
+				 (let ([label-strings (get-col-label-strings l)])
+				   (if (null? label-strings)
+				       (+ x-margin x-margin) ;; Minimum column label width (no labels)
+				       (apply max
+					      (map (lambda (x) (+ x-margin
+								  (get-string-width x)
+								  x-margin))
+						   label-strings)))))
+			       (get-col-numbers))))))]
+	[update-min-spacing
+	 (lambda ()
+	   (min-width (inexact->exact (+ row-label-width (* grid-x-size col-label-width))))
+	   (min-height (inexact->exact (+ col-label-height (* grid-y-size row-label-height)))))])
+
       (inherit min-width min-height)
       (sequence
 	(super-init parent)
 	
-	(let* ([dc (get-dc)])
-	  (set! row-label-width
-		(max (get-string-width (loc->string grid-x-size grid-y-size))
-		     (apply max (map (lambda (x) (+ x-margin
-						    (get-string-width (get-row-label-string x))
-						    x-margin))
-				     row-numbers))))
+	(calculate-row-margins)
+	(calculate-col-margins)
+	(update-min-spacing))))
 
-	  (let-values ([(width height descent ascent) (send dc get-text-extent "0123456789")])
-	    (set! row-label-height (+ y-margin height y-margin)))
+  (define design-paint-by-numbers-canvas%
+    (class paint-by-numbers-canvas% (parent width height)
+      (private
+	[row-spacing 5]
+	[col-spacing 5]
+	[row-numbers (vector->list (make-vector height (vector->list (make-vector row-spacing 1))))]
+	[col-numbers (vector->list (make-vector width (vector->list (make-vector col-spacing 1))))])
 
-	  (set! col-label-height
-		(max
-		 (get-string-height/descent (loc->string grid-x-size grid-y-size))
-		 (apply max
-			(map (lambda (l)
-			       (let* ([strs (get-col-label-strings l)]
-				      [margins (* (length strs) y-margin)]
-				      [height (apply + (map get-string-height strs))])
-				 (+ margins height)))
-			     col-numbers))))
+      (override
+       [get-max-col-entries
+	(lambda ()
+	  col-spacing)]
+       [get-row-numbers
+	(lambda ()
+	  row-numbers)]
+       [get-col-numbers
+	(lambda ()
+	  col-numbers)])
 
-	  (set! col-label-width
-		(apply max
-		       (map (lambda (l)
-			      (let ([label-strings (get-col-label-strings l)])
-				(if (null? label-strings)
-				    (+ x-margin x-margin) ;; Minimum column label width (no labels)
-				    (apply max
-					   (map (lambda (x) (+ x-margin
-							       (get-string-width x)
-							       x-margin))
-						label-strings)))))
-			    col-numbers))))
+      (inherit draw-col-label draw-row-label get-rect
+	       calculate-row-margins
+	       calculate-col-margins
+	       update-min-spacing
+	       on-paint)
+      (private
+	[calculate-col/row
+	 (lambda (get-rect col/row-numbers)
+	   (let loop ([i (length col/row-numbers)]
+		      [block-count 0]
+		      [ans null])
+	     (cond
+	      [(zero? i) (if (= block-count 0)
+			     ans
+			     (cons block-count ans))]
+	      [else
+	       (let ([this (get-rect (- i 1))])
+		 (case this
+		   [(unknown off wrong)
+		    (if (zero? block-count)
+			(loop (- i 1) 0 ans)
+			(loop (- i 1) 0 (cons block-count ans)))]
+		   [(on) (loop (- i 1) (+ block-count 1) ans)]
+		   [else (error 'calculate-col "unknown response from get-rect: ~a~n" this)]))])))]
+
+	[calculate-col
+	 (lambda (col)
+	   (calculate-col/row
+	    (lambda (i)
+	      (get-rect col i))
+	    col-numbers))]
+
+	[calculate-row
+	 (lambda (row)
+	   (calculate-col/row
+	    (lambda (i)
+	      (get-rect i row))
+	    row-numbers))]
 	
-	(min-width (inexact->exact (+ row-label-width (* grid-x-size col-label-width))))
-	(min-height (inexact->exact (+ col-label-height (* grid-y-size row-label-height))))))))
+	[update-col/row
+	 (lambda (col/row col/row-numbers calculate-col/row draw-col/row-label)
+	   (let loop ([l col/row-numbers]
+		      [n col/row])
+	     (cond
+	      [(null? l) (error 'update-col/row "col/row too big: ~a~n" col/row)]
+	      [(zero? n)
+	       (let ([new-col/row (calculate-col/row col/row)])
+		 (set-car! l new-col/row)
+		 (draw-col/row-label col/row))]
+	      [else
+	       (loop (cdr l)
+		     (- n 1))])))]
+
+	[update-col
+	 (lambda (col)
+	   (update-col/row col
+			   col-numbers
+			   calculate-col
+			   draw-col-label)
+	   (let ([len (length (list-ref col-numbers col))])
+	     (when (< col-spacing len)
+	       (set! col-spacing len)
+	       (calculate-col-margins)
+	       (update-min-spacing)
+	       (on-paint))))]
+
+	[update-row
+	 (lambda (row)
+	   (update-col/row row
+			   row-numbers
+			   calculate-row
+			   draw-row-label)
+	   (let ([len (length (list-ref row-numbers row))])
+	     (when (< row-spacing len)
+	       (set! row-spacing len)
+	       (calculate-row-margins)
+	       (update-min-spacing)
+	       (on-paint))))])
+
+      (rename [super-set-raw-rect set-raw-rect])
+      (override
+       [set-raw-rect
+	(lambda (i j n)
+	  (super-set-raw-rect i j n)
+	  (update-col i)
+	  (update-row j))])
+
+      (sequence
+	(super-init parent null null)
+	(set! row-numbers (vector->list (make-vector height null)))
+	(set! col-numbers (vector->list (make-vector width null)))))))
