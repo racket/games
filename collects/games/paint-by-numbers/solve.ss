@@ -1,5 +1,11 @@
-(unit/sig SOLVE^
-  (import mzlib:function^)
+
+
+(module solve mzscheme
+  (provide solve)
+  ; solve : ((list-of (list-of nat)) (list-of (list-of nat)) (num num symbol -> void) (num -> void) -> void)
+
+  (require (lib "list.ss")
+           (lib "etc.ss"))
   
   ; filter! : returns a list of all elements in a-list which 
   ; satisfy the predicate.  
