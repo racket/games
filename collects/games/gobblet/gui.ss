@@ -480,7 +480,7 @@
 					   make-3x3-no-canned-moves)
 				       make-4x4-canned-moves))])
 	  (search timeout ; timeout
-		  2 ; 4 ; lookahead steps (non-exhaustive)
+		  2 ; lookahead steps (non-exhaustive)
 		  3 ; single-step lookahead (exhaustive)
 		  turn board null)))
 

@@ -6,7 +6,8 @@
   (require (lib "unitsig.ss")
 	   (lib "etc.ss")
 	   (lib "list.ss")
-	   "sig.ss")
+	   "sig.ss"
+	   "test.ss")
 
   (provide explore-unit)
 
@@ -26,6 +27,8 @@
     (unit/sig explore^
       (import config^ model^)
 
+      (define-struct config (max-depth memory canonicalize rate-board canned-moves))
+      
       ;; make-search : (canonicalize-proc -> (board sym num num -> num))
       ;;               (canonicalize-proc hash-table -> (board sym compact xform -> plan)) 
       ;;               -> search-proc
@@ -39,6 +42,7 @@
       ;;  forced win, and -inf.0 means forced loss. A plan is created
       ;;  with `make-plan', described below.
       (define (make-search make-rate-board make-canned-moves)
+	;; Long-term memory (i.e., spans searches)
 	(define init-memory (make-hash-table 'equal))
 	(define canonicalize (make-canonicalize))
 	(define rate-board (make-rate-board canonicalize))
@@ -56,6 +60,7 @@
 	  (let* ([result #f]
 		 [once-sema (make-semaphore)]
 		 [result-sema (make-semaphore)]
+		 ;; Short-term memory (i.e., discarded after this search)
 		 [memory (make-hash-table 'equal)])
 	    ;; Record game-history boards as loop ties
 	    (let loop ([history history][me (other me)])
@@ -63,23 +68,33 @@
 		(let ([key+xform (canonicalize (car history) me)])
 		  (hash-table-put! memory (car key+xform) LOOP-TIE))
 		(loop (cdr history) (other me))))
+	    ;; Copy canned and learned info into short-term memory:
 	    (hash-table-for-each init-memory (lambda (k v) (hash-table-put! memory k v)))
+	    ;; Search in a background thread:
 	    (let ([t (thread
 		      (lambda ()
+			;; Try just one chunk of lookaheads, then loop
+			;; for more ambitious searches (if there's time)
 			(let loop ([steps 1][max-depth 2])
 			  (set! result
-				(let ([v (multi-step-minmax steps
-							    (min max-depth one-step-depth)
-							    3 ; span
-							    0 ; indent 
-							    memory init-memory canonicalize 
-							    rate-board canned-moves
-							    me board)])
+				;; ======== Here's where we get a move ============
+				(let ([v (multi-step-minmax
+					  steps
+					  3 ; span
+					  (make-config 
+					   (min max-depth one-step-depth)
+					   memory canonicalize rate-board canned-moves)
+					  0 ; indent 
+					  init-memory
+					  me board)])
 				  (log-printf 1 0 "> ~a/~a Result: ~a~n" 
 					      steps (min max-depth one-step-depth)
 					      (play->string v))
 				  v))
+			  ;; We have at least one result, now.
 			  (semaphore-post once-sema)
+			  ;; If we could learn more by searching deeper, then
+			  ;;  do so.
 			  (unless (or (and (= steps max-steps)
 					   (one-step-depth . <= . max-depth))
 				      ((car result) . = . +inf.0)
@@ -88,6 +103,7 @@
 				(loop (add1 steps) 2)
 				(loop steps (add1 max-depth)))))
 			(semaphore-post result-sema)))])
+	      ;; Sync with the background thread and return the result:
 	      (sync/timeout timeout result-sema)
 	      (semaphore-wait once-sema)
 	      (kill-thread t)
@@ -119,15 +135,14 @@
 		(error 'apply-play "bad move: ~a" m))))
 
       ;; ------------------------------------------------------------
-      ;; Internal functions
+      ;; Checking and combining move plans
             
       (define delay-loss? #t)
 
-      (define learn? #f)
-      (define MEMORY-FILE (and learn?
-			       (build-path (find-system-path 'addon-dir)
-					   (format "gobblet-memory-~a.ss" BOARD-SIZE))))
-
+      ;; Discourage loops:
+      (define LOOP-TIE `((-1000.0 loop!)))
+      
+      ;; Translates a plan into the given coordinate xform
       (define (xlate m xform)
 	(let-values ([(from-i from-j)
 		      (if (plan-from-i m)
@@ -141,29 +156,26 @@
 							(plan-to-j m)))])
 	  (make-plan (plan-size m) from-i from-j to-i to-j xform (plan-turns m))))
 
+      (define (found-win? v)
+	(and (pair? v)
+	     (= (caar v) +inf.0)))
 
-      (define (float->string v)
-	(let ([s (string-append (number->string v) "000000")])
-	  (substring s 0 (min 6 (string-length s)))))
+      (define (immediate? v)
+	(and (pair? v) (zero? (get-depth (car v)))))
 
-      (define (play->string p)
-	(format "~a (~a,~a)->(~a,~a) [~a/~a]"
-		(piece-size (list-ref p 1))
-		(list-ref p 2) (list-ref p 3)  (list-ref p 4) (list-ref p 5)
-		(float->string (car p))
-		(list-ref p 6)))
+      (define (found-lose? v)
+	(and (pair? v)
+	     (= (caar v) -inf.0)))
 
-      (define (plays->string is p)
-	(if (null? p)
-	    "()"
-	    (let ([s (plays->string is (cdr p))])
-	      (if (null? (cdr p))
-		  (play->string (car p))
-		  (string-append (play->string (car p))
-				 "\n"
-				 is
-				 s)))))
+      (define (get-depth a)
+	(if (plan? (cdr a))
+	    (plan-turns (cdr a))
+	    0))
 
+      ;; Keeps the best move --- up to `span' of them --- in `a' and `b'.
+      ;;  The two lists are sorted, and the result should keep them that way.
+      ;;  For -inf.0 ratings, prefer the move farthest from the end of the
+      ;;  game, otherwise prefer the move closest.
       (define (best span a b)
 	(cond
 	 [(zero? span) null]
@@ -188,203 +200,239 @@
 	 [else
 	  (cons (car b) (best (sub1 span) a (cdr b)))]))
 
-      (define (found-win? v)
-	(and (pair? v)
-	     (= (caar v) +inf.0)))
+      ;; --- TESTS ---
+      #;
+      (let* ([plan1 (make-plan 0 0 0 0 0 0 1)]
+	     [plan2 (make-plan 0 0 0 0 0 0 2)]
+	     [plan1s (list (cons 2 plan1) (cons 1 plan1))])
+	;; Check empty combinations:
+	(test null (best 20 null null))
+	(test plan1s (best 2 plan1s null))
+	(test plan1s (best 2 null plan1s))
+	(test plan1s (best 20 null plan1s))
+	;; Check rating choice
+	(test (list (cons 2 plan1)) (best 1 (list (cons 2 plan1)) (list (cons 1 plan1))))
+	(test (list (cons 1 plan1)) (best 1 (list (cons 1 plan1)) (list (cons -inf.0 plan2))))
+	(test (list (cons 1 plan2)) (best 1 (list (cons -inf.0 plan1)) (list (cons 1 plan2))))
+	(test (list (cons 10 plan2) (cons 2 plan1)) (best 2 
+							  (list (cons 2 plan1) (cons 1 plan2)) 
+							  (list (cons 10 plan2) (cons 1 plan1))))
+	;; Check time-til-end choice:
+	(test (list (cons 1 plan1)) (best 1 (list (cons 1 plan1)) (list (cons 1 plan2))))
+	(test (list (cons -inf.0 plan2)) (best 1 (list (cons -inf.0 plan1)) (list (cons -inf.0 plan2)))))
 
-      (define (immediate? v)
-	(and (pair? v) (zero? (get-depth (car v)))))
-
-      (define (found-lose? v)
-	(and (pair? v)
-	     (= (caar v) -inf.0)))
-
-      (define (get-depth a)
-	(if (plan? (cdr a))
-	    (plan-turns (cdr a))
-	    0))
-
-      (define no-goodness null)
-
+      ;; ------------------------------------------------------------
+      ;;  Multi-step minmax (non-exhaustive):
+      
       (define hit-count 0)
       (define depth-count 0)
       (define explore-count 0)
       (define enter-count 0)
       (define move-count 0)
 
-      ;; Discourage loops:
-      (define LOOP-TIE `((-1000.0 loop!)))
-
-      (define (show-recur sz from-i from-j to-i to-j sv)
-	(if (not (plan? (cdar sv)))
-	    (printf "   Recur ~a (~a,~a)->(~a,~a) ; ??? = ~a/~a~n"
-		    sz from-i from-j to-i to-j 
-		    (caar sv) (get-depth (car sv)))
-	    (printf "   Recur ~a (~a,~a)->(~a,~a) ; (~a,~a)->(~a,~a) = ~a/~a~n"
-		    sz from-i from-j to-i to-j 
-		    (plan-from-i (cdar sv)) (plan-from-j (cdar sv)) (plan-to-i (cdar sv)) (plan-to-j (cdar sv))
-		    (caar sv) (get-depth (car sv)))))
-
       ;; ...state and search params... -> (values (listof (cons num plan)) xform)
       ;; Minimax search up to the given max-depth, returning up to span
       ;; choices of move.
-      (define (minmax depth max-depth span memory canonicalize 
-		      rate-board canned-moves
-		      me him my-pieces his-pieces board last-to-i last-to-j)
+      (define (minmax depth span config me my-pieces his-pieces board last-to-i last-to-j)
 	(set! hit-count (add1 hit-count))
-	(let* ([board-key+xform (canonicalize board me)]
+	(let* ([board-key+xform ((config-canonicalize config) board me)]
 	       [board-key (car board-key+xform)]
 	       [xform (cdr board-key+xform)]
-	       [key (vector board-key (- max-depth depth) span)]
-	       [win/lose-key board-key])
-	  (let ([goodness
+	       [key (vector board-key (- (config-max-depth config) depth) span)])
+	  (let ([choices
 		 (cond
-		  ;; Check for known win at arbitrary depth:
-		  [(hash-table-get memory win/lose-key (lambda () #f)) => (lambda (x) x)]
-		  ;; Check for known value at specific max depth:
-		  [(hash-table-get memory key (lambda () #f)) => (lambda (x) x)]
-		  [(winner? board him)
-		   (hash-table-put! memory win/lose-key '((-inf.0)))
+		  ;; Check for known win/loss at arbitrary depth:
+		  [(hash-table-get (config-memory config) board-key (lambda () #f)) => (lambda (x) x)]
+		  ;; Check for known result at specific remaining depth:
+		  [(hash-table-get (config-memory config) key (lambda () #f)) => (lambda (x) x)]
+		  ;; Check for immediate loss (only rating matters)
+		  [(winner? board (other me))
+		   (hash-table-put! (config-memory config) board-key '((-inf.0)))
 		   '((-inf.0))]
+		  ;; Check for immediate loss (only rating matters)
 		  [(winner? board me)
-		   (hash-table-put! memory win/lose-key '((+inf.0)))
+		   (hash-table-put! (config-memory config) board-key '((+inf.0)))
 		   '((+inf.0))]
-		  [(begin (set! depth-count (add1 depth-count)) #f) (void)]
-		  [(depth . >= . max-depth)
-		   (let ([l (list (list (rate-board board me last-to-i last-to-j)))])
-		     (hash-table-put! memory key l)
+		  ;; Check for depth
+		  [(depth . >= . (config-max-depth config))
+		   (set! depth-count (add1 depth-count))
+		   (let ([l (list (list ((config-rate-board config) board me last-to-i last-to-j)))])
+		     (hash-table-put! (config-memory config) key l)
 		     l)]
+		  ;; Otherwise, we explore this state...
 		  [else 
+		   (set! depth-count (add1 depth-count))
 		   (set! explore-count (add1 explore-count))
 		   ;; In case we get back here while we're looking, claim an unknown tie:
-		   (hash-table-put! memory win/lose-key LOOP-TIE)
-		   (let* ([canned-goodness
+		   (hash-table-put! (config-memory config) board-key LOOP-TIE)
+		   (let* ([choices
 			   (map (lambda (g)
 				  ;; Make sure each canned move is in our coordinate system:
 				  (cons (car g) (xlate (cdr g) xform)))
-				(canned-moves board me board-key xform))]
-			  [add-piece-goodness
-			   (if (found-win? canned-goodness)
-			       canned-goodness
-			       (let loop ([avail-pieces my-pieces]
-					  [keep-pieces null]
-					  [played-sizes 
-					   ;; Don't consider sizes that appear in known moves:
-					   (let loop ([sizes null][canned-goodness canned-goodness])
-					     (cond
-					      [(null? canned-goodness) sizes]
-					      [(not (plan-from-j (cdar canned-goodness)))
-					       (let ([sz (plan-size (cdar canned-goodness))])
-						 (if (member sz sizes)
-						     (loop sizes (cdr canned-goodness))
-						     (loop (cons sz sizes) (cdr canned-goodness))))]
-					      [else (loop sizes (cdr canned-goodness))]))])
-				 (cond
-				  [(null? avail-pieces) canned-goodness]
-				  [(memq (caar avail-pieces) played-sizes)
-				   (loop (cdr avail-pieces)
-					 (cons (car avail-pieces) keep-pieces)
-					 played-sizes)]
-				  [else
-				   (let ([v
-					  ;; Try other pieces:
-					  (loop (cdr avail-pieces)
-						(cons (car avail-pieces) keep-pieces)
-						(cons (caar avail-pieces) played-sizes))])
-				     ;; Try this one:
-				     (let ([p (list-ref (if (eq? me 'red) red-pieces yellow-pieces) 
-							(caar avail-pieces))]
-					   [my-pieces (append 
-						       keep-pieces
-						       (if (null? (cdar avail-pieces))
-							   null
-							   (list (cdar avail-pieces)))
-						       (cdr avail-pieces))])
-				       (fold-board
-					(lambda (i j v)
-					  (if (and (found-win? v) (immediate? v))
-					      v
-					      (move board p #f #f i j
-						    (lambda (new-board)
-						      (set! enter-count (add1 enter-count))
-						      (let-values ([(sv sxform)
-								    (minmax (add1 depth) max-depth 1 memory canonicalize 
-									    rate-board canned-moves
-									    him me his-pieces my-pieces new-board
-									    i j)])
-							#;
-							(when (zero? depth)
-							  (show-recur (piece-size p) #f #f i j sv))
-							(best span
-							      v
-							      (list (cons (- (caar sv))
-									  (make-plan (piece-size p) #f #f i j 
-										     xform (add1 (get-depth (car sv)))))))))
-						    (lambda () v))))
-					v)))])))]
-			  [move-piece-goodness
-			   (if (found-win? canned-goodness)
-			       canned-goodness
-			       (fold-board
-				(lambda (from-i from-j v)
-				  (let ([l (board-ref board from-i from-j)])
-				    (if (and (pair? l)
-					     (eq? me (piece-color (car l))))
-					(fold-board
-					 (lambda (to-i to-j v)
-					   (if (or (and (found-win? v) (immediate? v))
-						   (ormap (lambda (km)
-							    (let ([m (cdr km)])
-							      (and (equal? from-i (plan-from-i m))
-								   (equal? from-j (plan-from-j m))
-								   (equal? to-i (plan-to-i m))
-								   (equal? to-j (plan-to-j m)))))
-							  canned-goodness))
-					       v
-					       (move board (car l) from-i from-j to-i to-j
-						     (lambda (new-board)
-						       (set! move-count (add1 move-count))
-						       (let-values ([(sv sxform)
-								     (minmax (add1 depth) max-depth 1 memory canonicalize
-									     rate-board canned-moves
-									     him me his-pieces my-pieces new-board
-									     to-i to-j)])
-							 #;
-							 (when (zero? depth)
-							   (show-recur (piece-size (car l)) from-i from-j to-i to-j sv))
-							 (best span
-							       v 
-							       (list (cons (- (caar sv))
-									   (make-plan (piece-size (car l)) from-i from-j to-i to-j 
-										      xform 
-										      (add1 (get-depth (car sv)))))))))
-						     (lambda ()
-						       v))))
-					 v)
-					v)))
-				add-piece-goodness))])
-		     (let ([goodness (let ([v move-piece-goodness])
-				       (if (null? v)
-					   '((-inf.0))
-					   v))])
-		       (hash-table-remove! memory win/lose-key)
-		       (let ([key (if (and ((caar goodness) . < . +inf.0)
-					   ((caar goodness) . > . -inf.0))
-				      ;; Result is only valid to current depth limit:
-				      key
-				      ;; Result is valid to any depth:
-				      win/lose-key)])
-			 (hash-table-put! memory key goodness)
-			 goodness)))])])
-	    (values goodness xform))))
+				((config-canned-moves config) board me board-key xform))]
+			  [choices
+			   (if (found-win? choices)
+			       choices
+			       (try-all-enters choices depth span config
+					       me my-pieces his-pieces board xform))]
+			  [choices
+			   (if (found-win? choices)
+			       choices
+			       (try-all-moves choices depth span config
+					      me my-pieces his-pieces board xform))]
+			  [choices (if (null? choices)
+				       ;; No moves! We lose
+				       '((-inf.0))
+				       ;; We have at least one move
+				       choices)])
+		     (hash-table-remove! (config-memory config) board-key)
+		     (let ([key (if (and ((caar choices) . < . +inf.0)
+					 ((caar choices) . > . -inf.0))
+				    ;; Result is only valid to current depth limit:
+				    key
+				    ;; Win or loss: result is valid to any depth:
+				    board-key)])
+		       (hash-table-put! (config-memory config) key choices)
+		       choices))])])
+	    (values choices xform))))
+
+      ;; try-all-enters : ... -> (listof (cons num plan))
+      ;; Try moving each available off-board piece onto each board position
+      (define (try-all-enters choices depth span config me my-pieces his-pieces board xform)
+	(let loop ([enters (pick-enters my-pieces)]
+		   [choices choices])
+	  (if (null? enters)
+	      choices
+	      ;; For this piece....
+	      (let ([p (list-ref (if (eq? me 'red) red-pieces yellow-pieces) 
+				 (caar enters))]
+		    ;; my-pieces remain off the board after trying this one
+		    [my-pieces (cdar enters)])
+		(loop (cdr enters)
+		      ;; ... try every target position:
+		      (fold-board/choices
+		       span choices
+		       (lambda (i j)
+			 (try-move depth config 
+				   board me my-pieces his-pieces 
+				   p #f #f i j xform))))))))
+      
+      ;; try-all-moves : ... -> (listof (cons num plan))
+      ;; Try moving each on-board piece onto each other board position
+      (define (try-all-moves choices depth span config me my-pieces his-pieces board xform)
+	;; From each source...
+	(fold-board/choices
+	 span choices
+	 (lambda (from-i from-j)
+	   ;; ... if it has my piece...
+	   (let ([l (board-ref board from-i from-j)])
+	     (if (and (pair? l)
+		      (eq? me (piece-color (car l))))
+		 ;; ... try every target position:
+		 (fold-board/choices
+		  span choices
+		  (lambda (to-i to-j)
+		    (try-move depth config 
+			      board me my-pieces his-pieces
+			      (car l) from-i from-j to-i to-j xform)))
+		 ;; Can't move from here:
+		 null)))))
+
+      ;; Try the move, and if it's ok, call `minmax' with the other
+      ;; player and invert the result
+      (define (try-move depth config 
+			board me my-pieces his-pieces 
+			p from-i from-j to-i to-j xform)
+	(move board p from-i from-j to-i to-j
+	      (lambda (new-board)
+		;; Move is ok; rate it
+		(set! move-count (add1 move-count))
+		;; Min-max recur for other player:
+		(let-values ([(his-choices sxform)
+			      (minmax (add1 depth) 1 config
+				      (other me) his-pieces my-pieces new-board
+				      to-i to-j)])
+		  #;
+		  (when (zero? depth) (show-recur (piece-size p) from-i from-j to-i to-j his-choices))
+		  ;; Construct a plan for this choice, and rate it
+		  ;;  opposite of the minmax result
+		  (list (cons (- (caar his-choices))
+			      (make-plan (piece-size p) from-i from-j to-i to-j 
+					 xform 
+					 (add1 (get-depth (car his-choices))))))))
+	      (lambda ()
+		;; Move isn't ok
+		null)))
+
+      ;; pick-enters: stacks -> (listof (cons piece stack))
+      ;; where stacks is (listof (listof piece))
+      ;; Keep the stacks in order, too.
+      (define (pick-enters my-pieces)
+	(let loop ([avail-pieces my-pieces]
+		   [keep-pieces null]
+		   [played-sizes null])
+	  (cond
+	   [(null? avail-pieces) null]
+	   [(memq (caar avail-pieces) played-sizes)
+	    (loop (cdr avail-pieces)
+		  (cons (car avail-pieces) keep-pieces)
+		  played-sizes)]
+	   [else
+	    (cons (cons 
+		   ;; piece to move:
+		   (caar avail-pieces)
+		   ;; pieces that remain off the board after trying this one
+		   (append 
+		    (reverse keep-pieces)
+		    (if (null? (cdar avail-pieces))
+			null
+			(list (cdar avail-pieces)))
+		    (cdr avail-pieces)))
+		  ;; Try pieces from other stacks:
+		  (loop (cdr avail-pieces)
+			(cons (car avail-pieces) keep-pieces)
+			(cons (caar avail-pieces) played-sizes)))])))
+
+      ;; Like `fold-board', but auto combines choices and
+      ;;  handles shortcut for known immediate wins
+      (define (fold-board/choices span choices f)
+	(fold-board
+	 (lambda (i j choices)
+	   (if (and (found-win? choices)
+		    (immediate? choices))
+	       choices
+	       (best span
+		     choices
+		     (f i j))))
+	 choices))
+
+      ;; --- TESTS ---
+      #;
+      (let* ([plan (make-plan 0 0 0 0 0 0 1)])
+	;; fold-board/choices
+	(test (if (= BOARD-SIZE 3) 
+		  (list (cons 4 plan) (cons 3 plan))
+		  (list (cons 6 plan) (cons 5 plan)))
+	      (fold-board/choices 2 null (lambda (i j)
+					   (list (cons (+ i j) plan)))))
+
+	;; pick-enters
+	(test null (pick-enters null))
+	(test '((2 . ((1)))) (pick-enters '((2 1))))
+	(test '((2 . ((1) (2 1)))) (pick-enters '((2 1) (2 1))))
+	(test '((1 . ((2 1))) (2 . ((1) (1)))) (pick-enters '((1) (2 1))))
+	(test '((3 . ((2 1) (1) (2 1))) (1 . ((3 2 1) (2 1))) (2 . ((3 2 1) (1) (1)))) 
+	      (pick-enters '((3 2 1) (1) (2 1))))
+
+	)
+      
+      ;; ------------------------------------------------------------
+      ;;  Multi-step minmax (non-exhaustive):
 
       ;; Apply minmax, and if steps > 1, rate resulting moves by applying
       ;; minmax to them. Meanwhile, in learning mode, record any resulting
       ;; move that is known to lead to winning or losing.
-      (define (multi-step-minmax steps one-step-depth span indent 
-				 memory init-memory canonicalize 
-				 rate-board canned-moves
-				 me board)
+      (define (multi-step-minmax steps span config indent init-memory me board)
 	(define first-move? 
 	  ((fold-board (lambda (i j v) (+ v (length (board-ref board i j)))) 0) . < . 2))
 	(define now (current-inexact-milliseconds))
@@ -396,14 +444,11 @@
 	(log-printf 1 indent "~a> ~a Exploring for ~a~n" (make-string indent #\space) steps me)
 	(let-values ([(vs xform)
 		      (minmax 0
-			      one-step-depth
 			      (if (or (steps . <= . 1) first-move?)
 				  1
 				  span)
-			      memory canonicalize
-			      rate-board canned-moves
+			      config
 			      me
-			      (other me)
 			      (available-off-board board me)
 			      (available-off-board board (other me))
 			      board #f #f)])
@@ -436,7 +481,7 @@
 		       (= steps 1))
 	      (when (or (found-win? plays)
 			(found-lose? plays))
-		(let ([board-key+xform (canonicalize board me)])
+		(let ([board-key+xform ((config-canonicalize config) board me)])
 		  (hash-table-get init-memory 
 				  (car board-key+xform)
 				  (lambda ()
@@ -469,9 +514,8 @@
 				     (log-printf 4 indent " ~a>>>> losing\n" (make-string indent #\space))
 				     play)
 				   (let ([r (cons (- (car (multi-step-minmax 
-							   (sub1 steps) one-step-depth span (+ 3 indent)
-							   memory init-memory canonicalize 
-							   rate-board canned-moves
+							   (sub1 steps) span config 
+							   (+ 3 indent) init-memory
 							   (other me)
 							   (apply-play board (cdr play)))))
 						  (cdr play))])
@@ -484,7 +528,15 @@
 			   (list (car plays)))])
 		  (car nexts))))))
 
-      ;; to laod what we've learned
+      ;; ------------------------------------------------------------
+      ;;  Multi-run memory:
+
+      (define learn? #f)
+      (define MEMORY-FILE (and learn?
+			       (build-path (find-system-path 'addon-dir)
+					   (format "gobblet-memory-~a.ss" BOARD-SIZE))))
+
+      ;; to load what we've learned from previous runs
       (define (load-memory init-memory canonicalize)
 	(with-handlers ([exn:fail:filesystem? void])
 	  (with-input-from-file MEMORY-FILE
@@ -503,5 +555,40 @@
 						 (list-ref n 2) (list-ref n 3) (list-ref n 4) (list-ref n 5)
 						 (cdr board-key+xform)
 						 (list-ref n 6)))))))
-		    (loop)))))))))))
-  
+		    (loop))))))))
+
+      ;; ------------------------------------------------------------
+      ;;  Debugging helpers
+
+      (define (float->string v)
+	(let ([s (string-append (number->string v) "000000")])
+	  (substring s 0 (min 6 (string-length s)))))
+
+      (define (play->string p)
+	(format "~a (~a,~a)->(~a,~a) [~a/~a]"
+		(piece-size (list-ref p 1))
+		(list-ref p 2) (list-ref p 3)  (list-ref p 4) (list-ref p 5)
+		(float->string (car p))
+		(list-ref p 6)))
+
+      (define (plays->string is p)
+	(if (null? p)
+	    "()"
+	    (let ([s (plays->string is (cdr p))])
+	      (if (null? (cdr p))
+		  (play->string (car p))
+		  (string-append (play->string (car p))
+				 "\n"
+				 is
+				 s)))))
+
+      (define (show-recur sz from-i from-j to-i to-j sv)
+	(if (not (plan? (cdar sv)))
+	    (printf "   Recur ~a (~a,~a)->(~a,~a) ; ??? = ~a/~a~n"
+		    sz from-i from-j to-i to-j 
+		    (caar sv) (get-depth (car sv)))
+	    (printf "   Recur ~a (~a,~a)->(~a,~a) ; (~a,~a)->(~a,~a) = ~a/~a~n"
+		    sz from-i from-j to-i to-j 
+		    (plan-from-i (cdar sv)) (plan-from-j (cdar sv)) 
+		    (plan-to-i (cdar sv)) (plan-to-j (cdar sv))
+		    (caar sv) (get-depth (car sv))))))))

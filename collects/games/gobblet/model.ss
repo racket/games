@@ -3,6 +3,10 @@
 	   (lib "unitsig.ss"))
 
   (provide model-unit)
+
+  ;; Most tests are in test-model.ss, but for better coverage,
+  ;; uncomment the tests below for unexported functions when running
+  ;; the test suite.
   
   (define model-unit
     (unit/sig model^
@@ -17,7 +21,9 @@
       ;; A piece is
       ;;  (make-piece num sym hash-table)
       ;;  where the sym is 'red or 'yellow
-      ;; The hash table maps a stack to a stack.
+      ;; 
+      ;; The hash table maps a stack without this
+      ;; piece to a stack with this piece on top.
       (define-struct piece (size color gobble-table))  
 
       (define red-pieces (map (lambda (sz) (make-piece sz 'red (make-hash-table))) SIZES))
@@ -101,6 +107,7 @@
       ;; not on the board), and target location for the piece, either
       ;; allows the move and calls the continuation k with the new
       ;; board, or disallows and calls the failure continuation.
+      ;; The given piece and its source must be correct and ok to move.
       (define (move board p from-i from-j to-i to-j k fail-k)
 	(let ([pl (board-ref board to-i to-j)])
 	  ;; The move is allowed if the target space is empty or the
@@ -128,6 +135,26 @@
       ;; gobble : piece (listof piece) -> (listof piece)
       (define (gobble p l)
 	(hash-table-get (piece-gobble-table p) l))
+
+      ;; - - - - - - - - - - - - - - - - - -
+      
+      ;; winner? : board sym -> bool
+      ;;  Checks whether the given color has BOARD-SIZE in a row
+      (define (winner? board c)
+	(or (n-in-a-diag? BOARD-SIZE board c backslash-diag-flip)
+	    (n-in-a-diag? BOARD-SIZE board c slash-diag-flip)
+	    ;; Rows and columns:
+	    (fold-rowcol (lambda (i v)
+			   (or v
+			       (and 
+				;; Before we count in all directions,
+				;;  check the target square.
+				(let ([pl (board-ref board i i)])
+				  (and (pair? pl)
+				       (eq? c (piece-color (car pl)))))
+				;; Target square matches, so on to expensive check
+				(n-in-a-row/col? BOARD-SIZE board i i c))))
+			 #f)))
 
       ;; 3-in-a-row? : board num num color -> bool
       (define (3-in-a-row? board i j c)
@@ -167,23 +194,34 @@
       (define backslash-diag-flip (lambda (x) x))
       (define slash-diag-flip (lambda (x) (- BOARD-SIZE 1 x)))
 
-      ;; winner? : board sym -> bool
-      ;;  Checks whether the given color has BOARD-SIZE in a row
-      (define (winner? board c)
-	(or (n-in-a-diag? BOARD-SIZE board c backslash-diag-flip)
-	    (n-in-a-diag? BOARD-SIZE board c slash-diag-flip)
-	    (fold-rowcol (lambda (i v)
-			   (or v
-			       (and 
-				;; Before we count in all directions,
-				;;  check the target square.
-				(let ([pl (board-ref board i i)])
-				  (and (pair? pl)
-				       (eq? c (piece-color (car pl)))))
-				;; Target square matches, so on to expensive check
-				(n-in-a-row/col? BOARD-SIZE board i i c))))
-			 #f)))
+      ;; Tests for unexported helpers:
+      #;
+      (let* ([one-red-board (move empty-board (car red-pieces) #f #f 0 0 values void)]
+	     [two-red-board (move (move one-red-board (car red-pieces) #f #f 0 2 values void)
+				  (car yellow-pieces) #f #f 2 2 values void)]
+	     [three-red-board (move two-red-board (cadr red-pieces) #f #f 1 1 values void)])
+	(define (test x y)
+	  (unless (equal? x y) 
+	    (error 'test "failure!: ~s ~s~n" x y)))
+	(test #f (n-in-a-row/col? 1 empty-board 0 0 'red))
+	(test #t (n-in-a-row/col? 1 one-red-board 0 0 'red))
+	(test #t (n-in-a-row/col? 2 two-red-board 0 0 'red))
+	(test #t (n-in-a-row/col? 1 two-red-board 2 2 'red))
+	(test #f (n-in-a-row/col? 2 two-red-board 2 2 'red))
+	(test #t (n-in-a-row/col? 2 two-red-board 0 1 'red))
+	(test #t (n-in-a-row/col? 1 three-red-board 0 1 'red))
+	(test #t (n-in-a-row/col? 2 three-red-board 0 1 'red))
 
+	(test #f (n-in-a-diag? 1 one-red-board 'red slash-diag-flip))
+	(test #t (n-in-a-diag? 1 one-red-board 'red backslash-diag-flip))
+	(test (= BOARD-SIZE 3) (n-in-a-diag? 1 two-red-board 'red slash-diag-flip))
+	(test #f (n-in-a-diag? 2 two-red-board 'red slash-diag-flip))
+	(test #t (n-in-a-diag? 1 two-red-board 'red backslash-diag-flip))
+	(test (= BOARD-SIZE 3) (n-in-a-diag? 2 three-red-board 'red slash-diag-flip))
+	(test #t (n-in-a-diag? 2 three-red-board 'red backslash-diag-flip)))
+
+      
+      ;; - - - - - - - - - - - - - - - - - -
 
       ;; available-off-board : board sym -> (list-of (list-of piece))
       ;;  Returns pieces available to move onto the board. The pieces
@@ -260,62 +298,58 @@
       (define xform-procs
 	(if (= BOARD-SIZE 3)
 	    (list 
-	     (lambda (v) (vector (vector-ref v 0) (vector-ref v 1) (vector-ref v 2) (vector-ref v 3) (vector-ref v 4)
-				 (vector-ref v 5) (vector-ref v 6) (vector-ref v 7) (vector-ref v 8)))
-	     (lambda (v) (vector (vector-ref v 0) (vector-ref v 3) (vector-ref v 6) (vector-ref v 1) (vector-ref v 4)
-				 (vector-ref v 7) (vector-ref v 2) (vector-ref v 5) (vector-ref v 8)))
-	     (lambda (v) (vector (vector-ref v 2) (vector-ref v 5) (vector-ref v 8) (vector-ref v 1) (vector-ref v 4)
-				 (vector-ref v 7) (vector-ref v 0) (vector-ref v 3) (vector-ref v 6)))
-	     (lambda (v) (vector (vector-ref v 8) (vector-ref v 5) (vector-ref v 2) (vector-ref v 7) (vector-ref v 4)
-				 (vector-ref v 1) (vector-ref v 6) (vector-ref v 3) (vector-ref v 0)))
-	     (lambda (v) (vector (vector-ref v 6) (vector-ref v 3) (vector-ref v 0) (vector-ref v 7) (vector-ref v 4)
-				 (vector-ref v 1) (vector-ref v 8) (vector-ref v 5) (vector-ref v 2)))
-	     (lambda (v) (vector (vector-ref v 2) (vector-ref v 1) (vector-ref v 0) (vector-ref v 5) (vector-ref v 4)
-				 (vector-ref v 3) (vector-ref v 8) (vector-ref v 7) (vector-ref v 6)))
-	     (lambda (v) (vector (vector-ref v 8) (vector-ref v 7) (vector-ref v 6) (vector-ref v 5) (vector-ref v 4)
-				 (vector-ref v 3) (vector-ref v 2) (vector-ref v 1) (vector-ref v 0)))
-	     (lambda (v) (vector (vector-ref v 6) (vector-ref v 7) (vector-ref v 8) (vector-ref v 3) (vector-ref v 4)
-				 (vector-ref v 5) (vector-ref v 0) (vector-ref v 1) (vector-ref v 2))))
+	     (lambda (v) v)
+	     (lambda (v) (bytes (bytes-ref v 0) (bytes-ref v 3) (bytes-ref v 6) (bytes-ref v 1) (bytes-ref v 4)
+				 (bytes-ref v 7) (bytes-ref v 2) (bytes-ref v 5) (bytes-ref v 8)))
+	     (lambda (v) (bytes (bytes-ref v 2) (bytes-ref v 5) (bytes-ref v 8) (bytes-ref v 1) (bytes-ref v 4)
+				 (bytes-ref v 7) (bytes-ref v 0) (bytes-ref v 3) (bytes-ref v 6)))
+	     (lambda (v) (bytes (bytes-ref v 8) (bytes-ref v 5) (bytes-ref v 2) (bytes-ref v 7) (bytes-ref v 4)
+				 (bytes-ref v 1) (bytes-ref v 6) (bytes-ref v 3) (bytes-ref v 0)))
+	     (lambda (v) (bytes (bytes-ref v 6) (bytes-ref v 3) (bytes-ref v 0) (bytes-ref v 7) (bytes-ref v 4)
+				 (bytes-ref v 1) (bytes-ref v 8) (bytes-ref v 5) (bytes-ref v 2)))
+	     (lambda (v) (bytes (bytes-ref v 2) (bytes-ref v 1) (bytes-ref v 0) (bytes-ref v 5) (bytes-ref v 4)
+				 (bytes-ref v 3) (bytes-ref v 8) (bytes-ref v 7) (bytes-ref v 6)))
+	     (lambda (v) (bytes (bytes-ref v 8) (bytes-ref v 7) (bytes-ref v 6) (bytes-ref v 5) (bytes-ref v 4)
+				 (bytes-ref v 3) (bytes-ref v 2) (bytes-ref v 1) (bytes-ref v 0)))
+	     (lambda (v) (bytes (bytes-ref v 6) (bytes-ref v 7) (bytes-ref v 8) (bytes-ref v 3) (bytes-ref v 4)
+				 (bytes-ref v 5) (bytes-ref v 0) (bytes-ref v 1) (bytes-ref v 2))))
 	    (list
-	     (lambda (v) (vector (vector-ref v 0) (vector-ref v 1) (vector-ref v 2) (vector-ref v 3) (vector-ref v 4)
-				 (vector-ref v 5) (vector-ref v 6) (vector-ref v 7) (vector-ref v 8) (vector-ref v 9)
-				 (vector-ref v 10) (vector-ref v 11)
-				 (vector-ref v 12) (vector-ref v 13) (vector-ref v 14) (vector-ref v 15)))
-	     (lambda (v) (vector (vector-ref v 0) (vector-ref v 4) (vector-ref v 8) (vector-ref v 12) (vector-ref v 1)
-				 (vector-ref v 5) (vector-ref v 9) (vector-ref v 13) (vector-ref v 2) (vector-ref v 6)
-				 (vector-ref v 10) (vector-ref v 14)
-				 (vector-ref v 3) (vector-ref v 7) (vector-ref v 11) (vector-ref v 15)))
-	     (lambda (v) (vector (vector-ref v 12) (vector-ref v 13) (vector-ref v 14) (vector-ref v 15) (vector-ref v 8) 
-				 (vector-ref v 9) (vector-ref v 10) (vector-ref v 11) (vector-ref v 4) (vector-ref v 5)
-				 (vector-ref v 6) (vector-ref v 7)
-				 (vector-ref v 0) (vector-ref v 1) (vector-ref v 2) (vector-ref v 3)))
-	     (lambda (v) (vector (vector-ref v 3) (vector-ref v 2) (vector-ref v 1) (vector-ref v 0) (vector-ref v 7) 
-				 (vector-ref v 6) (vector-ref v 5) (vector-ref v 4) (vector-ref v 11) (vector-ref v 10)
-				 (vector-ref v 9) (vector-ref v 8)
-				 (vector-ref v 15) (vector-ref v 14) (vector-ref v 13) (vector-ref v 12)))
-	     (lambda (v) (vector (vector-ref v 15) (vector-ref v 11) (vector-ref v 7) (vector-ref v 3) (vector-ref v 14)
-				 (vector-ref v 10) (vector-ref v 6) (vector-ref v 2) (vector-ref v 13) (vector-ref v 9)
-				 (vector-ref v 5) (vector-ref v 1)
-				 (vector-ref v 12) (vector-ref v 8) (vector-ref v 4) (vector-ref v 0)))
-	     (lambda (v) (vector (vector-ref v 12) (vector-ref v 8) (vector-ref v 4) (vector-ref v 0) (vector-ref v 13) 
-				 (vector-ref v 9) (vector-ref v 5) (vector-ref v 1) (vector-ref v 14) (vector-ref v 10)
-				 (vector-ref v 6) (vector-ref v 2) 
-				 (vector-ref v 15) (vector-ref v 11) (vector-ref v 7) (vector-ref v 3)))
-	     (lambda (v) (vector (vector-ref v 15) (vector-ref v 14) (vector-ref v 13) (vector-ref v 12) (vector-ref v 11)
-				 (vector-ref v 10) (vector-ref v 9) (vector-ref v 8) (vector-ref v 7) (vector-ref v 6)
-				 (vector-ref v 5) (vector-ref v 4)
-				 (vector-ref v 3) (vector-ref v 2) (vector-ref v 1) (vector-ref v 0)))
-	     (lambda (v) (vector (vector-ref v 3) (vector-ref v 7) (vector-ref v 11) (vector-ref v 15) (vector-ref v 2)
-				 (vector-ref v 6) (vector-ref v 10) (vector-ref v 14) (vector-ref v 1) (vector-ref v 5)
-				 (vector-ref v 9) (vector-ref v 13)
-				 (vector-ref v 0) (vector-ref v 4) (vector-ref v 8) (vector-ref v 12))))))
+	     (lambda (v) v)
+	     (lambda (v) (bytes (bytes-ref v 0) (bytes-ref v 4) (bytes-ref v 8) (bytes-ref v 12) (bytes-ref v 1)
+				 (bytes-ref v 5) (bytes-ref v 9) (bytes-ref v 13) (bytes-ref v 2) (bytes-ref v 6)
+				 (bytes-ref v 10) (bytes-ref v 14)
+				 (bytes-ref v 3) (bytes-ref v 7) (bytes-ref v 11) (bytes-ref v 15)))
+	     (lambda (v) (bytes (bytes-ref v 12) (bytes-ref v 13) (bytes-ref v 14) (bytes-ref v 15) (bytes-ref v 8) 
+				 (bytes-ref v 9) (bytes-ref v 10) (bytes-ref v 11) (bytes-ref v 4) (bytes-ref v 5)
+				 (bytes-ref v 6) (bytes-ref v 7)
+				 (bytes-ref v 0) (bytes-ref v 1) (bytes-ref v 2) (bytes-ref v 3)))
+	     (lambda (v) (bytes (bytes-ref v 3) (bytes-ref v 2) (bytes-ref v 1) (bytes-ref v 0) (bytes-ref v 7) 
+				 (bytes-ref v 6) (bytes-ref v 5) (bytes-ref v 4) (bytes-ref v 11) (bytes-ref v 10)
+				 (bytes-ref v 9) (bytes-ref v 8)
+				 (bytes-ref v 15) (bytes-ref v 14) (bytes-ref v 13) (bytes-ref v 12)))
+	     (lambda (v) (bytes (bytes-ref v 15) (bytes-ref v 11) (bytes-ref v 7) (bytes-ref v 3) (bytes-ref v 14)
+				 (bytes-ref v 10) (bytes-ref v 6) (bytes-ref v 2) (bytes-ref v 13) (bytes-ref v 9)
+				 (bytes-ref v 5) (bytes-ref v 1)
+				 (bytes-ref v 12) (bytes-ref v 8) (bytes-ref v 4) (bytes-ref v 0)))
+	     (lambda (v) (bytes (bytes-ref v 12) (bytes-ref v 8) (bytes-ref v 4) (bytes-ref v 0) (bytes-ref v 13) 
+				 (bytes-ref v 9) (bytes-ref v 5) (bytes-ref v 1) (bytes-ref v 14) (bytes-ref v 10)
+				 (bytes-ref v 6) (bytes-ref v 2) 
+				 (bytes-ref v 15) (bytes-ref v 11) (bytes-ref v 7) (bytes-ref v 3)))
+	     (lambda (v) (bytes (bytes-ref v 15) (bytes-ref v 14) (bytes-ref v 13) (bytes-ref v 12) (bytes-ref v 11)
+				 (bytes-ref v 10) (bytes-ref v 9) (bytes-ref v 8) (bytes-ref v 7) (bytes-ref v 6)
+				 (bytes-ref v 5) (bytes-ref v 4)
+				 (bytes-ref v 3) (bytes-ref v 2) (bytes-ref v 1) (bytes-ref v 0)))
+	     (lambda (v) (bytes (bytes-ref v 3) (bytes-ref v 7) (bytes-ref v 11) (bytes-ref v 15) (bytes-ref v 2)
+				 (bytes-ref v 6) (bytes-ref v 10) (bytes-ref v 14) (bytes-ref v 1) (bytes-ref v 5)
+				 (bytes-ref v 9) (bytes-ref v 13)
+				 (bytes-ref v 0) (bytes-ref v 4) (bytes-ref v 8) (bytes-ref v 12))))))
 
       ;; Generates the compact representation of a board, which is
       ;; good for hashing, but bad for applying moves
       (define flatten-board
 	(if (= BOARD-SIZE 3)
 	    (lambda (board stack-ids)
-	      (vector (hash-table-get stack-ids (board-ref board 0 0))
+	      (bytes (hash-table-get stack-ids (board-ref board 0 0))
 		      (hash-table-get stack-ids (board-ref board 1 0))
 		      (hash-table-get stack-ids (board-ref board 2 0))
 		      (hash-table-get stack-ids (board-ref board 0 1))
@@ -325,7 +359,7 @@
 		      (hash-table-get stack-ids (board-ref board 1 2))
 		      (hash-table-get stack-ids (board-ref board 2 2))))
 	    (lambda (board stack-ids)
-	      (vector (hash-table-get stack-ids (board-ref board 0 0))
+	      (bytes (hash-table-get stack-ids (board-ref board 0 0))
 		      (hash-table-get stack-ids (board-ref board 1 0))
 		      (hash-table-get stack-ids (board-ref board 2 0))
 		      (hash-table-get stack-ids (board-ref board 3 0))
@@ -377,12 +411,12 @@
       ;;  locations in the canonical board.
       (define (make-canonicalize)
 	(let ([memory (make-hash-table 'equal)])
-	  ;; Convert the board into a flat vector, normalizing player:
+	  ;; Convert the board into a byte string, normalizing player:
 	  (lambda (board who)
 	    (let ([v (if who
 			 (compact-board board who)
 			 board)])
-	      ;; Find cannonical mapping.
+	      ;; Find cannonical mapping.	      
 	      (hash-table-get memory v
 			      (lambda ()
 				(let* ([pr (cons v (car xforms))])

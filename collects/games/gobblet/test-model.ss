@@ -4,24 +4,39 @@
 (module test-model mzscheme
   (require (lib "unitsig.ss")
 	   (lib "etc.ss")
+	   (lib "list.ss")
 	   "sig.ss"
-	   "model.ss")
+	   "model.ss"
+	   "test.ss")
 
-  (define failed? #f)
-
-  (define-syntax test
-    (syntax-rules ()
-      [(_ expect expr)
-       (begin
-	 (printf "~s =>" 'expr)
-	 (flush-output)
-	 (let ([v expr]
-	       [ex expect])
-	   (printf " ~s" v)
-	   (unless (equal? v ex)
-	     (set! failed? #t)
-	     (printf " EXPECTED ~s" ex))
-	   (printf "~n")))]))
+  ;; Test basic procs:
+  (define (test-folding n)
+    (begin-with-definitions
+     (define BOARD-SIZE n)
+     (define-values/invoke-unit/sig model^
+       model-unit #f config^)
+     (test 'red (other 'yellow))
+     (test 'yellow (other 'red))
+     (test (if (= n 3)
+	       '(0 1 2)
+	       '(0 1 2 3))
+	   (mergesort (fold-rowcol (lambda (i v) (cons i v)) null)
+		      <))
+     (test (if (= n 3)
+	       '((0 . 0) (0 . 1) (0 . 2)
+		 (1 . 0) (1 . 1) (1 . 2)
+		 (2 . 0) (2 . 1) (2 . 2))
+	       '((0 . 0) (0 . 1) (0 . 2) (0 . 3)
+		 (1 . 0) (1 . 1) (1 . 2) (1 . 3)
+		 (2 . 0) (2 . 1) (2 . 2) (2 . 3)
+		 (3 . 0) (3 . 1) (3 . 2) (3 . 3)))
+	   (mergesort (fold-board (lambda (i j v) (cons (cons i j) v)) null)
+		      (lambda (a b)
+			(if (= (car a) (car b))
+			    (< (cdr a) (cdr b))
+			    (< (car a) (car b))))))))
+  (test-folding 3)
+  (test-folding 4)
 
   ;; Test available-off-board for 3x3:
   (let ()
@@ -76,14 +91,79 @@
 			       (hash-table-put! x-table board id)
 			       id))))
 
+  ;; Given a canonicalize function, a board, the current player,
+  ;;  and the model exports, check that the canonicalizer works
+  ;;  on the board.
+  (define (canon-test BOARD-SIZE canonicalize board who 
+		      fold-board board-ref move empty-board
+		      yellow-pieces red-pieces piece-color piece-size other
+		      apply-xform unapply-xform)
+    (define (flip-stack stack)
+      (map (lambda (p)
+	     (if (eq? (piece-color p) 'red)
+		 (list-ref yellow-pieces (piece-size p))
+		 (list-ref red-pieces (piece-size p))))
+	   stack))
+    (define (board-xform board ijx flip-stack)
+      (fold-board
+       (lambda (i j b)
+	 (let ([stack (board-ref board i j)])
+	   (let loop ([stack (flip-stack stack)])
+	     (if (null? stack)
+		 b
+		 (let-values ([(i j) (ijx i j)])
+		   (move (loop (cdr stack))
+			 (car stack)
+			 #f #f
+			 i j
+			 values void))))))
+       empty-board))
+    (let* ([key+xform (canonicalize board who)]
+	   ;; flip vert
+	   [board2 (board-xform board (lambda (i j)
+					(values i (- BOARD-SIZE 1 j)))
+				values)]
+	   [key2+xform2 (canonicalize board2 who)]
+	   ;; flip horiz
+	   [board3 (board-xform board (lambda (i j)
+					(values (- BOARD-SIZE 1 i) j))
+				values)]
+	   [key3+xform3 (canonicalize board3 who)]
+	   ;; flip colors
+	   [board4 (board-xform board (lambda (i j) (values i j))
+				flip-stack)]
+	   [key4+xform4 (canonicalize board4 (other who))])
+      ;; Canoncal key should be the same for all boards:
+      (test (car key+xform) (car key2+xform2))
+      (test (car key+xform) (car key3+xform3))
+      (test (car key+xform) (car key4+xform4))
+      ;; Xforming coordinates should produce the same thing for each board:
+      (fold-board (lambda (i j v)
+		    (let ([pos (apply-xform (cdr key+xform) i j)]
+			  [s (board-ref board i j)])
+		      (let-values ([(i j) (unapply-xform (cdr key2+xform2) pos)])
+			(test s (board-ref board2 i j))
+			(test pos (apply-xform (cdr key2+xform2) i j)))
+		      (let-values ([(i j) (unapply-xform (cdr key3+xform3) pos)])
+			(test s (board-ref board3 i j))
+			(test pos (apply-xform (cdr key3+xform3) i j)))
+		      (let-values ([(i j) (unapply-xform (cdr key4+xform4) pos)])
+			(test (flip-stack s) (board-ref board4 i j))
+			(test pos (apply-xform (cdr key4+xform4) i j)))))
+		  (void))
+      (car key+xform)))
+  
   ;; Test canonicalization, 3x3
   (begin-with-definitions
    (define BOARD-SIZE 3)
    (define-values/invoke-unit/sig model^
      model-unit #f config^)
-   (let ([c (let ([cannon (make-canonicalize)])
+   (let ([c (let ([canonicalize (make-canonicalize)])
 	      (lambda (b who)
-		(car (cannon b who))))])
+		(canon-test 3 canonicalize b who 
+			    fold-board board-ref move empty-board
+			    yellow-pieces red-pieces piece-color piece-size other
+			    apply-xform unapply-xform)))])
      (testx 0 (c empty-board 'red))
      (testx 0 (c empty-board 'yellow))
      (let ([b1 (move empty-board (list-ref red-pieces 2) #f #f 1 1 values void)])
@@ -113,9 +193,12 @@
    (define BOARD-SIZE 4)
    (define-values/invoke-unit/sig model^
      model-unit #f config^)
-   (let ([c (let ([cannon (make-canonicalize)])
-	      (lambda (b who)
-		(car (cannon b who))))])
+   (let ([c (let ([canonicalize (make-canonicalize)])
+	      (lambda (b who)		
+		(canon-test 4 canonicalize b who 
+			    fold-board board-ref move empty-board
+			    yellow-pieces red-pieces piece-color piece-size other
+			    apply-xform unapply-xform)))])
      (testx 0 (c empty-board 'red))
      (testx 0 (c empty-board 'yellow))
      (let ([b1 (move empty-board (list-ref red-pieces 0) #f #f 1 1 values void)])
@@ -323,9 +406,7 @@
   ;; Extra tests for 4 x 4 to get yellow 3-in-a-row on diagonals:
   (basic-tests 4 (lambda (i j) (values i (+ j 1))) '(3 . 0))
   (basic-tests 4 (lambda (i j) (values i (- 3 (+ j 1)))) '(3 . 3))
-
-  (printf (if failed?
-	      "~nTESTS FAILED~n"
-	      "~nAll tests passed.~n")))
+  
+  (report-test-results))
 
 	

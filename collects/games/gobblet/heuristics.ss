@@ -19,7 +19,7 @@
 	;; Add known good plays to init-memory. These plays define
 	;; a perfect red player.
 	(for-each (lambda (play)
-		    (let ([key+xform (canonicalize (car play) #f)])
+		    (let ([key+xform (canonicalize (list->bytes (vector->list (car play))) #f)])
 		      (hash-table-put! init-memory
 				       (car key+xform)
 				       (let-values ([(from-i from-j)
