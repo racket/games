@@ -19,12 +19,11 @@
    (define white-pen (make-object pen% "white" 1 'solid))
    (define white-brush (make-object brush% "white" 'solid))
    
-   
-   ;; board : (vectorof (vectorof (vector (union num #f) boolean)))
+   ;; build-board : (-> (vectorof (vectorof (vector (union num #f) boolean))))
    ;   this represents the board. Each entry is the color index of
    ;   the piece and a node to mark for the depth-first traversal.
    ;   #f for the color index indicates an eliminated piece.
-   (define board
+   (define (build-board)
      (build-vector
       board-width
       (lambda (i)
@@ -38,7 +37,11 @@
 		  (modulo i (- (length colors) 1)))
 	      (random (length colors)))
 	    #f))))))
-   
+
+   (define board (build-board))
+
+   (define game-over? #f)
+
    (define score 0)
    (define (calc-score n)
      (cond
@@ -117,7 +120,38 @@
 			[else ps]))])
 	      (for-each (lambda (p) (vector-set! (first p) 1 #f)) ans)
 	      ans))])
+
+       (public
+	 [get-game-over-size
+	  (lambda (dc)
+	    (let ([border 5]
+		  [w (box 0)]
+		  [h (box 0)]
+		  [d (box 0)]
+		  [l (box 0)])
+	      (send dc get-text-extent game-over w h d l)
+	      (let* ([text-height (unbox h)]
+		     [text-width (unbox w)]
+		     [x (- (/ width 2) (/ text-width 2))]
+		     [y (- (/ height 2) (/ text-height 2))])
+		(values x y text-width text-height border))))]
+
+	 [paint-game-over
+	  (lambda (dc)
+	    (send dc set-font font)
+	    (let-values ([(x y text-width text-height border) (get-game-over-size dc)])
+	      (send dc set-pen white-pen)
+	      (send dc set-brush white-brush)
+	      (send dc draw-rectangle
+		    (- x border) (- y border)
+		    (+ text-width border border)
+		    (+ text-height border border))
+	      (send dc draw-text game-over x y)))])
+	      
+
        (private
+	 [game-over "Game Over"]
+	 [font (make-object font% 24 'decorative 'normal 'normal #f)]
 	 [turned null])
        
        (override
@@ -220,18 +254,49 @@
 				    (cond
 				      [(= i board-width) (void)]
 				      [else (draw-line (get-dc) i)
-					    (loop (+ i 1))])))))))))]
+					    (loop (+ i 1))]))))))
+
+			  (set! game-over?
+				(not
+				 (let loop ([i board-width]
+					    [continue? #f])
+				   (cond
+				     [(zero? i) continue?]
+				     [else
+				      (or continue?
+					  (loop
+					   (sub1 i)
+					   (let loop ([j board-height]
+						      [continue? continue?])
+					     (cond
+					       [(zero? j) continue?]
+					       [else
+						(or continue?
+						    (loop
+						     (sub1 j)
+						     (> (length (find-same-colors (sub1 i) (sub1 j))) 1)))]))))])))) 
+			  (when game-over?
+			    (paint-game-over (get-dc))))))]
 		     
 		     [else (void)])))]
 	
 	[on-paint
 	 (lambda ()
 	   (let ([dc (get-dc)])
+	     (send dc set-pen white-pen)
+	     (send dc set-brush white-brush)
+	     (let-values ([(x y width height border) (get-game-over-size dc)])
+	       (send dc draw-rectangle
+		     (- x border) (- y border)
+		     (+ width border border)
+		     (+ height border border)))
 	     (let loop ([i board-width])
 	       (cond
 		 [(zero? i) (void)]
 		 [else (draw-line dc (- i 1))
-		       (loop (- i 1))]))))])))
+		       (loop (- i 1))]))
+	     (when game-over?
+	       (paint-game-over dc))))])))
    
    (define semaphore (make-semaphore 0))
    (define same-frame%
@@ -249,6 +314,15 @@
    (define message (make-object message% "0" hp))
    (make-object message% "This Score: " hp)
    (define this-message (make-object message% "0" hp))
+   (define button (make-object button% "New Game" hp
+			       (lambda x
+				 (set! game-over? #f)
+				 (set! board (build-board))
+				 (unless (= score 0)
+				   (set! score 0)
+				   (send message set-label "0"))
+				 (send this-message set-label "")
+				 (send canvas on-paint))))
    
    (send message stretchable-width #t)
    (send this-message stretchable-width #t)
