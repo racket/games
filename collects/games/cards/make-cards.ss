@@ -4,7 +4,7 @@
 	   (prefix mred: (lib "mred.ss" "mred"))
 	   (prefix card-class: "card-class.ss"))
   
-  (provide back deck-of-cards)
+  (provide back deck-of-cards make-card)
 
   (define (get-bitmap file)
     (make-object mred:bitmap% file))
@@ -41,10 +41,14 @@
 
   (define back (get-bitmap (here "card-back.png")))
 
+  (define semi-back 
+    (let ([w (send back get-width)]
+	  [h (send back get-height)])
+      (make-semi back w h)))
+
   (define deck-of-cards
     (let* ([w (send back get-width)]
-	   [h (send back get-height)]
-	   [semi-back (make-semi back w h)])
+	   [h (send back get-height)])
       (let sloop ([suit 4])
 	(if (zero? suit)
 	    null
@@ -65,4 +69,17 @@
 			    (make-semi front w h) semi-back)
 			  (vloop (sub1 value))))))))))
   
+  (define (make-card front-bm back-bm suit-id value)
+    (let ([w (send back get-width)]
+	  [h (send back get-height)])
+      (make-object card-class:card%
+		   suit-id
+		   value
+		   w h
+		   front-bm (or back-bm back)
+		   (make-semi front-bm w h) 
+		   (if back-bm 
+		       (make-semi back-bm w h)
+		       semi-back))))
+
   (send tmpframe show #f))

@@ -73,7 +73,8 @@
 	     [(1) 'clubs]
 	     [(2) 'diamonds]
 	     [(3) 'hearts]
-	     [(4) 'spades]))]
+	     [(4) 'spades]
+	     [else 'unknown]))]
 	[get-value
 	 (lambda () value)]
 	[user-can-flip

@@ -13,7 +13,7 @@
 	   make-button-region
 	   make-background-region
 
-	   make-deck
+	   make-deck make-card
 	   make-table
 
 	   shuffle-list))

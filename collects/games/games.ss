@@ -35,7 +35,6 @@
    (send f stretchable-width #f)
    (send f stretchable-height #f)
 
-   (define m (make-object message% "Choose a game:" main))
    (define p (make-object vertical-panel% main))
 
    (define (game-button desc)

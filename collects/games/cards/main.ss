@@ -5,7 +5,7 @@
 	   "make-cards.ss"
 	   "classes.ss")
 
-  (provide make-table make-deck)
+  (provide make-table make-deck make-card)
   
   (define make-table
     (opt-lambda ([title "Cards"][w 7][h 3])
