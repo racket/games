@@ -24,6 +24,9 @@ same length. paint-by-numbers-canvas% objects accepts four methods:
   on-paint : (-> void)
     Redraws the entire canvas. May be used if many rects were set.
 
+  all-unknown : (-> void)
+    Sets all board positions to 'unknown
+
 See the bottom of this file for the creation of a file and a test
 paint by numbers.
 
@@ -55,7 +58,8 @@ paint by numbers.
 
 	[grid-x-size (length col-numbers)]
 	[grid-y-size (length row-numbers)]
-	[margin 1]
+	[y-margin 1]
+	[x-margin 3]
 	[row-label-width 10]
 	[row-label-height 10]
 	[col-label-width 10]
@@ -222,7 +226,22 @@ paint by numbers.
 	 (lambda (i j sym)
 	   (vector-set! (vector-ref grid i)
 			j
-			(sym->brush sym)))])
+			(sym->brush sym)))]
+
+
+	;; (-> void)
+	[all-unknown
+	 (lambda ()
+	   (let loop ([i grid-x-size])
+	     (cond
+	      [(zero? i) (void)]
+	      [else
+	       (let loop ([j grid-y-size])
+		 (cond
+		  [(zero? j) (void)]
+		  [else (set-rect (- i 1) (- j 1) 'unknown)
+			(loop (- j 1))]))
+	       (loop (- i 1))])))])
       
 
       (override
@@ -300,6 +319,7 @@ paint by numbers.
 
 	      
 	      (let ([longest-strs (apply max (map length col-numbers))])
+
 		(let loop ([l col-numbers]
 			   [n 0])
 		  (cond
@@ -319,7 +339,7 @@ paint by numbers.
 				   [x (+ gx
 					 (- (/ gw 2)
 					    (/ str-width 2)))]
-				   [y (* line (+ str-height margin))])
+				   [y (* line (+ str-height y-margin))])
 			      (send dc draw-text (car ss) x y)
 			      (loop (cdr ss)
 				    (+ line 1)))]))))
@@ -339,7 +359,7 @@ paint by numbers.
 			     [y (+ gy
 				   (- (/ gh 2)
 				      (/ str-height 2)))]
-			     [x (- row-label-width str-width margin)])
+			     [x (- row-label-width str-width x-margin)])
 			(send dc draw-text str x y)))
 		    (loop (cdr l)
 			  (+ n 1))])))
@@ -353,27 +373,33 @@ paint by numbers.
 	(let* ([dc (get-dc)])
 	  (set! row-label-width
 		(max (get-string-width (loc->string grid-x-size grid-y-size))
-		     (apply max (map (lambda (x) (+ margin
+		     (apply max (map (lambda (x) (+ x-margin
 						    (get-string-width (get-row-label-string x))
-						    margin))
+						    x-margin))
 				     row-numbers))))
 
 	  (let-values ([(width height descent ascent) (send dc get-text-extent "0123456789")])
-	    (set! row-label-height (+ margin margin height)))
+	    (set! row-label-height (+ y-margin height y-margin)))
 
 	  (set! col-label-height
 		(apply max
 		       (map (lambda (l)
 			      (let* ([strs (get-col-label-strings l)]
-				     [margin (* (- (length strs) 1) margin)]
+				     [margins (* (- (length strs) 1) y-margin)]
 				     [height (apply + (map get-string-height strs))])
-				(+ margin height)))
+				(+ margins height)))
 			    col-numbers)))
 	  (set! col-label-width
 		(apply max
 		       (map (lambda (l)
-			      (apply max (map (lambda (x) (+ margin (get-string-width x) margin))
-					      (get-col-label-strings l))))
+			      (let ([label-strings (get-col-label-strings l)])
+				(if (null? label-strings)
+				    (+ x-margin x-margin) ;; Minimum column label width (no labels)
+				    (apply max
+					   (map (lambda (x) (+ x-margin
+							       (get-string-width x)
+							       x-margin))
+						label-strings)))))
 			    col-numbers))))
 	
 	(min-width (inexact->exact (+ row-label-width (* grid-x-size col-label-width))))

@@ -1,5 +1,5 @@
 (unit/sig SOLVE^
-  (import [MAIN : MAIN^]
+  (import [BOARD : BOARD^]
 	  mzlib:function^)
   
   (define (pause) (sleep 1/16))
@@ -139,9 +139,28 @@
   ;  (distribute-try 7 8 (lambda (x) (set! count (+ count 1))))
   ;  count)
   
-  ; memoize-tries : calculate all the patterns up front, so we don't need to do it over and over again.
-  ; (info-list num) -> try-list-list
-  (define (memoize-tries info-list line-length)
+  ; memoize-tries : 
+  ; calculates all possibilties for this row, given the black block widths
+  ; ((list-of (list-of num)) num (-> void) ->
+  ;  (list (list-of (list-of (union 'maybe-full 'maybe-mt)))))
+  ; effect : updates the progress bar
+
+  ;; JOHN: Why is the result of this function always a list of length 1?
+
+  ;; I have re-writtent the type for this function, using spidey's notation.
+  ;; Here is the type bnf for spidey (in the subset I used):
+  ;;
+  ;;   T = (T ... T -> T) | void | num | (cons T T) | null
+  ;;     | 'maybe-full | maybe-mt | ... any other symbol ...
+  ;;     | (union T ... T)
+  ;;     | (rec ([x T]) T)    (* recursive types -- x may appear free in either T *)
+  ;;
+  ;; additional type macros I used:
+  ;;   (list T) = (cons T null)
+  ;;   (list T T ... T) = (cons T (list T ... T))
+  ;;   (list-of T) = (rec ([x (union null (cons T x))]) x)
+
+  (define (memoize-tries info-list line-length update-progress)
     (map (lambda (info)
 	   (let ([try-list-list null])
 	     (distribute-try (- line-length (+ (apply + info)
@@ -150,10 +169,11 @@
 			     (lambda (pad-list)
 			       (set! try-list-list 
 				     (cons (formulate-row info (pad-pads pad-list)) try-list-list))))
+	     (update-progress)
 	     try-list-list))
 	 info-list))
   
-;  (equal? (memoize-tries '((4) (1 3)) 6)
+;  (equal? (memoize-tries '((4) (1 3)) 6 void)
 ;	  '(((maybe-full maybe-full maybe-full maybe-full maybe-mt maybe-mt)
 ;	     (maybe-mt maybe-full maybe-full maybe-full maybe-full maybe-mt)
 ;	     (maybe-mt maybe-mt maybe-full maybe-full maybe-full maybe-full))
@@ -267,12 +287,10 @@
 		  (inner-loop (+ inner-index 1))))))))
   
   (define (draw-rows-thunk board row col)
-    (send MAIN:canvas set-rect col row (board-ref board row col))
-    (send MAIN:canvas paint-rect col row))
+    (BOARD:set-entry col row (board-ref board row col)))
   
   (define (draw-cols-thunk board col row)
-    (send MAIN:canvas set-rect col row (board-ref board row col))
-    (send MAIN:canvas paint-rect col row))
+    (BOARD:set-entry col row (board-ref board row col)))
 				 
 ;  (print-board '((full full unknown empty)
 ;		 (full full unknown unknown)
@@ -314,13 +332,12 @@
 					(length (car board-cols))))])
       (values final-board new-row-tries new-col-tries (or row-changed col-changed))))
   
-  (define (solve)
-    (let* ([row-info (MAIN:problem-rows MAIN:problem)]
-	   [col-info (MAIN:problem-cols MAIN:problem)]
-	   [rows (length row-info)]
+  (define (solve row-info col-info)
+    (let* ([rows (length row-info)]
 	   [cols (length col-info)]
-	   [row-try-list-list-list (memoize-tries row-info cols)]
-	   [col-try-list-list-list (memoize-tries col-info rows)]
+	   [update-progress (BOARD:setup-progress (+ rows cols))]
+	   [row-try-list-list-list (memoize-tries row-info cols update-progress)]
+	   [col-try-list-list-list (memoize-tries col-info rows update-progress)]
 	   [board (build-list rows (lambda (x) (build-list cols (lambda (x) 'unknown))))])
       (let loop ([board board] 
 		 [row-tries row-try-list-list-list]
@@ -331,10 +348,7 @@
 			      loop)
 	    board))))
   
-  
-  
-  (define (sanity-check row-info col-info)
+  ;; JOHN -- this sanity check is applied in build problems.
+  '(define (sanity-check row-info col-info)
     (= (apply + (map (lambda (x) (apply + x)) row-info))
-       (apply + (map (lambda (x) (apply + x)) col-info))))
-  
-  )
+       (apply + (map (lambda (x) (apply + x)) col-info)))))

@@ -8,5 +8,5 @@
     [MRED : mred^ (mred@)]
     [G : GUI^ ((require-library "gui.ss" "games" "paint-by-numbers") F MRED)]
     [S : SOLVE^ ((require-library "solve.ss" "games" "paint-by-numbers") M F)]
-    [M : MAIN^ ((require-library "main.ss" "games" "paint-by-numbers") G S P MRED)])
+    [M : BOARD^ ((require-library "main.ss" "games" "paint-by-numbers") G S P MRED)])
    (export)))
