@@ -58,7 +58,7 @@ yet defined.
 	   [(zero? n) null]
 	   [else (cons
 		  (let ([n 
-			 (+ n -1) ;; offset selection
+			 (+ n (* 1 hattori-count) -1) ;; offset selection
 			 ;(random (length raw-hattori)) ;; random selection
 			 ])
 		    (fprintf (current-error-port) " ~a" (+ n 1))
