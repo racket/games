@@ -1,0 +1,96 @@
+(unit/sig cards:card-class^
+  (import [wx : wx^]
+	  [mred : mred^]
+	  [snipclass : cards:snipclass^])
+
+  (define card%
+    (class wx:snip% (suit-id value width height front back semi-front semi-back)
+	   (inherit set-snipclass set-count get-admin)
+	   (private
+	    [flipped? #f]
+	    [semi-flipped? #f]
+	    [can-flip? #t]
+	    [can-move? #t]
+	    [snap-back? #f]
+	    [refresh
+	     (lambda ()
+	       (let ([a (get-admin)])
+		 (unless (null? a)
+		   (send a needs-update this 0 0 width height))))])
+	   (public
+	    [face-down? (lambda () flipped?)]
+	    [flip
+	     (lambda ()
+	       (set! flipped? (not flipped?))
+	       (refresh))]
+	    [semi-flip
+	     (lambda ()
+	       (set! semi-flipped? (not semi-flipped?))
+	       (refresh))]
+	    [face-up (lambda () (when flipped? (flip)))]
+	    [face-down (lambda () (unless flipped? (flip)))]
+	    [resize
+	     (lambda (w h) (void))]
+	    [get-suit-id
+	     (lambda () suit-id)]
+	    [get-suit
+	     (lambda ()
+	       (case suit-id
+		 [(1) 'clubs]
+		 [(2) 'diamonds]
+		 [(3) 'hearts]
+		 [(4) 'spades]))]
+	    [get-value
+	     (lambda () value)]
+	    [user-can-flip
+	     (case-lambda
+	      [() can-flip?]
+	      [(f) (set! can-flip? (and f #t))])]
+	    [user-can-move
+	     (case-lambda
+	      [() can-move?]
+	      [(f) (set! can-move? (and f #t))])]
+	    [snap-back-after-move
+	     (case-lambda
+	      [() snap-back?]
+	      [(f) (set! snap-back? (and f #t))])])
+	   (public
+	    [card-width (lambda () width)]
+	    [card-height (lambda () height)]
+	    [get-extent
+	     (lambda (dc x y w h descent space lspace rspace)
+	       (map
+		(lambda (b)
+		  (unless (null? b)
+		    (set-box! b 0)))
+		(list descent space lspace rspace))
+	       (unless (null? w) (set-box! w width))
+	       (unless (null? h) (set-box! h height)))]
+	    [draw
+	     (lambda (dc x y left top right bottom dx dy draw-caret)
+	       (if semi-flipped?
+		   (send dc blit (+ x (/ width 4)) y (/ width 2) height 
+			 (if flipped? semi-back semi-front) 
+			 0 0)
+		   (send dc blit x y width height 
+			 (if flipped? back front) 
+			 0 0)))]
+	    [copy (lambda () (make-object card% suit-id value width height 
+					  front back semi-front semi-back))])
+	   (private
+	     [save-x (box 0)]
+	     [save-y (box 0)])
+	   (public
+	     [remember-location
+	      (lambda (pb)
+		(send pb get-snip-location this save-x save-y))]
+	     [back-to-original-location
+	      (lambda (pb)
+		(when snap-back?
+		  (send pb move-to this (unbox save-x) (unbox save-y))))])
+	   (sequence
+	     (super-init)
+	     (set-count 1)
+	     (set-snipclass snipclass:sc)
+	     (flip)))))
+
