@@ -179,12 +179,20 @@ possible to remap single click (instead of double click)?
    (define (game-over?)
      (and (null? draw-pile)
 	  (let ([suits
-		 (map (lambda (x) (send (car (stack-cards x)) get-suit))
-		      stacks)])
-	    (and (memq 'clubs suits)
-		 (memq 'diamonds suits)
-		 (memq 'hearts suits)
-		 (memq 'spades suits)))))
+                 (filter 
+                  (lambda (x) x)
+                  (map (lambda (x) 
+                         (let ([stack-cards (stack-cards x)])
+                           (if (null? stack-cards)
+                               #f
+                               (send (car stack-cards) get-suit))))
+                       stacks))])
+            (let loop ([suits suits])
+              (cond
+                [(null? suits) #t]
+                [else (if (memq (car suits) (cdr suits))
+                          #f
+                          (loop (cdr suits)))])))))
 
    (define (check-game-over)
      (when (game-over?)
