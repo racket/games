@@ -23,8 +23,8 @@ paint by numbers.
 
 |#
 
-
 (require-library "functios.ss")
+(require-library "spidey.ss")
 
 (define-signature GUI^ (paint-by-numbers-canvas%))
 (define-signature MAIN^ (canvas))
@@ -51,6 +51,8 @@ paint by numbers.
 	  [canvas-width 200]
 	  [canvas-height 200]
 	  
+	  [extra-space-every 5]
+
 	  [grid-x-size (length col-numbers)]
 	  [grid-y-size (length row-numbers)]
 	  [margin 2]
@@ -108,10 +110,18 @@ paint by numbers.
 	  
 	  [grid->rect
 	   (lambda (x y)
-	     (let* ([grid-width (- canvas-width row-label-width)]
-		    [grid-height (- canvas-height col-label-height)]
-		    [left (+ row-label-width (* x (/ grid-width grid-x-size)))]
-		    [top (+ col-label-height (* y (/ grid-height grid-y-size)))]
+	     (let* ([grid-width (- canvas-width
+				   row-label-width
+				   (quotient grid-x-size extra-space-every))]
+		    [grid-height (- canvas-height
+				    col-label-height
+				    (quotient grid-y-size extra-space-every))]
+		    [left (+ row-label-width
+			     (quotient x extra-space-every)
+			     (* x (/ grid-width grid-x-size)))]
+		    [top (+ col-label-height
+			    (quotient y extra-space-every)
+			    (* y (/ grid-height grid-y-size)))]
 		    [width (/ grid-width grid-x-size)]
 		    [height (/ grid-height grid-y-size)])
 	       (values left top width height)))])
@@ -341,7 +351,7 @@ paint by numbers.
 
     (define frame (make-object frame% "Paint by Numbers"))
     (send frame stretchable-width #t)
-    (send frame stretchable-width #f)
+    (send frame stretchable-height #t)
 
     (define top-panel (make-object horizontal-panel% frame))
     (define choice (make-object choice%
