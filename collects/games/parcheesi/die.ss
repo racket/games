@@ -66,6 +66,7 @@
                   [(10) (draw-text "10")]
                   [(20) (draw-text "20")]))))))
       (super-new (style '(transparent)))
+      (send (get-dc) set-smoothing 'aligned)
       (inherit min-width min-height stretchable-width stretchable-height)
       (min-width 48)
       (min-height 48)
