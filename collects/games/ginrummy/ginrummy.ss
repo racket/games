@@ -18,14 +18,14 @@
    (define MACHINE-NAME "Opponent")
 
    ; Region layout constants
-   (define MARGIN 10)
+   (define MARGIN 5)
    (define LABEL-H 15)
 
    ; Randomize
    (random-seed (modulo (current-milliseconds) 10000))
 
    ; Set up the table
-   (define t (make-table "Gin Rummy" 8 5))
+   (define t (make-table "Gin Rummy" 8 4.5))
    (send t create-status-line)
    (send t show #t)
    (send t set-double-click-action #f)
@@ -69,7 +69,7 @@
 
    ; Player region size
    (define pw (- w (* 2 MARGIN)))
-   (define ph (- (* 2 ch) (* 4 MARGIN)))
+   (define ph (- (* 1.75 ch) (* 4 MARGIN)))
 
    ; Define the regions
    (define machine-region

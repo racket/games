@@ -33,7 +33,7 @@
    (random-seed (modulo (current-milliseconds) 10000))
 
    ; Set up the table
-   (define t (make-table "Go Fish" 8 5))
+   (define t (make-table "Go Fish" 8 4.5))
    (send t create-status-line)
    (send t show #t)
    (send t set-double-click-action #f)
@@ -70,11 +70,11 @@
    (send t add-cards 
 	 deck
 	 (/ (- w cw) 2)
-	 (/ (- h ch) 2))
+	 (- (/ (- h ch) 2) (/ ch 3)))
 
    ; Player region size
    (define pw (- (/ (- w cw) 2) (* 2 MARGIN)))
-   (define ph (- (/ (- h ch) 2) (* 2 MARGIN)))
+   (define ph (- (/ (- h (/ ch 3)) 2) (* 2 MARGIN)))
 
    ; Region-makers
    (define (make-hand-region r)
