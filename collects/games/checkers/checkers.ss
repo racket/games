@@ -16,7 +16,7 @@
   (provide game-unit)
 
   (define dim-red (gl-float-vector .8 0.0 0.0 1.0))
-  (define gray (gl-float-vector 0.2 0.2 0.2 1.0))
+  (define gray (gl-float-vector 0.4 0.4 0.4 1.0))
 
   (define path (collection-path "games" "checkers"))
   (define light-img (image->gl-vector (build-path path "light.jpg")))
@@ -24,8 +24,8 @@
   (define dark-color (gl-float-vector .4745 .3569 .2627 1))
   (define light-color (gl-float-vector .7216 .6471 .5176 1))
   
-  (define dark-checker-img (bitmap->gl-vector dark-honu-bitmap))
-  (define light-checker-img (bitmap->gl-vector light-honu-bitmap))
+  (define dark-checker-img (bitmap->gl-vector honu-bitmap))
+  (define light-checker-img (bitmap->gl-vector honu-bitmap-down))
   
   (define-struct space-info (x y light?))
   (define-struct piece-info (x y color king?) (make-inspector))
@@ -150,8 +150,8 @@
       
       (init-tex light-tex light-img)
       (init-tex dark-tex dark-img)
-      (init-tex light-checker-tex light-checker-img)
       (init-tex dark-checker-tex dark-checker-img)
+      (init-tex light-checker-tex light-checker-img)
       
       (define-syntax (do-em stx)
         (syntax-case stx ()
@@ -161,7 +161,7 @@
                          (begin rev-args ...)
                          (begin args ...))))]))
       
-      (define (make-piece-dl real-color height tex ul?)
+      (define (make-piece-dl real-color height tex)
         (send board with-gl-context
           (lambda ()
             (let ((list-id (gl-gen-lists 1)))
@@ -175,43 +175,14 @@
               ;(gl-material 'front 'shininess 120.0)  
               (gl-material-v 'front 'ambient-and-diffuse real-color)
               
+              ; (glTexEnvi q 'unknown 'smooth) ; ???
+              
               (gl-cylinder q .35 .35 height 25 1)
               (gl-push-matrix)
               (gl-translate 0.0 0.0 height)
-              
-              ;(quadratic-texture list-id #t)
+              (gl-quadric-texture q #t)
               (gl-disk q 0.0 .35 25 1)
-              (gl-translate 0.0 0.0 0.05)
-              
-              
-              (gl-enable 'blend)
-              (gl-begin 'polygon)
-              (cond
-                [ul?
-                 (gl-tex-coord 0.0 1.0)
-                 (gl-vertex 0.5 -0.5 0.0)
-                 
-                 (gl-tex-coord 0.0 0.0)
-                 (gl-vertex 0.5 0.5 0.0)
-                 
-                 (gl-tex-coord 1.0 0.0)
-                 (gl-vertex -0.5 0.5 0.0)
-                 
-                 (gl-tex-coord 1.0 1.0)
-                 (gl-vertex -0.5 -0.5 0.0)
-                 ]
-                [else
-                 (gl-tex-coord 0.0 0.0)
-                 (gl-vertex -0.5 -0.5 0.0)
-                 (gl-tex-coord 1.0 0.0)
-                 (gl-vertex 0.5 -0.5 0.0)
-                 (gl-tex-coord 1.0 1.0)
-                 (gl-vertex 0.5 0.5 0.0)
-                 (gl-tex-coord 0.0 1.0)
-                 (gl-vertex -0.5 0.5 0.0)
-                 ])
-              (gl-end)
-              (gl-disable 'blend)
+              (gl-quadric-texture q #f)
               
               (gl-pop-matrix)
               (gl-disable 'texture-2d)
@@ -264,10 +235,10 @@
               list-id))))
       
       
-      (define red-piece (make-piece-dl dim-red .2 dark-checker-tex #t))
-      (define red-king (make-piece-dl dim-red .4 dark-checker-tex #t))
-      (define black-piece (make-piece-dl gray .2 dark-checker-tex #f))
-      (define black-king (make-piece-dl gray .4 dark-checker-tex #f))
+      (define red-piece (make-piece-dl dim-red .2 light-checker-tex))
+      (define red-king (make-piece-dl dim-red .4 light-checker-tex))
+      (define black-piece (make-piece-dl gray .2 dark-checker-tex))
+      (define black-king (make-piece-dl gray .4 dark-checker-tex))
 
       (define dark-square (cons (make-tex-square-dl dark-tex)
                                 (make-square-dl dark-color)))
