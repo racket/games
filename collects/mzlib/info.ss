@@ -1,5 +1,5 @@
 
-(lambda (request)
+(lambda (request failure)
   (case request
     [(name) "MzLib"]
     [(compile-prefix) '(begin
@@ -16,4 +16,4 @@
 	   "compats.ss" "files.ss" "threads.ss"
 	   "compiles.ss" "functios.ss" "pconvers.ss" "triggers.ss"
 	   "inflates.ss" "prettys.ss" "zmaths.ss")]
-    [else (error 'mzlib-info "Unknown request: ~s" request)]))
+    [else (failure)]))
