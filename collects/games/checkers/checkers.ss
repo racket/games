@@ -67,11 +67,13 @@
 	(let* ([pieces (send board get-pieces)])
 	  (for-each (lambda (p)
                       (send board set-piece-draw p
-                            (get-piece-draw-fn p #f)))
+                            (get-piece-draw-fn p #f))
+                      (send board enable-piece p #f))
 		    pieces)
 	  (for-each (lambda (p)
                       (send board set-piece-draw p
-                            (get-piece-draw-fn p #t)))
+                            (get-piece-draw-fn p #t))
+                      (send board enable-piece p #t))
                     (moves-list moves)))
 	(send msg set-label
 	      (if (null? (moves-list moves))
