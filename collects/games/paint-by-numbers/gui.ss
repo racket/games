@@ -167,6 +167,8 @@ paint by numbers.
 	;; ((list-of (list-of (union 'unknown 'off 'on))) -> void)
 	[set-grid
 	 (lambda (g)
+	   (set! undo-history null)
+	   (set! redo-history null)
 	   (set! grid
 		 (list->vector
 		  (map (lambda (x) (list->vector (map sym->brush x)))
