@@ -454,6 +454,8 @@ paint by numbers.
         ;;        (make-pt num num))   if button dragged in board
 	[draw-small-end-p #f]
         
+        [coordinate-p #f]
+        
         [update-range-of-rects
          (lambda (p1 p2)
            (let ([x-small (min (pt-x p1) (pt-x p2))]
@@ -491,11 +493,12 @@ paint by numbers.
                           p
                           (or (= (pt-x p) (pt-x draw-small-start-p))
                               (= (pt-y p) (pt-y draw-small-start-p))))
-                     (set! draw-small-end-p p)
-                     (when old-draw-small-end-p
-                       (update-range-of-rects draw-small-start-p old-draw-small-end-p))
-                     (when draw-small-end-p
-                       (update-range-of-rects draw-small-start-p draw-small-end-p))]
+                     (unless (equal? draw-small-end-p p)
+                       (set! draw-small-end-p p)
+                       (when old-draw-small-end-p
+                         (update-range-of-rects draw-small-start-p old-draw-small-end-p))
+                       (when draw-small-end-p
+                         (update-range-of-rects draw-small-start-p draw-small-end-p)))]
                     [draw-small-start-p
                      (set! draw-small-end-p #f)
                      (when old-draw-small-end-p
@@ -538,16 +541,17 @@ paint by numbers.
 		(send dc draw-rectangle 0 0 row-label-width col-label-height)
 		(when (and (not (send evt leaving?))
 			   p)
-		  (let* ([i (pt-x p)]
-			 [j (pt-y p)]
-			 [string (loc->string (+ i 1) (+ j 1))]
-			 [width (get-string-width string)]
-			 [height (get-string-height string)]
-			 [sx (- (/ row-label-width 2)
-				(/ width 2))]
-			 [sy (- (/ col-label-height 2)
-				(/ height 2))])
-		    (send dc draw-text string sx sy))))]
+                  (unless (equal? coordinate-p p)
+                    (let* ([i (pt-x p)]
+                           [j (pt-y p)]
+                           [string (loc->string (+ i 1) (+ j 1))]
+                           [width (get-string-width string)]
+                           [height (get-string-height string)]
+                           [sx (- (/ row-label-width 2)
+                                  (/ width 2))]
+                           [sy (- (/ col-label-height 2)
+                                  (/ height 2))])
+                      (send dc draw-text string sx sy)))))]
 	     [(send evt button-down?)
 	      (set! draw-small-start-p p)
 	      (set! draw-small-end-p p)
