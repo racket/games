@@ -58,12 +58,14 @@
 ;; The move functions
 (define (mk-push! side side-char)
   (lambda (i)
+    (send canvas animate-push side i current-player)
     (set! future-state null)
     (set! past-state (cons (get-state) past-state))
     (set! board (push board side i current-player))
     (set! moves (append moves (list (format "~a~a" side-char (add1 i)))))
     (set! current-player (other-player current-player))
-    (send clock-timer reset)))
+    (send clock-timer reset)
+    (send canvas repaint)))
 (define push-left! (mk-push! 'left #\L))
 (define push-right! (mk-push! 'right #\R))
 (define push-top! (mk-push! 'top #\T))
@@ -117,7 +119,7 @@
     (set! history (cadddr a))
     (set! winner (list-ref a 4))
     (set! loser (list-ref a 5)))
-  (send canvas on-paint)
+  (send canvas repaint)
   (send canvas refresh-controls))
 
 ;; Used to reset a game (via the "Setup..." dialog)
@@ -136,16 +138,26 @@
 ;; Restart for regular playing mode
 (define (reset-game size)
   (init-game size)
-  (send canvas on-paint)
+  (send canvas repaint)
   (send clock-timer reset)
   (send canvas do-next-action))
 
 ;;; GUI ;;;
 
+(define animate-step 2/10)
+(define animate-delay 0.05)
+
 (define red (make-object color% "RED"))
 (define green (make-object color% "GREEN"))
 (define black (make-object color% "BLACK"))
 (define gray (make-object color% "GRAY"))
+(define white (make-object color% "WHITE"))
+
+(define the-font (make-object font% font-size 'decorative 'normal 'bold))
+(define the-pen (send the-pen-list find-or-create-pen "GRAY" 1 'solid))
+
+(define transparent-brush (send the-brush-list find-or-create-brush "WHITE" 'transparent))
+(define solid-brush (send the-brush-list find-or-create-brush "GRAY" 'solid))
 
 (define watch-cursor (make-object cursor% 'watch))
 
@@ -159,10 +171,11 @@
       [draw-box 
        ; Draw a string in a box
        (lambda (i j str)
-	 (let-values ([(w h d s) (send dc get-text-extent str)])
-	   (send dc draw-text str
-		 (+ (* i cell-size) (/ (- cell-size w) 2))
-		 (+ (* j cell-size) (/ (- cell-size h) 2)))))]
+	 (when str
+	   (let-values ([(w h d s) (send dc get-text-extent str)])
+	     (send dc draw-text str
+		   (+ (* i cell-size) (/ (- cell-size w) 2))
+		   (+ (* j cell-size) (/ (- cell-size h) 2))))))]
      [do-next-action
       (lambda ()
 	;; See if anything interesting happened, then call refresh-controls (below)
@@ -181,7 +194,7 @@
 	    (begin
 	      ;; Game over
 	      (enable-arrows)
-	      (on-paint)
+	      (repaint)
 	      (send status set-label
 		    (format "Game over: ~a ~a!" 
 			    (if (equal? (or winner loser) x) "X" "O")
@@ -189,6 +202,7 @@
 	      (send clock show #f))
 	    ;; Check for automated player
 	    (let* ([killed? 'not-yet]
+		   [action void]
 		   [lock (make-semaphore 1)]
 		   [run-player-in-background
 		    ;; Lots of messy stuff for calling the OS to run a player. The
@@ -241,11 +255,13 @@
 			    (error 'play "unacceptable reply: ~a" result))
 			  (let* ([d (char-upcase (string-ref (symbol->string (car result)) 0))]
 				 [p (cadr result)])
-			    (case d
-			      [(#\T) (push-top! (sub1 p))]
-			      [(#\B) (push-bottom! (sub1 p))]
-			      [(#\L) (push-left! (sub1 p))]
-			      [(#\R) (push-right! (sub1 p))])))))]
+			    (set! action
+				  (lambda ()
+				    (case d
+				      [(#\T) (push-top! (sub1 p))]
+				      [(#\B) (push-bottom! (sub1 p))]
+				      [(#\L) (push-left! (sub1 p))]
+				      [(#\R) (push-right! (sub1 p))])))))))]
 		   [run-player
 		    ;; A wrapper for monitoring the program player in a MrEd thread.
 		    ;; Also handle the possibility that something goes wrong.
@@ -256,18 +272,20 @@
 		      (let ([s (make-semaphore)])
 			(thread (lambda () 
 				  (with-handlers ([void (lambda (exn)
-							  (message-box "Error"
-								       (format
-									(string-append
-									 "There was an error running the program player for ~a.~n"
-									 "We'll assume a default move, T1.~n"
-									 "Here is the error message:~n~a")
-									who
-									(if (exn? exn)
-									    (exn-message exn)
-									    exn))
-								       #f '(ok))
-							  (push-top! 0))])
+							  (message-box
+							   "Error"
+							   (format
+							    (string-append
+							     "There was an error running the "
+							     "program player for ~a.~n"
+							     "We'll assume a default move, T1.~n"
+							     "Here is the error message:~n~a")
+							    who
+							    (if (exn? exn)
+								(exn-message exn)
+								exn))
+							   #f '(ok))
+							  (set! action (lambda () (push-top! 0))))])
 				    (run-player-in-background (robot-player robot)))
 				  (semaphore-post s)))
 			(set! playing? #t)
@@ -277,7 +295,7 @@
 			(set! playing? #f))
 		      (unless killed?
 			(send status set-label "")
-			(on-paint)
+			(action)
 			(do-next-action)))])
 	      ;; Run a program? Let a person play?
 	      (cond
@@ -286,55 +304,203 @@
 	       [else (send status set-label (format "~a's turn (click a number)"
 						    (if (eq? current-player x) "X" "O")))
 		     (enable-arrows)]))))])
+    ;; Animation state
+    (private
+      [tracking-i 0] ;; for tracking mouse clicks
+      [tracking-j 0]
+      [tracking-highlight? #f]
+
+      [pushpiece #f] ;; piece being pushed onto board, #f for none
+      [pushrow -1]   ;; row being pushed, -1 for none
+      [pushcol -1]   ;; col being pushed, -1 for none
+      [pushdown? #t] ;; left or top push?
+      [amt 0])       ;; displacement for push, between -1 and 1
 						     
-    (override
-     [on-paint
+    (public
+     [do-draw
       ;;;;;;;;;;;;;;;;;;;; Draw the Board ;;;;;;;;;;;;;;;;;;;;;;;
       (lambda ()
-	(unless dc 
-	  (set! dc (get-dc))
-	  (send dc set-text-mode 'solid)
-	  (send dc set-pen (make-object pen% "GRAY" 1 'solid))
-	  (send dc set-font (make-object font% font-size 'decorative 'normal 'bold)))
-	(n-times (+ n 2) (lambda (i)
-			   (when (<= 1 i (add1 n))
-			     (send dc draw-line cell-size (* i cell-size) (* (+ n 1) cell-size) (* i cell-size))
-			     (send dc draw-line (* i cell-size) cell-size (* i cell-size) (* (+ n 1) cell-size)))
-			   (when (<= 1 i n)
-			     (send dc set-text-foreground black)
-			     (n-times n (lambda (j) (let ([v (board-cell board (sub1 i) j)])
-						      (when (and (eq? winner v)
-								 (in-straight? board v (sub1 i) j))
-							(send dc set-text-foreground green))
-						      (when (eq? loser v) (send dc set-text-foreground red))
-						      (draw-box i (add1 j) (cond
-									     [(eq? v none) "  "]
-									     [(eq? v x) "x"]
-									     [(eq? v o) "o"]))
-						      (when (or (eq? winner v) (eq? loser v))
-							(send dc set-text-foreground black)))))
-			     (send dc set-text-foreground gray)
-			     (draw-box i 0 (number->string i))
-			     (draw-box 0 i (number->string i))
-			     (draw-box i (add1 n) (number->string i))
-			     (draw-box (add1 n) i (number->string i))))))]
+	(send dc clear)
+	(send dc set-pen the-pen)
+	(send dc set-font the-font)
+	(send dc set-text-foreground gray)
+	(n-times (+ n 2) 
+		 (lambda (i)
+		   (when (<= 1 i (add1 n))
+		     (send dc draw-line cell-size (* i cell-size) 
+			   (* (+ n 1) cell-size) (* i cell-size))
+		     (send dc draw-line (* i cell-size) cell-size 
+			   (* i cell-size) (* (+ n 1) cell-size)))
+		   (when (<= 1 i n)
+		     (let ([draw-box
+			    (lambda (i j s)
+			      (if (and tracking-highlight?
+				       (= i tracking-i)
+				       (= j tracking-j))
+				  (begin
+				    (send dc set-text-foreground white)
+				    (send dc set-brush solid-brush)
+				    (send dc draw-ellipse
+					  (+ 2 (* i cell-size))
+					  (+ 2 (* j cell-size))
+					  (- cell-size 4)
+					  (- cell-size 4))
+				    (draw-box i j s)
+				    (send dc set-brush transparent-brush)
+				    (send dc set-text-foreground gray))
+				  (draw-box i j s)))])
+		       (draw-box i 0 (number->string i))
+		       (draw-box 0 i (number->string i))
+		       (draw-box i (add1 n) (number->string i))
+		       (draw-box (add1 n) i (number->string i))))))
+	(send dc set-text-foreground black)
+	(n-times n
+		 (lambda (i)
+		   (n-times n (lambda (j) 
+				(let ([v (board-cell board i j)])
+				  (when (and (eq? winner v)
+					     (in-straight? board v i j))
+				    (send dc set-text-foreground green))
+				  (when (eq? loser v) 
+				    (send dc set-text-foreground red))
+				  (draw-box (+ i 1
+					       ;; Need to offset for animation?
+					       (if (= j pushrow)
+						   (if (let ([step (if pushdown? -1 1)])
+							 (let loop ([i i])
+							   (cond
+							    [(or (= i -1) (= i n)) #t]
+							    [(eq? (board-cell board i j) none) #f]
+							    [else (loop (+ i step))])))
+						       amt
+						       0)
+						   0))
+					    (+ j 1
+					       ;; Need to offset for animation?
+					       (if (= i pushcol)
+						   (if (let ([step (if pushdown? -1 1)])
+							 (let loop ([j j])
+							   (cond
+							    [(or (= j -1) (= j n)) #t]
+							    [(eq? (board-cell board i j) none) #f]
+							    [else (loop (+ j step))])))
+						       amt
+						       0)
+						   0))
+					    (cond
+					     [(eq? v none) #f]
+					     [(eq? v x) "x"]
+					     [(eq? v o) "o"]))
+				  (when (or (eq? winner v) (eq? loser v))
+				    (send dc set-text-foreground black)))))))
+	(when pushpiece
+	  (draw-box (if (>= pushrow 0)
+			(if pushdown?
+			    amt
+			    (+ n 1 amt))
+			(+ 1 pushcol))
+		    (if (>= pushcol 0)
+			(if pushdown?
+			    amt
+			    (+ n 1 amt))
+			(+ 1 pushrow))
+		    (cond
+		     [(eq? pushpiece x) "x"]
+		     [(eq? pushpiece o) "o"]))))])
+    (private
+      [bitmap #f])
+    (public
+      [repaint (lambda ()
+		 (set! pushpiece #f)
+		 (set! pushcol -1)
+		 (set! pushrow -1)
+		 (unless dc
+		   (set! bitmap (make-object bitmap%
+					     (* (+ n 2) cell-size)
+					     (* (+ n 2) cell-size)))
+		   (set! dc (make-object bitmap-dc% bitmap)))
+		 (do-draw)
+		 (on-paint))]
+
+      [new-bitmap (lambda () 
+		    (set! bitmap #f)
+		    (set! dc #f))]
+
+      [animate-push (lambda (side pos player)
+		      (set! pushpiece player)
+		      (set! pushrow (if (memq side '(right left))
+					pos
+					-1))
+		      (set! pushcol (if (memq side '(top bottom))
+					pos
+					-1))
+		      (set! pushdown? (memq side '(left top)))
+		      (set! tracking-i (if (memq side '(top bottom))
+					   (add1 pushcol)
+					   (if pushdown? 0 (add1 n))))
+		      (set! tracking-j (if (memq side '(right left))
+					   (add1 pushrow)
+					   (if pushdown? 0 (add1 n))))
+		      (set! tracking-highlight? #t)
+		      (let loop ([a 0])
+			(set! amt ((if pushdown? + -) a))
+			(do-draw)
+			(send (get-dc) draw-bitmap bitmap 0 0)
+			(sleep animate-delay)
+			(if (= a 1)
+			    (set! tracking-highlight? #f) ;; expects redraw triggered afterwards...
+			    (loop (+ a animate-step)))))])
+
+    (override
+     [on-paint (lambda ()
+		 (when bitmap
+		   (send (get-dc) draw-bitmap bitmap 0 0)))]
+
      ;;;;;;;;;;;;;;;;;;;; Handle Clicks ;;;;;;;;;;;;;;;;;;;;;;;
      [on-event (lambda (e)
 		 ;; There are a lot of reasons why you might not be allowed to click...
-		 (when (and (not winner) (not loser) (send e button-down?)
-			    (not playing?)
-			    (not (if (eq? current-player x) x-player o-player)))
+		 (cond
+		  [(and (not winner) (not loser) 
+			(or (send e button-down?)
+			    (send e dragging?)
+			    (send e button-up?))
+			(not playing?)
+			(not (if (eq? current-player x) x-player o-player)))
 		   (let ([i (inexact->exact (floor (/ (send e get-x) cell-size)))]
 			 [j (inexact->exact (floor (/ (send e get-y) cell-size)))])
-		     (when (cond
-			    [(and (= j 0) (<= 1 i n)) (push-top! (sub1 i)) #t]
-			    [(and (= j (add1 n)) (<= 1 i n)) (push-bottom! (sub1 i)) #t]
-			    [(and (= i 0) (<= 1 j n)) (push-left! (sub1 j)) #t]
-			    [(and (= i (add1 n)) (<= 1 j n)) (push-right! (sub1 j)) #t]
-			    [else #f]) ; not on a number
-		       (on-paint)
-		       ; Check for win/loss, run automated player
-		       (do-next-action)))))])
+		     (cond
+		      [(send e button-down?)
+		       (set! tracking-i i)
+		       (set! tracking-j j)
+		       (set! tracking-highlight? #t)
+		       (repaint)]
+		      [(send e moving?)
+		       (let ([th? tracking-highlight?])
+			 (set! tracking-highlight? (and
+						    (= tracking-i i)
+						    (= tracking-j j)))
+			 (unless (eq? th? tracking-highlight?)
+			   (repaint)))]
+		      [(send e button-up?)
+		       (if (and (= tracking-i i)
+				(= tracking-j j))
+			   (begin
+			     (when (cond
+				    [(and (= j 0) (<= 1 i n)) (push-top! (sub1 i)) #t]
+				    [(and (= j (add1 n)) (<= 1 i n)) (push-bottom! (sub1 i)) #t]
+				    [(and (= i 0) (<= 1 j n)) (push-left! (sub1 j)) #t]
+				    [(and (= i (add1 n)) (<= 1 j n)) (push-right! (sub1 j)) #t]
+				    [else #f]) ; not on a number
+			       ; Check for win/loss, run automated player
+			       (do-next-action)))
+			   (when tracking-highlight?
+			     (set! tracking-highlight? #f)
+			     (repaint)))]))]
+		  [else
+		   (when tracking-highlight?
+		     (set! tracking-highlight? #f)
+		     (repaint))]))])
+
     (sequence (apply super-init args))))
 
 ;; Create the GUI interface with the above pieces ;;
@@ -425,7 +591,8 @@
 ; The canvas should stretch/shrink to fit the board
 (define (set-canvas-size)
   (send canvas min-client-width (* (+ n 2) cell-size))
-  (send canvas min-client-height (* (+ n 2) cell-size)))
+  (send canvas min-client-height (* (+ n 2) cell-size))
+  (send canvas new-bitmap))
 (set-canvas-size)
 (send canvas focus)
 
@@ -592,6 +759,9 @@
   (send e load-file (local-file "doc.txt"))
   (send e lock #t)
   (send f show #t))
+
+; Draw initial board
+(send canvas repaint)
 
 ; Arrow buttons initially enabled?
 (enable-arrows)
