@@ -40,27 +40,34 @@
 	      [red-2nd (canon (gen-board '((2 #f #f 1 1)
 					   (2 #f #f 2 2)))
 			      'red)]
-	      [yellow-2nd (canon (gen-board '((2 #f #f 1 1)
-					      (2 #f #f 2 2)
-					      (2 #f #f 1 2)))
-				 'yellow)]
+	      ;; These three cases are all variations of "don't block
+	      ;;  two big reds with your second big yellow"
+	      [pre-red-win (canon (gen-board '((2 #f #f 1 1)
+					       (2 #f #f 2 2)
+					       (2 #f #f 1 2)))
+				  'yellow)]
 	      [red-win (canon (gen-board '((2 #f #f 1 1)
 					   (2 #f #f 2 2)
 					   (2 #f #f 1 2)
 					   (2 #f #f 1 0)))
 			      'red)]
-	      [pre-red-win2.1 (canon (gen-board '((2 #f #f 1 1)
-						  (2 #f #f 2 2)
-						  (2 #f #f 0 0)))
-				     'red)]
-	      [pre-red-win2.2 (canon (gen-board '((2 #f #f 1 1)
-						  (2 #f #f 2 0)
-						  (2 #f #f 0 0)))
-				     'red)]
+	      [pre-red-win2 (canon (gen-board '((2 #f #f 1 1)
+						(2 #f #f 2 0)
+						(2 #f #f 0 0)))
+				   'yellow)]
 	      [red-win2 (canon (gen-board '((2 #f #f 1 1)
 					    (2 #f #f 2 0)
 					    (2 #f #f 0 0)
 					    (2 #f #f 2 2)))
+			       'red)]
+	      [pre-red-win3 (canon (gen-board '((2 #f #f 1 1)
+						(2 #f #f 2 0)
+						(2 #f #f 1 0)))
+				   'yellow)]
+	      [red-win3 (canon (gen-board '((2 #f #f 1 1)
+					    (2 #f #f 2 0)
+					    (2 #f #f 1 0)
+					    (2 #f #f 1 2)))
 			       'red)])
 	  (lambda (board me k xform)
 	    (cond
@@ -79,7 +86,7 @@
 		   ;; Set up for yellow mistake...
 		   (list (cons GOOD
 			       (make-plan (list-ref red-pieces 2) #f #f 1 2 xform2))))]
-	     [(canon=? k yellow-2nd)
+	     [(canon=? k pre-red-win)
 	      => (lambda (xform2)
 		   ;; Don't make the mistake
 		   (list (cons -inf.0
@@ -91,12 +98,7 @@
 		   ;; Yellow made a mistake; go for the win!
 		   (list (cons +inf.0
 			       (make-plan (list-ref red-pieces 1) #f #f 0 2 xform2))))]
-	     [(canon=? k pre-red-win2.1)
-	      => (lambda (xform2)
-		   ;; Don't make a mistake that leads to a red win
-		   (list (cons -inf.0
-			       (make-plan (list-ref yellow-pieces 2) #f #f 2 0 xform2))))]
-	     [(canon=? k pre-red-win2.2)
+	     [(canon=? k pre-red-win2)
 	      => (lambda (xform2)
 		   ;; Don't make a mistake that leads to a red win
 		   (list (cons -inf.0
@@ -106,6 +108,16 @@
 		   ;; Yellow made a different mistake; go for the win!
 		   (list (cons +inf.0
 			       (make-plan (list-ref red-pieces 1) #f #f 2 1 xform2))))]
+	     [(canon=? k pre-red-win3)
+	      => (lambda (xform2)
+		   ;; Don't make a mistake that leads to a red win
+		   (list (cons -inf.0
+			       (make-plan (list-ref yellow-pieces 2) #f #f 1 2 xform2))))]
+	     [(canon=? k red-win3)
+	      => (lambda (xform2)
+		   ;; Yellow made a different mistake; go for the win!
+		   (list (cons +inf.0
+			       (make-plan (list-ref red-pieces 1) #f #f 0 0 xform2))))]
 	     [else null]))))
 
       (define (make-3x3-rate-board canon)
