@@ -6,6 +6,8 @@
 	   "sig.ss"
 	   "model.ss"
 	   "gui.ss"
+	   "heuristics.ss"
+	   "explore.ss"
 	   "../show-help.ss")
 
   (provide game-unit)
@@ -37,7 +39,9 @@
 					       (set! help (show-help (list "games" "gobblet") "Gobblet Help" #f)))
 					     (help)))))))]
 	       [MODEL : model^ (model-unit CONFIG)]
-	       [GUI : () (gui-unit CONFIG MODEL RESTART)])
+	       [HEURISTICS : heuristics^ (heuristics-unit CONFIG MODEL)]
+	       [EXPLORE : explore^ (explore-unit CONFIG MODEL)]
+	       [GUI : () (gui-unit CONFIG MODEL RESTART HEURISTICS EXPLORE)])
 	 (export)))
 
       (define help #f)

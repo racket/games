@@ -2,14 +2,15 @@
   (require (lib "unitsig.ss"))
 
   (provide config^ 
-	   heuristic^ explore^
+	   heuristics^ explore^
 	   model^ restart^)
 
   (define-signature config^
     (BOARD-SIZE))
 
-  (define-signature heuristic^
-    (rate-board))
+  (define-signature heuristics^
+    (3x3-simple-heuristic
+     4x4-simple-heuristic))
 
   (define-signature explore^
     (make-search apply-play))

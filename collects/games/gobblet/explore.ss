@@ -8,7 +8,7 @@
 
   (define explore-unit
     (unit/sig explore^
-      (import config^ model^ heuristic^)
+      (import config^ model^)
 
       (define (best span a b)
 	(cond
@@ -30,7 +30,7 @@
       (define explore 0)
 
       ;; -> (values (cons val move-thunk) xform)
-      (define (minmax depth max-depth span memory canonicalize
+      (define (minmax depth max-depth span memory canonicalize rate-board
 		      me him my-pieces his-pieces board last-to-i last-to-j)
 	(break-enabled #t)
 	(break-enabled #f)
@@ -95,7 +95,7 @@
 					(move board p #f #f i j
 					      (lambda (new-board)
 						(let-values ([(sv sxform)
-							      (minmax (add1 depth) max-depth 1 memory canonicalize
+							      (minmax (add1 depth) max-depth 1 memory canonicalize rate-board
 								      him me his-pieces my-pieces new-board
 								      i j)])
 						  (best span
@@ -116,7 +116,7 @@
 					  (move board (car l) from-i from-j to-i to-j
 						(lambda (new-board)
 						  (let-values ([(sv sxform)
-								(minmax (add1 depth) max-depth 1 memory canonicalize
+								(minmax (add1 depth) max-depth 1 memory canonicalize rate-board
 									him me his-pieces my-pieces new-board
 									to-i to-j)])
 						    
@@ -159,7 +159,7 @@
 		(error "bad move: ~a~n" m))))
 
       (define (multi-step-minmax steps one-step-depth span indent 
-				 memory canonicalize me board)
+				 memory canonicalize rate-board me board)
 	(let-values ([(vs xform)
 		      (minmax 0
 			      one-step-depth
@@ -168,6 +168,7 @@
 				  span)
 			      memory
 			      canonicalize
+			      rate-board
 			      me
 			      (other me)
 			      (available-off-board board me)
@@ -203,7 +204,7 @@
 				     (printf " ~alosing: ~a\n" (make-string indent #\space) play)
 				     play)
 				   (let ([r (cons (- (car (multi-step-minmax (sub1 steps) span one-step-depth (add1 indent)
-									     memory canonicalize
+									     memory canonicalize rate-board
 									     (other me)
 									     (apply-play board (cdr play)))))
 						  (cdr play))])
@@ -219,7 +220,7 @@
       (define (make-search)
 	(let ([memory (make-hash-table 'equal)]
 	      [canonicalize (make-canonicalize +inf.0)])
-	  (lambda (timeout max-steps one-step-depth cannon-size me board)
+	  (lambda (timeout max-steps one-step-depth cannon-size rate-board me board)
 	    (let ([result #f]
 		  [once-sema (make-semaphore)]
 		  [result-sema (make-semaphore)]
@@ -232,8 +233,9 @@
 			    (let loop ([steps 1])
 			      (set! result
 				    (let ([v (multi-step-minmax steps 3 one-step-depth 0
-								memory canonicalize 
+								memory canonicalize rate-board
 								me board)])
+				      #;
 				      (printf " ~a -> ~a [~a]~n" 
 					      steps
 					      (cdr v)
@@ -267,6 +269,7 @@
 		    1
 		    memory
 		    canonicalize
+		    (lambda args 0)
 		    'red
 		    'yellow
 		    (available-off-board board 'red)

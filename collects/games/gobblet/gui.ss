@@ -11,7 +11,7 @@
   
   (define gui-unit
     (unit/sig ()
-      (import config^ model^ restart^)
+      (import config^ model^ restart^ heuristics^ explore^)
 
       ;; Configuration ------------------------------
 
@@ -67,37 +67,40 @@
 		    (and on-board? from-i) (and on-board? from-j)
 		    to-i to-j
 		    (lambda (new-board)
-		      ;; Move allowed by the model. Create a thunk to
-		      ;; execute this move and a thunk to undo this
-		      ;; move:
-		      (let ([new-gp (make-gui-piece (gui-piece-piece gp) (gui-piece-dl gp)
-						    to-i to-j)]
-			    [old-board board]
-			    [old-turn turn])
-			(action!
-			 ;; Forward thunk:
-			 (lambda ()
-			   (set! board new-board)
-			   (send gui-board remove-piece gp)
-			   (gui-add-piece new-gp)
-			   (let ([r? (winner? new-board 'red)]
-				 [y? (winner? new-board 'yellow)])
-			     (cond
-			      [(and r? y?) (set-winner! (case old-turn
-							  [(red) "Yellow"]
-							  [(yellow) "Red"]))]
-			      [r? (set-winner! "Red")]
-			      [y? (set-winner! "Yellow")]
-			      [else (set-turn! (other old-turn))])))
-			 ;; Rewind thunk:
-			 (lambda ()
-			   (set! board old-board)
-			   (send gui-board remove-piece new-gp)
-			   (gui-add-piece gp)
-			   (set-turn! old-turn)))))
+		      (install-board new-board gp to-i to-j))
 		    (lambda ()
 		      ;; Move not allowed by model
 		      (void)))))))
+
+      (define (install-board new-board gp to-i to-j)
+	;; Move allowed by the model. Create a thunk to
+	;; execute this move and a thunk to undo this
+	;; move:
+	(let ([new-gp (make-gui-piece (gui-piece-piece gp) (gui-piece-dl gp)
+				      to-i to-j)]
+	      [old-board board]
+	      [old-turn turn])
+	  (action!
+	   ;; Forward thunk:
+	   (lambda ()
+	     (set! board new-board)
+	     (send gui-board remove-piece gp)
+	     (gui-add-piece new-gp)
+	     (let ([r? (winner? new-board 'red)]
+		   [y? (winner? new-board 'yellow)])
+	       (cond
+		[(and r? y?) (set-winner! (case old-turn
+					    [(red) "Yellow"]
+					    [(yellow) "Red"]))]
+		[r? (set-winner! "Red")]
+		[y? (set-winner! "Yellow")]
+		[else (set-turn! (other old-turn))])))
+	   ;; Rewind thunk:
+	   (lambda ()
+	     (set! board old-board)
+	     (send gui-board remove-piece new-gp)
+	     (gui-add-piece gp)
+	     (set-turn! old-turn)))))
 
       ;; GUI Board and Pieces ------------------------------
 
@@ -211,55 +214,55 @@
 
       ;; Define a 3-element pane that makes the left and right parts
       ;;  the same width (so that the middle part is centered):
-      (define bottom (new (class horizontal-pane% 
-			    ;; Override place-children for the 3-child case,
-			    ;;  make first and third the same width
-			    (define/override (place-children l w h)
-			      (let ([r (super place-children l w h)])
-				(if (= (length r) 3)
-				    (let ([a (list-ref r 0)]
-					  [b (list-ref r 1)]
-					  [c (list-ref r 2)])
-				      (let* ([aw (list-ref a 2)]
-					     [cw (list-ref c 2)]
-					     [naw (quotient (+ aw cw) 2)])
-					(list
-					 (list (car a) (cadr a) naw (cadddr a))
-					 (list (+ (car b) (- naw aw)) (cadr b) (caddr b) (cadddr b))
-					 (list (+ naw (caddr b)) (cadr c) (- (+ cw aw) naw) (cadddr c)))))
-				    r)))
-			    (super-new))
-			  (parent f)
-			  (stretchable-height #f)))
+      (define controls (new (class horizontal-pane% 
+			      ;; Override place-children for the 3-child case,
+			      ;;  make first and third the same width
+			      (define/override (place-children l w h)
+				(let ([r (super place-children l w h)])
+				  (if (= (length r) 3)
+				      (let ([a (list-ref r 0)]
+					    [b (list-ref r 1)]
+					    [c (list-ref r 2)])
+					(let* ([aw (list-ref a 2)]
+					       [cw (list-ref c 2)]
+					       [naw (quotient (+ aw cw) 2)])
+					  (list
+					   (list (car a) (cadr a) naw (cadddr a))
+					   (list (+ (car b) (- naw aw)) (cadr b) (caddr b) (cadddr b))
+					   (list (+ naw (caddr b)) (cadr c) (- (+ cw aw) naw) (cadddr c)))))
+				      r)))
+			      (super-new))
+			    (parent f)
+			    (stretchable-height #f)))
 
       ;; Status message:
       (define msg
-	(new message% (label "") (parent bottom) (stretchable-width #t)))
+	(new message% (label "") (parent controls) (stretchable-width #t)))
       
       ;; Forward & Reverse buttons
-      (define bottom-middle (new horizontal-pane% 
-				 (parent bottom)
-				 (stretchable-height #f)
-				 (stretchable-width #f)))
+      (define controls-middle (new horizontal-pane% 
+				   (parent controls)
+				   (stretchable-height #f)
+				   (stretchable-width #f)))
       (define arrows? (let ([f (make-object font% 12 'system)])
 			(and (send f screen-glyph-exists? #\u25C0 #t)
 			     (send f screen-glyph-exists? #\u25B6 #t))))
       (define backward-button
-	(new button% (label (if arrows? " \u25C0 " " < ")) (parent bottom-middle) 
+	(new button% (label (if arrows? " \u25C0 " " < ")) (parent controls-middle) 
 	     (callback (lambda (b e) (backward!)))))
       (define forward-button
-	(new button% (label (if arrows? " \u25B6 " " > ")) (parent bottom-middle)
+	(new button% (label (if arrows? " \u25B6 " " > ")) (parent controls-middle)
 	     (callback (lambda (b e) (forward!)))))
       (define (enable-buttons)
 	(send backward-button enable (pair? past))
 	(send forward-button enable (pair? future)))
 
       ;; Reset & Help buttons:
-      (define bottom-right (new horizontal-pane% 
-				(parent bottom)
-				(stretchable-height #f)
-				(alignment '(right center))))
-      (new button% (label "Reset") (parent bottom-right)
+      (define controls-right (new horizontal-pane% 
+				  (parent controls)
+				  (stretchable-height #f)
+				  (alignment '(right center))))
+      (new button% (label "Reset") (parent controls-right)
 	   (callback (lambda (b e)
 		       (when (or (not playing?)
 				 (equal? 1 (message-box/custom
@@ -272,13 +275,34 @@
 					    '(default=1 caution))))
 			 (reset!)))))
       (new button% (label (if (= BOARD-SIZE 3) "4x4 Game" "3x3 Game"))
-	   (parent bottom-right)
+	   (parent controls-right)
 	   (callback (lambda (b e)
 		       (new-game (if (= BOARD-SIZE 3) 4 3)))))
-      (new button% (label "Help") (parent bottom-right)
+      (new button% (label "Help") (parent controls-right)
 	   (callback (lambda (b e)
 		       (show-gobblet-help))))
 
+      (define bottom (new horizontal-pane% 
+			  (parent f)
+			  (stretchable-height #f)
+			  (alignment '(left center))))
+
+      (define auto-red (new check-box% 
+			    (label "Auto-play Red")
+			    (parent bottom)
+			    (callback (lambda (c e)
+					(when (eq? turn 'red)
+					  (check-auto-play))))))
+      (define auto-yellow (new check-box% 
+			       (label "Auto-play Yellow")
+			       (parent bottom)
+			       (callback (lambda (c e)
+					   (when (eq? turn 'yellow)
+					     (check-auto-play))))))
+
+      (define auto-play-msg (new message%
+				 (label "") (parent bottom) (stretchable-width #t)))
+      
       ;; Extra controls ----------------------------------------
       
       (define (action! forward backward)
@@ -286,6 +310,7 @@
 	(set! future null)
 	(set! past (cons (cons forward backward) past))
 	(forward)
+	(check-auto-play)
 	(enable-buttons))
 
       (define (backward!)
@@ -302,28 +327,34 @@
 	  (set! past (cons fb past))
 	  ((car fb))
 	  (enable-buttons)
-	  (send gui-board refresh)))
+	  (send gui-board refresh)
+	  (check-auto-play)))
 
       (define (reset!)
 	(for-each (lambda (p)
 		    (send gui-board remove-piece p))
 		  (send gui-board get-pieces))
 	(init-game!)
-	(send gui-board refresh))
+	(send gui-board refresh)
+	(check-auto-play))
 
       (define (set-turn! c)
 	(set! turn c)
 	(send msg set-label (format "~a's turn" (if (eq? turn 'red) "Red" "Yellow")))
+	(enable-for-turn! c)
+	(check-auto-play))
+
+      (define (enable-for-turn! who)
 	(for-each (lambda (p)
-		    (send gui-board enable-piece p (eq? c (piece-color (gui-piece-piece p)))))
+		    (send gui-board enable-piece p (eq? who (piece-color (gui-piece-piece p)))))
 		  (send gui-board get-pieces)))
 
       (define (set-winner! who)
 	(set! playing? #f)
+	(set! turn #f)
 	(send msg set-label (format "~a wins!" who))
-	(for-each (lambda (p)
-		    (send gui-board enable-piece p #f))
-		  (send gui-board get-pieces)))
+	(enable-for-turn! #f)
+	(check-auto-play))
 
       (define (init-game!)
 	(set! board empty-board)
@@ -334,6 +365,64 @@
 	(for-each gui-add-piece gui-pieces)
 	(set-turn! 'red))
 
+      ;; Auto-play ----------------------------------------
+
+      (define auto-play-key #f)
+      (define auto-play-thread #f)
+
+      (define (check-auto-play)
+	(when auto-play-thread
+	  (set! auto-play-key (gensym))
+	  (kill-thread auto-play-thread)
+	  (send auto-play-msg set-label "")
+	  (enable-for-turn! turn))
+	(when (and (null? future)
+		   turn
+		   (send (if (eq? turn 'red) auto-red auto-yellow) get-value))
+	  (let ([key (gensym)]
+		[board board]
+		[turn turn])
+	    (enable-for-turn! #f)
+	    (set! auto-play-key key)
+	    (set! auto-play-thread (thread
+				    (lambda () 
+				      (let ([move (auto-play board turn)])
+					(queue-callback
+					 (lambda ()
+					   (when (eq? auto-play-key key)
+					     (auto-move board turn move))))))))
+	    (send auto-play-msg set-label 
+		  (format "   Auto-play thinking for ~a..."
+			  (if (eq? turn 'red) "Red" "Yellow"))))))
+      
+
+      (define (auto-play board turn)
+	(let ([search (make-search)])
+	  (search 3.0 4 2 128
+		  (if (= BOARD-SIZE 3)
+		      3x3-simple-heuristic
+		      4x4-simple-heuristic)
+		  turn board)))
+
+      (define (auto-move board turn move)
+	(send auto-play-msg set-label "")
+	(let ([gp (let ([piece (list-ref move 0)]
+			[from-i (list-ref move 1)]
+			[from-j (list-ref move 2)])
+		    (ormap (lambda (gp)
+			     (and (eq? piece (gui-piece-piece gp))
+				  (if from-i
+				      (and (= from-i (gui-piece-i gp))
+					   (= from-j (gui-piece-j gp)))
+				      (not (<= 0 (gui-piece-i gp) (sub1 BOARD-SIZE))))
+				  gp))
+			   (send gui-board get-pieces)))]
+	      [to-i (list-ref move 3)]
+	      [to-j (list-ref move 4)])
+	  (let ([new-board (apply-play board move)])
+	    (install-board new-board gp to-i to-j))
+	  (send gui-board refresh)))
+	
       ;; Go ----------------------------------------
       
       (init-game!)

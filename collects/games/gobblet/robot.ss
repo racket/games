@@ -26,13 +26,10 @@
 			  (import)
 			  (define BOARD-SIZE board-size)))]
      [MODEL : model^ (model-unit CONFIG)]
-     [HEURISTIC : heuristic^ ((if (= board-size 3)
-				  3x3-simple-heuristics-unit
-				  4x4-simple-heuristics-unit)
-			      CONFIG MODEL)]
-     [EXPLORE : explore^ (explore-unit CONFIG MODEL HEURISTIC)]
+     [HEURISTICS : heuristics^ (heuristics-unit CONFIG MODEL)]
+     [EXPLORE : explore^ (explore-unit CONFIG MODEL)]
      [ROBOT : () ((unit/sig ()
-		    (import config^ explore^ model^)
+		    (import config^ explore^ model^ heuristics^)
 
 		    (define (stack->string s)
 		      (let ([s (apply string-append 
@@ -71,9 +68,13 @@
 			 [else
 			  (printf "~a~n~a~n" who (board->string 1 board))
 			  (let ([start (current-inexact-milliseconds)]
-				[m (search timeout steps depth cannon-size who board)])
+				[m (search timeout steps depth cannon-size 
+					   (if (= BOARD-SIZE 3)
+					       3x3-simple-heuristic
+					       4x4-simple-heuristic)
+					   who board)])
 			    (printf "Move ~a... [~a secs]~n" m (/ (- (current-inexact-milliseconds) start)
 								  1000.0))
 			    (loop (apply-play board m) (other who)))]))))
-		  CONFIG EXPLORE MODEL)])
+		  CONFIG EXPLORE MODEL HEURISTICS)])
     (export))))
