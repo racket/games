@@ -318,6 +318,41 @@
 				 (send this-message set-label "")
 				 (send canvas on-paint))))
    
+   (define help-button (make-object button% "Help"
+				    hp
+				    (let* ([f #f]
+					   [f%
+					    (class-asi frame%
+					      (override
+					       [on-close
+						(lambda ()
+						  (set! f #f))]))])
+				      (lambda x
+					(if f
+					    (send f show #t)
+					    (let* ([frame (make-object f% "Same Instructions")]
+						   [t (make-object text%)]
+						   [c (make-object editor-canvas% frame t)])
+					      (send c min-width 600)
+					      (send c min-height 300)
+					      (send t auto-wrap #t)
+					      (call-with-input-file (build-path (collection-path "games" "same")
+										"help")
+						(lambda (p)
+						  (let loop ()
+						    (let ([l (read-line p)])
+						      (unless (eof-object? l)
+							(if (string=? l "")
+							    (begin
+							      (send t insert #\newline)
+							      (send t insert #\newline))
+							    (begin
+							      (send t insert l)
+							      (send t insert #\space)))
+							(loop))))))
+					      (send frame show #t)
+					      (set! f frame)))))))
+
    (send message stretchable-width #t)
    (send this-message stretchable-width #t)
    (send hp stretchable-height #f)
