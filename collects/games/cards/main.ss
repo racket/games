@@ -2,7 +2,6 @@
 (module main mzscheme
   (require (lib "class.ss")
 	   (lib "etc.ss")
-	   (prefix mred: (lib "mred.ss" "mred"))
 	   "make-cards.ss"
 	   "classes.ss")
 
