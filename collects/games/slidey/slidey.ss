@@ -198,26 +198,27 @@
 		     cell-w
 		     cell-h))))]
       [draw-cell
-       (lambda (i j)
-	 (let-values ([(xd yd wd hd) (ij->xywh i j)])
-           (let ([dc (get-dc)]
-                 [indicies (board-ref board i j)])
+       (lambda (draw-i draw-j)
+	 (let-values ([(xd yd wd hd) (ij->xywh draw-i draw-j)])
+           (let* ([dc (get-dc)]
+                  [indicies (board-ref board draw-i draw-j)])
              (if indicies
-                 (let-values ([(xs ys ws hs) (ij->xywh (loc-x indicies)
-                                                       (loc-y indicies))])
-                   (send dc set-pen pict-pen)
-                   (send dc set-brush pict-brush)
-                   (send dc draw-bitmap-section bitmap xd yd xs ys wd hd)
-                   (if (and (send show-mistakes get-value)
-                            (not (= i (loc-x indicies)))
-                            (not (= j (loc-y indicies))))
-                       (begin
-                         (send dc set-pen mistake-pen)
-                         (send dc set-brush mistake-brush))
-                       (begin
-                         (send dc set-pen line-pen)
-                         (send dc set-brush line-brush)))
-                   (send dc draw-rectangle xd yd wd hd))
+                 (let ([bm-i (loc-x indicies)]
+                       [bm-j (loc-y indicies)])
+                   (let-values ([(xs ys ws hs) (ij->xywh bm-i bm-j)])
+                     (send dc set-pen pict-pen)
+                     (send dc set-brush pict-brush)
+                     (send dc draw-bitmap-section bitmap xd yd xs ys wd hd)
+                     (if (and (send show-mistakes get-value)
+                              (or (not (= draw-i bm-i))
+                                  (not (= draw-j bm-j))))
+                         (begin
+                           (send dc set-pen mistake-pen)
+                           (send dc set-brush mistake-brush))
+                         (begin
+                           (send dc set-pen line-pen)
+                           (send dc set-brush line-brush)))
+                     (send dc draw-rectangle xd yd wd hd)))
                  (begin
                    (send dc set-pen white-pen)
                    (send dc set-brush white-brush)
