@@ -13,10 +13,8 @@
     (let* ([bm (make-object mred:bitmap% (floor (/ w 2)) h)]
 	   [mdc (make-object mred:bitmap-dc%)])
       (send mdc set-bitmap bm)
-      (let loop ([i (floor (/ w 2))])
-	(unless (zero? i)
-	  (send mdc draw-bitmap-section bm-in i 0 (* 2 i) 0 1 h)
-	  (loop (sub1 i))))
+      (send mdc set-scale 0.5 1)
+      (send mdc draw-bitmap bm-in 0 0)
       (send mdc set-bitmap #f)
       bm))
 
