@@ -4,156 +4,220 @@
            (lib "mred.ss" "mred")
            (lib "gl-vectors.ss" "sgl")
            (prefix gl- (lib "sgl.ss" "sgl"))
-	   (lib "array.ss" "srfi" "25")
 	   (lib "unit.ss"))
 
   (provide game-unit)
-  
-  (define yellow (gl-float-vector 1.0 1.0 0.0 1.0))
-  (define red (gl-float-vector 1.0 0.0 0.0 1.0))
-  (define light-blue (gl-float-vector 0.5 0.5 1.0 1.0))
-  (define dark-blue (gl-float-vector 0.0 0.0 1.0 1.0))
-
-  (define-struct piece (size color dl i j))
-  
   
   (define game-unit
     (unit
       (import)
       (export)
 
-      (define board-size 3)
-      (define piece-sizes (if (= board-size 3)
+      ;; Configuration ------------------------------
+      
+      (define BOARD-SIZE 3)
+      (define PIECE-SIZES (if (= BOARD-SIZE 3)
 			      '(0.4 0.6 0.75)
 			      '(0.3 0.45 0.65 0.8)))
+      
+      ;; Model ------------------------------
+      
+      ;; A piece is
+      ;;  (make-piece num sym)
+      ;;  where the sym is 'red or 'yellow
+      (define-struct piece (size color))  
+      
+      ;; A board is a 
+      ;;  (vector (vector (list piece ...) ...) ...)
 
-      (define state (make-array (shape 0 board-size 0 board-size) null))
+      (define empty-board
+	(make-vector BOARD-SIZE (make-vector BOARD-SIZE null)))
 
+      ;; board-ref : board num num -> piece
+      (define (board-ref a i j)
+	(vector-ref (vector-ref a i) j))
+
+      ;; board-set : board num num piece -> board
+      (define (board-set a i j p)
+	;; We implement functional update by copying two vectors
+	;;  and modifying them.
+	(let ([a2 (copy-vector a)]
+	      [r2 (copy-vector (vector-ref a i))])
+	  (vector-set! a2 i r2)
+	  (vector-set! r2 j p)
+	  a2))
+      
+      ;; copy-vector : vector -> vector
+      (define (copy-vector v)
+	(list->vector (vector->list v)))
+
+      ;; GUI ------------------------------
+      
+      (define yellow (gl-float-vector 1.0 1.0 0.0 1.0))
+      (define red (gl-float-vector 1.0 0.0 0.0 1.0))
+      (define light-blue (gl-float-vector 0.5 0.5 1.0 1.0))
+      (define dark-blue (gl-float-vector 0.0 0.0 1.0 1.0))
+      
+      ;; A gui-piece is
+      ;;  (make-gui-piece piece gl-description num num)
+      ;;  where the nums might be < 0 or > BOARD-SIZE
+      (define-struct gui-piece (piece dl i j))
+
+      ;; State ------------------------------
+
+      ;; The state of the game, as reflected in the GUI:
+      (define board empty-board)
       (define turn 'red)
 
-      (define (fold-row f v)
+      ;; past, future : (list-of (cons thunk thunk))
+      ;;                where first thunk is do and second is undo
+      (define past null)
+      (define future null)
+
+      ;; When `playing?' is true, double-check reset request
+      (define playing? #f)
+
+      ;; Utilities ------------------------------
+
+      ;; fold-rowcol : (num alpha -> alpha) alpha -> alpha
+      (define (fold-rowcol f v)
 	(let iloop ([i 0][v v])
-	  (if (= i board-size)
+	  (if (= i BOARD-SIZE)
 	      v
 	      (iloop (add1 i) (f i v)))))
 
+      ;; fold-board : (num num alpha -> alpha) alpha -> alpha
       (define (fold-board f v)
-	(fold-row (lambda (i v)
-		    (fold-row (lambda (j v)
-				(f i j v))
-			      v))
-		  v))
+	(fold-rowcol (lambda (i v)
+		       (fold-rowcol (lambda (j v)
+				      (f i j v))
+				    v))
+		     v))
 
-      (define (move p to)
-	(when (piece? p)
-	  (let* ((to-x (inexact->exact (floor (gl-vector-ref to 0))))
-		 (to-y (inexact->exact (floor (gl-vector-ref to 1))))
-		 (from-x (piece-i p))
-		 (from-y (piece-j p)))
-	    (when (and (<= 0 to-x (sub1 board-size))
-		       (<= 0 to-y (sub1 board-size)))
-	      (let ([pl (array-ref state to-x to-y)])
-		(when (or (null? pl)
-			  (< (piece-size (car pl))  (piece-size p)))
-		  (when (and from-x from-y)
-		    (array-set! state from-x from-y (cdr (array-ref state from-x from-y))))
-		  (array-set! state to-x to-y (cons p pl))
-		  (send board remove-piece p)
-		  (send board add-piece (+ to-x 0.5) (+ to-y 0.5) 0
-			(lambda () (gl-call-list (piece-dl p)))
-			p)
-		  (set-piece-i! p to-x)
-		  (set-piece-j! p to-y)
-		  (let ([r? (winner? 'red)]
-			[y? (winner? 'yellow)])
-		    (cond
-		     [(and r? y?) (set-winner "Cat")]
-		     [r? (set-winner "Red")]
-		     [y? (set-winner "Yellow")]
-		     [else (set-turn (other turn))]))))))))
+      ;; other : sym -> sym
+      (define (other c)
+	(if (eq? c 'red) 'yellow 'red))
+      
+      ;; Model ------------------------------
 
+      ;; move : board piece num-or-#f num-or-#f num num (board -> alpha) (-> alpha)
+      ;;        -> alpha
+      ;; Given a board, piece, current location of the piece (or #f if
+      ;; not on the board), and target location for the piece, either
+      ;; allows the move and calls the continuation k with the new
+      ;; board, or disallows and calls the failure continuation.
+      (define (move board p from-i from-j to-i to-j k fail-k)
+	(let ([pl (board-ref board to-i to-j)])
+	  ;; The move is allowed if the target space is empty or the
+	  ;;  top piece is smaller than this one:
+	  (if (or (null? pl)
+		  (< (piece-size (car pl)) (piece-size p)))
+	      ;; Allowed:
+	      (let ([new-board (if from-i
+				   ;; Remove the piece from the old spot:
+				   (board-set board from-i from-j 
+					      (cdr (board-ref board from-i from-j)))
+				   ;; Wasn't on the board, yet:
+				   board)])
+		;; Add the piece at its new spot, and continue
+		(k (board-set new-board to-i to-j (cons p pl))))
+	      ;; Not allowed; fail
+	      (fail-k))))
+
+      ;; winner? : sym -> bool
+      ;;  Checks whether the given color has BOARD-SIZE in a row
       (define (winner? c)
 	(let ([row/col
-	       (lambda (array-ref)
-		 (fold-row (lambda (i v)
-			     (or v
-				 (fold-row (lambda (j v)
-					     (and v
-						  (let ([pl (array-ref state i j)])
-						    (and (pair? pl)
-							 (eq? c (piece-color (car pl)))))))
-					   #t)))
-			   #f))]
+	       (lambda (board-ref)
+		 (fold-rowcol (lambda (i v)
+				(or v
+				    (fold-rowcol (lambda (j v)
+						   (and v
+							(let ([pl (board-ref board i j)])
+							  (and (pair? pl)
+							       (eq? c (piece-color (car pl)))))))
+						 #t)))
+			      #f))]
 	      [diag
 	       (lambda (flip)
-		 (fold-row (lambda (i v)
-			     (and v
-				  (let ([pl (array-ref state i (flip i))])
-				    (and (pair? pl)
-					 (eq? c (piece-color (car pl)))))))
-			   #t))])
-	  (or (row/col array-ref)
-	      (row/col (lambda (a i j) (array-ref a j i)))
+		 (fold-rowcol (lambda (i v)
+				(and v
+				     (let ([pl (board-ref board i (flip i))])
+				       (and (pair? pl)
+					    (eq? c (piece-color (car pl)))))))
+			      #t))])
+	  (or (row/col board-ref)
+	      (row/col (lambda (a i j) (board-ref a j i)))
 	      (diag (lambda (x) x))
-	      (diag (lambda (x) (- board-size 1 x))))))
+	      (diag (lambda (x) (- BOARD-SIZE 1 x))))))
+
+      ;; GUI Move ------------------------------
+
+      ;; This function is called when the user tries to move `gp'
+      ;;  to location `to'
+      (define (gui-move gp to)
+	(when (gui-piece? gp)
+	  ;; Get dest and source locations:
+	  (let* ((to-i (inexact->exact (floor (gl-vector-ref to 0))))
+		 (to-j (inexact->exact (floor (gl-vector-ref to 1))))
+		 (from-i (gui-piece-i gp))
+		 (from-j (gui-piece-j gp))
+		 (on-board? (<= 0 from-i (sub1 BOARD-SIZE))))
+	    ;; Only move if the requent lands on the board:
+	    (when (and (<= 0 to-i (sub1 BOARD-SIZE))
+		       (<= 0 to-j (sub1 BOARD-SIZE)))
+	      ;; Only move if the model says that it's ok:
+	      (move board (gui-piece-piece gp) 
+		    (and on-board? from-i) (and on-board? from-j)
+		    to-i to-j
+		    (lambda (new-board)
+		      ;; Move allowed by the model. Create a thunk to
+		      ;; execute this move and a thunk to undo this
+		      ;; move:
+		      (let ([new-gp (make-gui-piece (gui-piece-piece gp) (gui-piece-dl gp)
+						    to-i to-j)]
+			    [old-board board]
+			    [old-turn turn])
+			(action!
+			 ;; Forward thunk:
+			 (lambda ()
+			   (set! board new-board)
+			   (send gui-board remove-piece gp)
+			   (gui-add-piece new-gp)
+			   (let ([r? (winner? 'red)]
+				 [y? (winner? 'yellow)])
+			     (cond
+			      [(and r? y?) (set-winner! "Cat")]
+			      [r? (set-winner! "Red")]
+			      [y? (set-winner! "Yellow")]
+			      [else (set-turn! (other old-turn))])))
+			 ;; Rewind thunk:
+			 (lambda ()
+			   (set! board old-board)
+			   (send gui-board remove-piece new-gp)
+			   (gui-add-piece gp)
+			   (set-turn! old-turn)))))
+		    (lambda ()
+		      ;; Move not allowed by model
+		      (void)))))))
+
+      ;; GUI Board and Pieces ------------------------------
 
       (define f (new frame% (label "Gobblet") (width 800) (height 600)))
-      (define board
+      (define gui-board
 	(new gl-board% (parent f) 
-	     (min-x (- 1 board-size)) (max-x (sub1 (* 2 board-size)))
-	     (min-y (- 1 board-size)) (max-y (sub1 (* 2 board-size)))
+	     (min-x (- 1 BOARD-SIZE)) (max-x (sub1 (* 2 BOARD-SIZE)))
+	     (min-y (- 1 BOARD-SIZE)) (max-y (sub1 (* 2 BOARD-SIZE)))
 	     (lift 1.2)
-	     (move move)))
-      (define bottom (new (class horizontal-pane% 
-			    ;; Override place-children for the 3-child case,
-			    ;;  make first and third the same width
-			    (define/override (place-children l w h)
-			      (let ([r (super place-children l w h)])
-				(if (= (length r) 3)
-				    (let ([a (list-ref r 0)]
-					  [b (list-ref r 1)]
-					  [c (list-ref r 2)])
-				      (let* ([aw (list-ref a 2)]
-					     [cw (list-ref c 2)]
-					     [naw (quotient (+ aw cw) 2)])
-					(list
-					 (list (car a) (cadr a) naw (cadddr a))
-					 (list (+ (car b) (- naw aw)) (cadr b) (caddr b) (cadddr b))
-					 (list (+ naw (caddr b)) (cadr c) (- (+ cw aw) naw) (cadddr c)))))
-				    r)))
-			    (super-new))
-			  (parent f)
-			  (stretchable-height #f)))
-      (define msg
-	(new message% (label "") (parent bottom) (stretchable-width #t)))
-      (define bottom-middle (new horizontal-pane% 
-				 (parent bottom)
-				 (stretchable-height #f)
-				 (stretchable-width #f)))
-      (define backward-button
-	(new button% (label "<") (parent bottom-middle) 
-	     (callback (lambda (b e) (void)))))
-      (define forward-button
-	(new button% (label ">") (parent bottom-middle)
-	     (callback (lambda (b e) (void)))))
-      (define bottom-right (new horizontal-pane% 
-				(parent bottom)
-				(stretchable-height #f)
-				(alignment '(right center))))
-      (new button% (label "Reset") (parent bottom-right)
-	   (callback (lambda (b e) (void))))
-      (new button% (label "Help") (parent bottom-right)
-	   (callback (lambda (b e) (void))))
-
-      (send backward-button enable #f)
-      (send forward-button enable #f)
+	     (move gui-move)))
 
       (define q
-	(send board with-gl-context
+	(send gui-board with-gl-context
 	      (lambda () (gl-new-quadric))))
 
+      ;; Space description:
       (define space-dl
-	(send board with-gl-context
+	(send gui-board with-gl-context
 	      (lambda ()
 		(let ((list-id (gl-gen-lists 1)))
 		  (gl-quadric-draw-style q 'fill)
@@ -174,8 +238,20 @@
 		  (gl-end-list)
 		  list-id))))
 
+      ;; Install spaces on board:
+      (fold-board (lambda (i j v)
+		    (send gui-board add-space
+			  (lambda ()
+			    (gl-push-matrix)
+			    (gl-translate i j 0.01)
+			    (gl-call-list space-dl)
+			    (gl-pop-matrix))
+			  (cons i j)))
+		  void)
+      
+      ;; Piece description-maker:
       (define (make-piece-dl color scale)
-	(send board with-gl-context
+	(send gui-board with-gl-context
 	      (lambda ()
 		(let ((list-id (gl-gen-lists 1)))
 		  (gl-quadric-draw-style q 'fill)
@@ -190,65 +266,162 @@
 		  (gl-end-list)
 		  list-id))))
 
-      (fold-board (lambda (i j v)
-		    (send board add-space
-			  (lambda ()
-			    (gl-push-matrix)
-			    (gl-translate i j 0.01)
-			    (gl-call-list space-dl)
-			    (gl-pop-matrix))
-			  (cons i j)))
-		  void)
-      
+      ;; Red piece descriptions:
       (define reds (map (lambda (size)
 			  (make-piece-dl red size))
-			piece-sizes))
+			PIECE-SIZES))
 
+      ;; Yellow piece descriptions:
       (define yellows (map (lambda (size)
 			     (make-piece-dl yellow size))
-			   piece-sizes))
+			   PIECE-SIZES))
 
-      (define pieces
-	(let loop ([reds reds][yellows yellows][sizes piece-sizes] [j 0.5])
+      ;; GUI piece records, with each pieces at its initial place:
+      (define gui-pieces
+	(let loop ([reds reds][yellows yellows][sizes PIECE-SIZES][j 0])
 	  (if (null? reds)
 	      null
 	      (append
 	       (let ([r (car reds)]
 		     [y (car yellows)]
 		     [sz (car sizes)])
-		 (let loop ([di (- board-size 1.5)])
+		 (let loop ([di (- BOARD-SIZE 2)])
 		   (if (negative? di)
 		       null
 		       (list*
-			(let ([p (make-piece sz 'red r #f #f)])
-			  (send board add-piece (- di board-size -1) j 0
-				(lambda () (gl-call-list r))
-				p)
-			  p)
-			(let ([p (make-piece sz 'yellow y #f #f)])
-			  (send board add-piece (+ board-size di) j 0
-				(lambda () (gl-call-list y))
-				p)
-			  p)
+			(make-gui-piece (make-piece sz 'red) r (- di BOARD-SIZE -1) j)
+			(make-gui-piece (make-piece sz 'yellow) y (+ BOARD-SIZE di) j)
 			(loop (sub1 di))))))
 	       (loop (cdr reds) (cdr yellows) (cdr sizes) (+ j 1))))))
+      
+      ;; Places a gui-piece at its location on the board:
+      (define (gui-add-piece gp)
+	(send gui-board add-piece 
+	      (+ (gui-piece-i gp) 0.5) (+ (gui-piece-j gp) 0.5) 0
+	      (lambda () (gl-call-list (gui-piece-dl gp)))
+	      gp))
 
-      (define (set-turn c)
+      ;; Extra GUI controls ----------------------------------------
+
+      ;; Define a 3-element pane that makes the left and right parts
+      ;;  the same width (so that the middle part is centered):
+      (define bottom (new (class horizontal-pane% 
+			    ;; Override place-children for the 3-child case,
+			    ;;  make first and third the same width
+			    (define/override (place-children l w h)
+			      (let ([r (super place-children l w h)])
+				(if (= (length r) 3)
+				    (let ([a (list-ref r 0)]
+					  [b (list-ref r 1)]
+					  [c (list-ref r 2)])
+				      (let* ([aw (list-ref a 2)]
+					     [cw (list-ref c 2)]
+					     [naw (quotient (+ aw cw) 2)])
+					(list
+					 (list (car a) (cadr a) naw (cadddr a))
+					 (list (+ (car b) (- naw aw)) (cadr b) (caddr b) (cadddr b))
+					 (list (+ naw (caddr b)) (cadr c) (- (+ cw aw) naw) (cadddr c)))))
+				    r)))
+			    (super-new))
+			  (parent f)
+			  (stretchable-height #f)))
+
+      ;; Status message:
+      (define msg
+	(new message% (label "") (parent bottom) (stretchable-width #t)))
+      
+      ;; Forward & Reverse buttons
+      (define bottom-middle (new horizontal-pane% 
+				 (parent bottom)
+				 (stretchable-height #f)
+				 (stretchable-width #f)))
+      (define backward-button
+	(new button% (label "<") (parent bottom-middle) 
+	     (callback (lambda (b e) (backward!)))))
+      (define forward-button
+	(new button% (label ">") (parent bottom-middle)
+	     (callback (lambda (b e) (forward!)))))
+      (define (enable-buttons)
+	(send backward-button enable (pair? past))
+	(send forward-button enable (pair? future)))
+
+      ;; Reset & Help buttons:
+      (define bottom-right (new horizontal-pane% 
+				(parent bottom)
+				(stretchable-height #f)
+				(alignment '(right center))))
+      (new button% (label "Reset") (parent bottom-right)
+	   (callback (lambda (b e)
+		       (when (or (not playing?)
+				 (equal? 1 (message-box/custom
+					    "Warning"
+					    "Stop game in progress and reset?"
+					    "Reset"
+					    "Cancel"
+					    #f
+					    f
+					    '(default=1 caution))))
+			 (reset!)))))
+      (new button% (label "Help") (parent bottom-right)
+	   (callback (lambda (b e) (void))))
+
+      ;; Extra controls ----------------------------------------
+      
+      (define (action! forward backward)
+	(set! playing? #t)
+	(set! future null)
+	(set! past (cons (cons forward backward) past))
+	(forward)
+	(enable-buttons))
+
+      (define (backward!)
+	(let ([fb (car past)])
+	  (set! past (cdr past))
+	  (set! future (cons fb future))
+	  ((cdr fb))
+	  (enable-buttons)
+	  (send gui-board refresh)))
+
+      (define (forward!)
+	(let ([fb (car future)])
+	  (set! future (cdr future))
+	  (set! past (cons fb past))
+	  ((car fb))
+	  (enable-buttons)
+	  (send gui-board refresh)))
+
+      (define (reset!)
+	(for-each (lambda (p)
+		    (send gui-board remove-piece p))
+		  (send gui-board get-pieces))
+	(init-game!)
+	(send gui-board refresh))
+
+      (define (set-turn! c)
 	(set! turn c)
 	(send msg set-label (format "~a's turn" (if (eq? turn 'red) "Red" "Yellow")))
 	(for-each (lambda (p)
-		    (send board enable-piece p (eq? c (piece-color p))))
-		  pieces))
+		    (send gui-board enable-piece p (eq? c (piece-color (gui-piece-piece p)))))
+		  (send gui-board get-pieces)))
 
-      (define (set-winner who)
+      (define (set-winner! who)
+	(set! playing? #f)
 	(send msg set-label (format "~a wins!" who))
 	(for-each (lambda (p)
-		    (send board enable-piece p #f))
-		  pieces))
+		    (send gui-board enable-piece p #f))
+		  (send gui-board get-pieces)))
 
-      (define (other c)
-	(if (eq? c 'red) 'yellow 'red))
+      (define (init-game!)
+	(set! board empty-board)
+	(set! past null)
+	(set! future null)
+	(set! playing? #f)
+	(enable-buttons)
+	(for-each gui-add-piece gui-pieces)
+	(set-turn! 'red))
 
-      (set-turn turn)
+      ;; Go ----------------------------------------
+      
+      (init-game!)
 
       (send f show #t))))
