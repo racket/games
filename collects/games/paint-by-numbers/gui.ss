@@ -75,9 +75,6 @@ paint by numbers.
       (define/public (get-max-col-entries)
         (apply max (map length (get-col-numbers))))
       
-      [define canvas-width 200]
-      [define canvas-height 200]
-      
       [define extra-space-every 5]
       
       [define grid-x-size (length (get-col-numbers))]
@@ -135,8 +132,8 @@ paint by numbers.
       
       [define xy->grid
         (lambda (x y)
-          (let* ([grid-width (/ (- canvas-width row-label-width) grid-x-size)]
-                 [grid-height (/ (- canvas-height col-label-height) grid-y-size)]
+          (let* ([grid-width (/ (- (get-canvas-width) row-label-width) grid-x-size)]
+                 [grid-height (/ (- (get-canvas-height) col-label-height) grid-y-size)]
                  [xp (- x row-label-width)]
                  [yp (- y col-label-height)]
                  [x (inexact->exact (floor (/ xp grid-width)))]
@@ -150,10 +147,10 @@ paint by numbers.
       
       [define grid->rect
         (lambda (x y)
-          (let* ([grid-width (- canvas-width
+          (let* ([grid-width (- (get-canvas-width)
                                 row-label-width
                                 (quotient grid-x-size extra-space-every))]
-                 [grid-height (- canvas-height
+                 [grid-height (- (get-canvas-height)
                                  col-label-height
                                  (quotient grid-y-size extra-space-every))]
                  [left (+ row-label-width
@@ -165,6 +162,9 @@ paint by numbers.
                  [width (/ grid-width grid-x-size)]
                  [height (/ grid-height grid-y-size)])
             (values left top width height)))]
+
+      (define/private (get-canvas-width) (let-values ([(w h) (get-client-size)]) w))
+      (define/private (get-canvas-height) (let-values ([(w h) (get-client-size)]) h))
       
       [define undo-history null]
       [define redo-history null]
@@ -457,10 +457,6 @@ paint by numbers.
                     (loop (+ y 1))))
                 (loop (+ x 1))))))]
       
-      [define/override on-size
-	(lambda (w h)
-	  (set! canvas-width w)
-	  (set! canvas-height h))]
       [define/override on-event
 	(lambda (evt)
 	  (let* ([x (send evt get-x)]

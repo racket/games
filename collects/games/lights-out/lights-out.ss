@@ -51,25 +51,27 @@
       
       (define board-canvas%
         (class canvas%
-          (inherit get-dc)
+          (inherit get-dc get-client-size)
+          
+          (define/private (get-width) (let-values ([(w h) (get-client-size)]) w))
+          (define/private (get-height) (let-values ([(w h) (get-client-size)]) h))
+          
           [define dull-i 1]
           [define dull-j 1]
-          [define width 10]
-          [define height 10]
           [define tile->screen
             (lambda (i j)
-              (let ([x (inexact->exact (floor (* (/ i (vector-length current-board)) (- width 2))))]
-                    [y (inexact->exact (floor (* (/ j (vector-length current-board)) (- height 2))))]
-                    [w (inexact->exact (floor (* (/ (- width 2) (vector-length current-board)))))]
-                    [h (inexact->exact (floor (* (/ (- height 2) (vector-length current-board)))))])
+              (let ([x (inexact->exact (floor (* (/ i (vector-length current-board)) (- (get-width) 2))))]
+                    [y (inexact->exact (floor (* (/ j (vector-length current-board)) (- (get-height) 2))))]
+                    [w (inexact->exact (floor (* (/ (- (get-width) 2) (vector-length current-board)))))]
+                    [h (inexact->exact (floor (* (/ (- (get-height) 2) (vector-length current-board)))))])
                 (values (+ x 2)
                         (+ y 2)
                         (max 0 (- w 2))
                         (max 0 (- h 2)))))]
           [define screen->tile
             (lambda (x y)
-              (values (inexact->exact (floor (* (/ x width) (vector-length current-board))))
-                      (inexact->exact (floor (* (/ y height) (vector-length current-board))))))]
+              (values (inexact->exact (floor (* (/ x (get-width)) (vector-length current-board))))
+                      (inexact->exact (floor (* (/ y (get-height)) (vector-length current-board))))))]
           [define draw-tile
             (lambda (dc i j)
               (when (and (<= 0 i (- (vector-length current-board) 1))
@@ -130,10 +132,6 @@
                           (loop (- i 1))]))
                      (loop (- j 1))]))))]
           
-          [define/override on-size
-            (lambda (w h)
-              (set! width w)
-              (set! height h))]
           [define/override on-event
             (lambda (evt)
               (cond
