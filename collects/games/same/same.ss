@@ -371,8 +371,10 @@
 					      (send c min-width 600)
 					      (send c min-height 300)
 					      (send t auto-wrap #t)
-					      (call-with-input-file (build-path (collection-path "games" "same")
-										"help")
+					      (call-with-input-file (build-path
+								     (collection-path "games"
+										      "same")
+								     "doc.txt")
 						(lambda (p)
 						  (let loop ()
 						    (let ([l (read-line p)])
