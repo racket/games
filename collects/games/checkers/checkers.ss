@@ -18,8 +18,10 @@
   (define path (collection-path "games" "checkers"))
   (define light-img (image->gl-vector (build-path path "light.jpg")))
   (define dark-img (image->gl-vector (build-path path "dark.jpg")))
+  (define dark-color (gl-float-vector .4745 .3569 .2627 1))
+  (define light-color (gl-float-vector .7216 .6471 .5176 1))
   
-  (define-struct space-info (x y))
+  (define-struct space-info (x y light?))
   (define-struct piece-info (x y color king?) (make-inspector))
   (define-struct moves (list forced-jump?))
 
@@ -28,16 +30,21 @@
       (import move)
       (export add-space add-piece remove-piece move-piece set-turn show)
 
-      (define (add-space space color)
-        (let ((list-id (if (eq? color 'light) light-square dark-square)))
-          (send board add-space
-                (lambda ()
-                  (gl-push-matrix)
-                  (gl-translate (space-info-x space) (space-info-y space) 0)
-                  (gl-call-list list-id)
-                  (gl-pop-matrix))
-                space)))
+      (define (get-space-draw-fn space)
+        (let* ((x (if (space-info-light? space) light-square dark-square))
+               (list-id (if (send texture-box get-value) (car x) (cdr x)))
+               (sx (space-info-x space))
+               (sy (space-info-y space)))
+          (lambda ()
+            (gl-push-matrix)
+            (gl-translate sx sy 0)
+            (gl-call-list list-id)
+            (gl-pop-matrix))))
+        
       
+      (define (add-space space)
+        (send board add-space (get-space-draw-fn space) space))
+
       (define (get-piece-draw-fn piece glow?)
         (let ((list-id (get-piece-dl (piece-info-color piece)
                                      (piece-info-king? piece))))
@@ -94,9 +101,23 @@
         (new gl-board% (parent f) (min-x 0.0) (max-x 8.0) (min-y 0.0) (max-y 8.0)
              (lift .35)
              (move internal-move)))
+      (define hp (new horizontal-pane% (parent f) (stretchable-height #f)))
       (define msg
-	(new message% (label "") (parent f) (stretchable-width #t)))
-      
+	(new message% (label "") (parent hp) (stretchable-width #t)))
+      (define texture-box
+        (new check-box% (label "Textured") (parent hp)
+             (callback
+              (lambda (box _)
+                (for-each
+                 (lambda (s)
+                   (send board set-space-draw s
+                         (get-space-draw-fn s )))
+                 (send board get-spaces))
+                (send board refresh)))))
+      (send texture-box set-value #t)
+                
+                
+                         
       (define q
         (send board with-gl-context
           (lambda () (gl-new-quadric))))
@@ -153,13 +174,13 @@
       (init-tex light-tex light-img)
       (init-tex dark-tex dark-img)
 
-      (define (make-square-dl color)
+      (define (make-tex-square-dl tex)
         (send board with-gl-context
           (lambda ()
             (let ((list-id (gl-gen-lists 1)))
               (gl-new-list list-id 'compile)
               (gl-enable 'texture-2d)
-              (glBindTexture GL_TEXTURE_2D color)
+              (glBindTexture GL_TEXTURE_2D tex)
               (gl-material-v 'front 'ambient-and-diffuse
                              (gl-float-vector 1 1 1 1))
               (gl-begin 'polygon)
@@ -175,10 +196,26 @@
               (gl-disable 'texture-2d)
               (gl-end-list)
               list-id))))
+
+      (define (make-square-dl color)
+        (send board with-gl-context
+          (lambda ()
+            (let ((list-id (gl-gen-lists 1)))
+              (gl-new-list list-id 'compile)
+              (gl-material-v 'front 'ambient-and-diffuse color)
+              (gl-begin 'polygon)
+              (gl-vertex 0.0 0.0 0.0)
+              (gl-vertex 1.0 0.0 0.0)
+              (gl-vertex 1.0 1.0 0.0)
+              (gl-vertex 0.0 1.0 0.0)
+              (gl-end)
+              (gl-end-list)
+              list-id))))
       
-      (define dark-square (make-square-dl dark-tex))
-      (define light-square (make-square-dl light-tex))
-      
+      (define dark-square (cons (make-tex-square-dl dark-tex)
+                                (make-square-dl dark-color)))
+      (define light-square (cons (make-tex-square-dl light-tex)
+                                 (make-square-dl light-color)))
       (define (show)
         (send f show #t))))
   
@@ -196,7 +233,7 @@
           ((and (< j 8) (< i 8))
            (cond
              ((even? (+ i j))
-              (add-space (make-space-info j i) 'dark)
+              (add-space (make-space-info j i #f))
               (cond
                 ((< i 3)
                  (array-set! board j i (cons 'red #f))
@@ -205,7 +242,7 @@
                  (array-set! board j i (cons 'black #f))
                  (add-piece (make-piece-info j i 'black #f)))))
              (else
-              (add-space (make-space-info j i) 'light)))
+              (add-space (make-space-info j i #t))))
            (loop i (add1 j)))
           ((< i 8) (loop (add1 i) 0))))
 

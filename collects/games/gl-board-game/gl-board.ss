@@ -76,7 +76,7 @@
          (lambda (s)
            (when (equal? (space-info s) space)
              (set-space-draw! s d)))
-         space))
+         spaces))
       
       ;; set-piece-draw: info (->) ->
       ;; Sets the drawing method of all pieces whose info is equal to piece to d.
