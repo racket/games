@@ -481,22 +481,15 @@
                     old-tries
                     (let* ([least-difficult
                             (apply min unmemoized)])
-                      (fprintf (current-error-port) "guessed tries: ~v\n" least-difficult)
+                      ;(fprintf (current-error-port) "guessed tries: ~v\n" least-difficult)
                       (map (lambda (old-try-set block-list board-row)
                              (cond [(and (number? old-try-set) (= old-try-set least-difficult))
-                                    (let ([result
-                                           (begin (fprintf (current-error-port) "memoizing with threshold ~v\n" threshold)
-                                                  (let ([spaces (spare-spaces block-list line-length)]
+                                    (let ([spaces (spare-spaces block-list line-length)]
                                                         [bins (+ (length block-list) 1)]
                                                         [row-formulator (make-row-formulator block-list)]
                                                         [line-checker (check-try board-row)])
                                                     (or (build-possibles spaces bins row-formulator line-checker threshold)
-                                                        (* 2 old-try-set))))
-                                           ])
-                                      (if (not (number? result))
-                                          (fprintf (current-error-port) "length of list generated: ~v\n" (length result))
-                                          (fprintf (current-error-port) "search aborted\n" ))
-                                      result)]
+                                                        (* 2 old-try-set)))]
                                    [else old-try-set]))
                            old-tries
                            info-list
