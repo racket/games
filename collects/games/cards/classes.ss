@@ -430,7 +430,7 @@
 	[remove-cards
 	 (lambda (cards)
 	   (begin-card-sequence)
-	   (for-each (lambda (c) (send pb delete c)) cards)
+	   (for-each (lambda (c) (send pb release-snip c)) cards)
 	   (end-card-sequence))]
 	[flip-card
 	 (lambda (card)
