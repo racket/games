@@ -280,12 +280,13 @@
       (define checkers
         (map
          (lambda (x)
-           (let ((left-color (color-name->vector "midnightblue" #t))
+           (let ((color (color-name->vector (if (car x) "firebrick" "black") #t))
+                 (left-color (color-name->vector "midnightblue" #t))
                  (right-color (color-name->vector "darkred" #t))
                  (height (if (cadr x) .4 .2))
                  (tex (if (caddr x) (if (car x) light-checker-tex dark-checker-tex) #f)))
-             (cons x (cons (make-piece-dl left-color right-color height tex #f)
-                           (make-piece-dl left-color right-color height tex #t)))))
+             (cons x (cons (make-piece-dl color color height tex #f)
+                           (make-piece-dl color color height tex #t)))))
          '((#f #f #f)
            (#f #f #t)
            (#f #t #f)
