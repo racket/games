@@ -229,9 +229,27 @@ paint by numbers.
 	 (lambda (i j)
 	   (let ([dc (get-dc)])
 	     (let-values ([(left top width height) (grid->rect i j)])
-	       (send dc set-pen LINES/NUMBERS-PEN)
-	       (send dc set-brush (vector-ref (vector-ref grid i) j))
-	       (send dc draw-rectangle left top width height))))]
+	       (cond
+		[(and draw-small-p
+		      (= i (car draw-small-p))
+		      (= j (cdr draw-small-p)))
+		 (send dc set-pen WHITE-PEN)
+		 (send dc set-brush WHITE-BRUSH)
+		 (send dc draw-rectangle left top width height)
+
+		 (let ([spacing (floor (/ width 5))])
+		   (send dc set-pen LINES/NUMBERS-PEN)
+		   (send dc set-brush (vector-ref (vector-ref grid i) j))
+		   (send dc draw-rectangle
+			 (+ left spacing)
+			 (+ top spacing)
+			 (- width spacing spacing)
+			 (- height spacing spacing)))]
+
+		[else
+		 (send dc set-pen LINES/NUMBERS-PEN)
+		 (send dc set-brush (vector-ref (vector-ref grid i) j))
+		 (send dc draw-rectangle left top width height)]))))]
 
 	;; (int int -> (union 'on 'off 'unknown 'wrong))
 	[get-rect
@@ -304,7 +322,9 @@ paint by numbers.
 		     (loop (cdr ss)
 			   (+ line 1)))])))))]
 
-	[last-p #f])
+	[last-p #f]
+	[button-down-p #f]
+	[draw-small-p #f])
 
       (override
        [on-size
@@ -320,6 +340,21 @@ paint by numbers.
 	     [(or (send evt moving?)
 		  (send evt entering?)
 		  (send evt leaving?))
+
+	      ;; update depressed square
+	      (cond
+	       [(equal? button-down-p p)
+		(unless (equal? draw-small-p p)
+		  (set! draw-small-p p)
+		  (paint-rect (car draw-small-p)
+			      (cdr draw-small-p)))]
+	       [else
+		(let ([old-draw-small-p draw-small-p])
+		  (set! draw-small-p #f)
+		  (when old-draw-small-p
+		    (paint-rect (car old-draw-small-p)
+				(cdr old-draw-small-p))))])
+
 	      (let ([dc (get-dc)])
 
 		;; update the bars
@@ -359,7 +394,6 @@ paint by numbers.
 
 		(set! last-p p)
 
-
 		;; update the coordinates
 		(send dc set-pen WHITE-PEN)
 		(send dc set-brush WHITE-BRUSH)
@@ -376,8 +410,16 @@ paint by numbers.
 			 [sy (- (/ col-label-height 2)
 				(/ height 2))])
 		    (send dc draw-text string sx sy))))]
-	     [(send evt button-up?)
+	     [(send evt button-down?)
+	      (set! button-down-p p)
+	      (set! draw-small-p p)
 	      (when p
+		(paint-rect (car p) (cdr p)))]
+	     [(send evt button-up?)
+	      (cond
+	       [(and p (equal? button-down-p p))
+		(set! button-down-p #f)
+		(set! draw-small-p #f)
 		(let* ([i (car p)]
 		       [j (cdr p)]
 		       [prev (vector-ref (vector-ref grid i) j)]
@@ -400,7 +442,14 @@ paint by numbers.
 		  (set! undo-history (cons (make-do i j prev new) undo-history))
 		  (set! redo-history null)
 		  (vector-set! (vector-ref grid i) j new)
-		  (paint-rect i j)))])))]
+		  (paint-rect i j))]
+	       [else
+		(let ([old-draw-small-p draw-small-p])
+		  (set! button-down-p #f)
+		  (set! draw-small-p #f)
+		  (when old-draw-small-p
+		    (paint-rect (car old-draw-small-p)
+				(cdr old-draw-small-p))))])])))]
        [on-paint
 	(lambda ()
 	  (let ([dc (get-dc)])
