@@ -33,19 +33,21 @@
     (let* ((width (send bmp get-width))
            (height (send bmp get-height))
            (rgb (make-bytes (* 4 width height)))
-           (a (make-bytes (* 4 width height)))
+           (a (make-bytes (* 4 width height) 255))
            (dc (make-object bitmap-dc% bmp)))
       (send dc get-argb-pixels 0 0 width height rgb #f)
-      (send dc get-argb-pixels 0 0 width height a #t)
+      (when (send bmp get-loaded-mask)
+        (send dc set-bitmap (send bmp get-loaded-mask))
+        (send dc get-argb-pixels 0 0 width height a #t))
       (send dc set-bitmap #f)
       (cons a rgb)))
-      
+  
   (define (bitmap->image bmp)
     (make-image (send bmp get-width) (send bmp get-height)
                 (argb->rgba (bitmap->argb bmp))))
 
   (define (file->image file)
-    (bitmap->image (make-object bitmap% file 'unknown #f)))
+    (bitmap->image (make-object bitmap% file)))
   
   (define light-square-img (file->image (build-path path "light.jpg")))
   (define light-square-color (gl-float-vector .7216 .6471 .5176 1))
