@@ -195,15 +195,15 @@
     (send p set-alignment 'center 'center)
     p))
 
-(define time (make-object message% "Time: 00000" (make-centering-pane panel)))
+(define time-display (make-object message% "Time: 00000" (make-centering-pane panel)))
 (make-object button% "Reset" (make-centering-pane panel)
 	     (lambda (b e) (send board-canvas reset)))
-(define count (make-object message% "Count: 000" (make-centering-pane panel)))
+(define count-display (make-object message% "Count: 000" (make-centering-pane panel)))
 
 (define (set-time t)
-  (send time set-label (string-append "Time: " (number->string t))))
+  (send time-display set-label (string-append "Time: " (number->string t))))
 (define (set-count c)
-  (send count set-label (string-append "Bombs: " (number->string c))))
+  (send count-display set-label (string-append "Bombs: " (number->string c))))
 
 ;; Most of the work is in this class, which extends the basic canvas
 ;;  class for drawing the Minesweeper board and handling clicks.
