@@ -168,8 +168,8 @@
                                           to-x2 to-y))))))
       
       (define (move from to)
-        (let* ((to-x (inexact->exact (floor (gl-double-vector-ref to 0))))
-               (to-y (inexact->exact (floor (gl-double-vector-ref to 1))))
+        (let* ((to-x (inexact->exact (floor (gl-vector-ref to 0))))
+               (to-y (inexact->exact (floor (gl-vector-ref to 1))))
                (from-x (piece-info-x from))
                (from-y (piece-info-y from))
                (from-color (piece-info-color from))

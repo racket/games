@@ -1,7 +1,6 @@
 (module gl-board mzscheme
   (require (prefix gl- (lib "sgl.ss" "sgl"))
            (lib "gl.ss" "sgl")
-           (lib "gl-unsafe.ss" "sgl")
            (lib "gl-vectors.ss" "sgl")
            (lib "class.ss")
            (lib "list.ss")
@@ -22,24 +21,18 @@
   ;; returns the point on the p1-p2 line with the given z coordinate.
   (define (interpolate z p1 p2)
     (let* ((v (gl-double-vector- p2 p1))
-           (c (/ (- z (gl-double-vector-ref p1 2))
-                 (gl-double-vector-ref v 2))))
+           (c (/ (- z (gl-vector-ref p1 2))
+                 (gl-vector-ref v 2))))
       (gl-double-vector+ p1 (gl-double-vector* c v))))
   
   (define (get-viewport)
-    (let ((v (make-gl-int-vector 4)))
-      (glGetIntegerv GL_VIEWPORT v)
-      v))
+    (glGetIntegerv GL_VIEWPORT 4))
 
   (define (get-projection)
-    (let ((v (make-gl-double-vector 16)))
-      (glGetDoublev GL_PROJECTION_MATRIX v)
-      v))
-
+    (glGetDoublev GL_PROJECTION_MATRIX 16))
+    
   (define (get-modelview)
-    (let ((v (make-gl-double-vector 16)))
-      (glGetDoublev GL_MODELVIEW_MATRIX v)
-      v))
+    (glGetDoublev GL_MODELVIEW_MATRIX 16))
 
   (define gl-board%
     (class canvas%
@@ -126,9 +119,9 @@
         (when pieces?
           (let loop ((i (length spaces))
                      (ps (if (and (piece? mouse-state) dragging)
-                             (cons (make-piece (gl-double-vector-ref dragging 0)
-                                               (gl-double-vector-ref dragging 1)
-                                               (gl-double-vector-ref dragging 2)
+                             (cons (make-piece (gl-vector-ref dragging 0)
+                                               (gl-vector-ref dragging 1)
+                                               (gl-vector-ref dragging 2)
                                                (piece-draw mouse-state)
                                                (piece-info mouse-state))
                                    pieces)
@@ -194,7 +187,7 @@
           (gl-matrix-mode 'projection)
           (gl-push-matrix)
           (gl-load-identity)
-          (gl-pick-matrix x (- (gl-int-vector-ref vp 3) y 1) 1.0 1.0 vp)
+          (gl-pick-matrix x (- (gl-vector-ref vp 3) y 1) 1.0 1.0 vp)
           (gl-mult-matrix proj)
           (gl-matrix-mode 'modelview)
           (gl-init-names)
@@ -205,7 +198,7 @@
           (gl-matrix-mode 'modelview)
           (gl-flush)
           (let* ((hits (gl-render-mode 'render))
-                 (results (mergesort (gl-process-selection (gl-mem-blk->gl-uint-vector selection)
+                 (results (mergesort (gl-process-selection (select-buffer->gl-uint-vector selection)
                                                            hits)
                                      (lambda (a b)
                                        (< (gl-selection-record-min-z a)
@@ -228,7 +221,7 @@
         (let* ((v (get-viewport))
                (m (get-modelview))
                (p (get-projection))
-               (real-y (- (gl-int-vector-ref v 3) y 1)))
+               (real-y (- (gl-vector-ref v 3) y 1)))
           (interpolate z
                        (gl-un-project x real-y 0.0 m p v)
                        (gl-un-project x real-y 1.0 m p v))))
