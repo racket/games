@@ -12,7 +12,7 @@
                     (filter (lambda (f)
                               (let ([p (build-path d f)])
                                 (and (directory-exists? p)
-                                     (with-handlers ([not-break-exn? (lambda (x) #f)])
+                                     (with-handlers ([exn:fail? (lambda (x) #f)])
                                        ((get-info (list (string->path "games") f)) 'game (lambda () #f))))))
                             (directory-list d)))])
        (map (lambda (g)
