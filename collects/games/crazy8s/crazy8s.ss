@@ -285,10 +285,20 @@
 				   (+ BUTTON-HEIGHT MARGIN))
 				PASS-W BUTTON-HEIGHT
 				"Clean" (lambda ()
-					  (send t stack-cards (player-hand you))
-					  (send t move-cards-to-region
-						(player-hand you)
-						(player-hand-r you)))))
+					  (let ([ordered
+						 (map
+						  cdr
+						  (quicksort
+						   (map (lambda (c)
+							  (let-values ([(x y) (send t card-location c)])
+							    (cons x c)))
+							(player-hand you))
+						   (lambda (a b)
+						     (> (car a) (car b)))))])
+					    (send t stack-cards ordered)
+					    (send t move-cards-to-region
+						  ordered
+						  (player-hand-r you))))))
       
       ;; Card setup: Deal the cards
       (for-each (lambda (player)

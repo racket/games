@@ -442,6 +442,13 @@
 	[move-cards-to-region
 	 (lambda (cards region)
 	   (position-cards-in-region cards region (lambda (c x y) (send pb move-to c x y))))]
+	[card-location
+	 (lambda (card)
+	   (let ([x (box 0)]
+		 [y (box 0)])
+	     (unless (send pb get-snip-location card x y)
+	       (raise-mismatch-error 'card-location "card not on table: " card))
+	     (values (unbox x) (unbox y))))]
 	[remove-card
 	 (lambda (card)
 	   (remove-cards (list card)))]
