@@ -36,41 +36,45 @@ yet defined.
 	    mzlib:pretty-print^
 	    (argv))
 
-    (define time-limit 40) ;; in seconds
+    (define time-limit 300) ;; in seconds
 
     (define hattori-count 30)
 
     (define problems-dir (collection-path "games" "paint-by-numbers"))
     (define input-file (build-path problems-dir "raw-problems.ss"))
     (define hattori-input-file (build-path problems-dir "raw-hattori.ss"))
-    (define output-file (build-path problems-dir "problems.ss"))
     
-    (define raw-hattori
-      (call-with-input-file hattori-input-file (compose eval read)))
+    (define hattori-sets
+      (reverse
+       (let ([set-size 3]
+	     [raw-hattori
+	      (call-with-input-file hattori-input-file (compose eval read))])
+	 (let o-loop ([n (length raw-hattori)])
+	   (cond
+	    [(zero? n) null]
+	    [else 
+	     (let ([first n]
+		   [last (if (< n set-size)
+			     0
+			     (- n set-size))])
+	       (let i-loop ([i first]
+			    [set null])
+		 (cond
+		  [(= i last) (cons 
+			       (list (format "Hattori ~a - ~a" first last)
+				     (format "h~a-~a" first last)
+				     set)
+			       (o-loop last))]
+		  [else (i-loop (- i 1)
+				(cons (list-ref raw-hattori (- i 1))
+				      set))])))])))))
 
-    (fprintf (current-error-port) "a random selection of hattoris will be included:~n  ")
-    (define problems
-      (append
+    (define games-set 
+      (list "Games Magazine"
+	    "games"
+	    (call-with-input-file input-file (compose eval read))))
 
-	;; random hattoris
-	(let loop ([n hattori-count])
-	  (cond
-	   [(zero? n) null]
-	   [else (cons
-		  (let ([n 
-			 (+ n (* 1 hattori-count) -1) ;; offset selection
-			 ;(random (length raw-hattori)) ;; random selection
-			 ])
-		    (fprintf (current-error-port) " ~a" (+ n 1))
-		    (list-ref raw-hattori n))
-		  (loop (- n 1)))]))
-
-         ;; original problems
-        (call-with-input-file input-file (compose eval read))))
-
-    (newline)
-    (newline)
-
+    (define sets (cons games-set hattori-sets))
 
     (define (sum-list l) (apply + l))
     (define (sum-lists ls) (sum-list (map sum-list ls)))
@@ -198,26 +202,38 @@ yet defined.
 		 "problem ~a: sum of the column lists is not the same as the sum of the row lists"
 		 name))))
       			    
-    ;; perform sanity checks before solving any boards
-    (for-each sanity-check problems)
+    (for-each 
+     (lambda (set)
+       (let ([set-name (car set)]
+	     [output-file (build-path (collection-path "games" "paint-by-numbers" "problems")
+				      (cadr set))]
+	     [problems (caddr set)])
+	 (for-each sanity-check problems)
+	 (if (file-exists? output-file)
+	     (printf "skipping ~s~n" set-name)
+	     (call-with-output-file output-file
+	       (lambda (port)
+		 (printf "building ~s~n" set-name)
+		 (parameterize ([current-output-port port])
+		   (pretty-print
+		    `(unit/sig paint-by-numbers:problem-set^
+			       (import)
 
-    (call-with-output-file output-file
-      (lambda (port)
-	(parameterize ([current-output-port port])
-	  (pretty-print
-	   `(define problems
-	      (list
-	       ,@(map (lambda (x)
-			(let ([name (first x)]
-			      [rows (second x)]
-			      [cols (third x)])
-			  `(make-problem
-			    ,(first x)
-			    ',rows
-			    ',cols
-			    ',(solve name rows cols))))
-		      problems))))))
-      'truncate)))
+			       (define set-name ,set-name)
+
+			       (define problems
+				 (list
+				  ,@(map (lambda (x)
+					   (let ([name (first x)]
+						 [rows (second x)]
+						 [cols (third x)])
+					     `(make-problem
+					       ,(first x)
+					       ',rows
+					       ',cols
+					       ',(solve name rows cols))))
+					 problems)))))))))))
+     sets)))
 
 (invoke-unit/sig
  (compound-unit/sig (import [A : (argv)])
