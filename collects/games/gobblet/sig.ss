@@ -15,7 +15,10 @@
      board-ref
      fold-board 
      fold-rowcol 
-     other))
+     other
+     available-off-board
+     make-canonicalize
+     apply-xform unapply-xform))
 
   (define-signature restart^
     (new-game
