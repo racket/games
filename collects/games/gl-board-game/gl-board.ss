@@ -113,8 +113,8 @@
       (define eye-distance (* 2.0 (max (- max-x min-x) (- max-y min-y))))
       (define delta-eye-distance (/ eye-distance 30.0))
       (define fov 30)
-      (define theta 45)
-      (define phi 0)
+      (init-field [theta 45])
+      (init-field [phi 0])
       
       ;; Transformation used to draw shadows.
       (define shadow-projection 

@@ -115,7 +115,8 @@
 	     (min-x (if JR? (- 1 BOARD-SIZE) -1)) (max-x (if JR? (sub1 (* 2 BOARD-SIZE)) (add1 BOARD-SIZE)))
 	     (min-y 0) (max-y BOARD-SIZE)
 	     (lift 1.2)
-	     (move gui-move)))
+	     (move gui-move)
+	     (theta 30)))
 
       (define q
 	(send gui-board with-gl-context
