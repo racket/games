@@ -7,8 +7,11 @@
            (lib "gl.ss" "sgl")
            (lib "array.ss" "srfi" "25")
            (lib "unit.ss")
+           "honu-bitmaps.ss"
            (rename (lib "gl-frame.ss" "sgl" "examples")
-                   image->gl-vector image->gl-vector))
+                   image->gl-vector image->gl-vector)
+           (rename (lib "gl-frame.ss" "sgl" "examples")
+                   bitmap->gl-vector bitmap->gl-vector))
   
   (provide game-unit)
 
@@ -20,6 +23,9 @@
   (define dark-img (image->gl-vector (build-path path "dark.jpg")))
   (define dark-color (gl-float-vector .4745 .3569 .2627 1))
   (define light-color (gl-float-vector .7216 .6471 .5176 1))
+  
+  (define dark-checker-img (bitmap->gl-vector dark-honu-bitmap))
+  (define light-checker-img (bitmap->gl-vector light-honu-bitmap))
   
   (define-struct space-info (x y light?))
   (define-struct piece-info (x y color king?) (make-inspector))
@@ -117,34 +123,100 @@
                 (send board refresh)))))
       (send texture-box set-value #t)
                 
-                
-                         
       (define q
         (send board with-gl-context
           (lambda () (gl-new-quadric))))
+
+      (define-values (dark-tex light-tex dark-checker-tex light-checker-tex)
+        (send board with-gl-context
+          (lambda ()
+            (let ((x (glGenTextures 4)))
+              (values
+               (gl-vector-ref x 0)
+               (gl-vector-ref x 1)
+               (gl-vector-ref x 2)
+               (gl-vector-ref x 3))))))
       
-      (define (make-piece-dl real-color height)
+      (define (init-tex tex img)
+        (send board with-gl-context
+              (lambda ()
+                (glBindTexture GL_TEXTURE_2D tex)
+                (glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR)
+                (glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR)
+                (glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_S GL_CLAMP)
+                (glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_T GL_CLAMP)
+                (glTexImage2D GL_TEXTURE_2D 0 GL_RGB (car img) (cadr img) 0
+                              GL_RGB GL_UNSIGNED_BYTE (caddr img)))))
+      
+      (init-tex light-tex light-img)
+      (init-tex dark-tex dark-img)
+      (init-tex light-checker-tex light-checker-img)
+      (init-tex dark-checker-tex dark-checker-img)
+      
+      (define-syntax (do-em stx)
+        (syntax-case stx ()
+          [(_ reverse? args ...)
+           (with-syntax ([(rev-args ...) (reverse (syntax->list (syntax (args ...))))])
+             (syntax (if reverse?
+                         (begin rev-args ...)
+                         (begin args ...))))]))
+      
+      (define (make-piece-dl real-color height tex ul?)
         (send board with-gl-context
           (lambda ()
             (let ((list-id (gl-gen-lists 1)))
               (gl-quadric-draw-style q 'fill)
               (gl-quadric-normals q 'smooth)
               (gl-new-list list-id 'compile)
+              (gl-enable 'texture-2d)
+              (glBindTexture GL_TEXTURE_2D tex)
+              
               ;(gl-material-v 'front 'specular (gl-float-vector 1.0 1.0 1.0 1.0))
               ;(gl-material 'front 'shininess 120.0)  
               (gl-material-v 'front 'ambient-and-diffuse real-color)
+              
               (gl-cylinder q .35 .35 height 25 1)
               (gl-push-matrix)
               (gl-translate 0.0 0.0 height)
+              
               (gl-disk q 0.0 .35 25 1)
+              (gl-translate 0.0 0.0 0.05)
+              
+              
+              (gl-enable 'blend)
+              (gl-begin 'polygon)
+              (cond
+                [ul?
+                 (gl-tex-coord 0.0 1.0)
+                 (gl-vertex 0.5 -0.5 0.0)
+                 
+                 (gl-tex-coord 0.0 0.0)
+                 (gl-vertex 0.5 0.5 0.0)
+                 
+                 (gl-tex-coord 1.0 0.0)
+                 (gl-vertex -0.5 0.5 0.0)
+                 
+                 (gl-tex-coord 1.0 1.0)
+                 (gl-vertex -0.5 -0.5 0.0)
+                 ]
+                [else
+                 (gl-tex-coord 0.0 0.0)
+                 (gl-vertex -0.5 -0.5 0.0)
+                 (gl-tex-coord 1.0 0.0)
+                 (gl-vertex 0.5 -0.5 0.0)
+                 (gl-tex-coord 1.0 1.0)
+                 (gl-vertex 0.5 0.5 0.0)
+                 (gl-tex-coord 0.0 1.0)
+                 (gl-vertex -0.5 0.5 0.0)
+                 ])
+              (gl-end)
+              (gl-disable 'blend)
+              
+              
               (gl-pop-matrix)
+              (gl-disable 'texture-2d)
               (gl-end-list)
               list-id))))
-
-      (define red-piece (make-piece-dl dim-red .2))
-      (define red-king (make-piece-dl dim-red .4))
-      (define black-piece (make-piece-dl gray .2))
-      (define black-king (make-piece-dl gray .4))
 
       (define (get-piece-dl color king?)
         (cond
@@ -152,28 +224,6 @@
            (if king? red-king red-piece))
           (else
            (if king? black-king black-piece))))
-      
-      (define-values (dark-tex light-tex)
-        (send board with-gl-context
-          (lambda ()
-            (let ((x (glGenTextures 2)))
-              (values
-               (gl-vector-ref x 0)
-               (gl-vector-ref x 1))))))
-
-      (define (init-tex tex img)
-        (send board with-gl-context
-          (lambda ()
-            (glBindTexture GL_TEXTURE_2D tex)
-            (glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR)
-            (glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR)
-            (glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_S GL_CLAMP)
-            (glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_T GL_CLAMP)
-            (glTexImage2D GL_TEXTURE_2D 0 GL_RGB (car img) (cadr img) 0
-                          GL_RGB GL_UNSIGNED_BYTE (caddr img)))))
-      
-      (init-tex light-tex light-img)
-      (init-tex dark-tex dark-img)
 
       (define (make-tex-square-dl tex)
         (send board with-gl-context
@@ -213,6 +263,12 @@
               (gl-end-list)
               list-id))))
       
+      
+      (define red-piece (make-piece-dl dim-red .2 dark-checker-tex #t))
+      (define red-king (make-piece-dl dim-red .4 dark-checker-tex #t))
+      (define black-piece (make-piece-dl gray .2 dark-checker-tex #f))
+      (define black-king (make-piece-dl gray .4 dark-checker-tex #f))
+
       (define dark-square (cons (make-tex-square-dl dark-tex)
                                 (make-square-dl dark-color)))
       (define light-square (cons (make-tex-square-dl light-tex)
