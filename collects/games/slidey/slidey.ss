@@ -1,5 +1,5 @@
+
 (module slidey mzscheme
-  
   (require (lib "etc.ss")
            (lib "class.ss")
            (lib "unit.ss")
@@ -218,10 +218,11 @@
                  board
                  (lambda (i j v)
                    (draw-cell i j)))))
+
           (define/override (on-event evt)
             (unless solved?
               (cond
-                [(send evt button-up? 'left)
+                [(send evt button-down? 'left)
                  (let-values ([(i j) (xy->ij (send evt get-x) (send evt get-y))])
                    (slide i j))]
                 [else (void)])))
