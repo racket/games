@@ -87,8 +87,14 @@ paint by numbers.
 
 	[get-row-label-string
 	 (lambda (l)
-	   (let ([s (format "~a" l)])
-	     (substring s 1 (- (string-length s) 1))))]
+	   (if (null? l)
+	       ""
+	       (let ([first (car l)]
+		     [rest (cdr l)])
+		 (apply string-append 
+			(number->string first)
+			(map (lambda (x) (format " ~a" x)) rest)))))]
+
 	[get-col-label-strings
 	 (lambda (l)
 	   (map number->string l))]
