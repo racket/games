@@ -1,7 +1,7 @@
 
 (let ([elaboration-time-files
        (list "awk.ss" "compatm.ss" "defstru.ss" 
-	     "macro.ss" "match.ss"
+	     "macro.ss" "match.ss" "classd.ss"
 	     "shared.ss" "restarts.ss" "cmdlinem.ss"
 	     "spidey.ss" "synrule.ss" "trace.ss"
 	     "cmdlines.ss" "dates.ss" "strings.ss"
