@@ -220,7 +220,7 @@ yet defined.
 	       (lambda (port)
 		 (printf "Building ~s~n" set-name)
 		 (parameterize ([current-output-port port])
-		   (pretty-print
+		   (write
 		    `(unit/sig paint-by-numbers:problem-set^
 			       (import paint-by-numbers:problem^)
 
