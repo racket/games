@@ -70,8 +70,8 @@
 		   (send dc draw-ellipse 
 			 (floor (+ x (/ x-step 4)))
 			 (floor (+ y (/ y-step 4)))
-			 (quotient x-step 2)
-			 (quotient y-step 2)))]
+			 (floor (/ x-step 2))
+			 (floor (/ y-step 2))))]
 		[else
 		 (if index
 		     (begin (send dc set-pen (list-ref pens index))
