@@ -15,6 +15,7 @@
            find-home-row-coordinates
            get-cell-size
            get-piece-size
+           pawn-drawn-color
            
            (struct home-row-c (count color))
            (struct main-c (count))
@@ -336,11 +337,25 @@
              [str (number->string (pawn-id pawn))]
              [old-font (send dc get-font)]
              [old-fore (send dc get-text-foreground)]
-             [size (get-piece-size w h)])
+             [size (get-piece-size w h)]
+             [old-pen (send dc get-pen)]
+             [old-brush (send dc get-brush)])
+         (send dc set-pen (send the-pen-list find-or-create-pen  "black" 1 'transparent))
+         (send dc set-brush (send the-brush-list find-or-create-brush (pawn-drawn-color (pawn-color pawn)) 'solid))
          (send dc draw-ellipse (+ dx x) (+ dy y) size size)
          (send dc set-font font)
          (send dc set-text-foreground (get-number-color (pawn-color pawn)))
+         (send dc set-pen old-pen)
+         (send dc set-brush old-brush)
          (send dc set-font old-font)))))
+  
+  (define (pawn-drawn-color c)
+    (case c
+      [(yellow) "yellow"]
+      [(green) "limegreen"]
+      [(red) "orangered"]
+      [(blue) "royalblue"]))
+  
   
   (define home-row-coordinates
     (list (list 'red

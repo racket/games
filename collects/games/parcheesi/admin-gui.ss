@@ -565,13 +565,6 @@
       (super-new)
       (inherit set-selection-visible)
       (set-selection-visible #f)))
-
-  (define (pawn-drawn-color c)
-    (case c
-      [(yellow) "yellow"]
-      [(green) "limegreen"]
-      [(red) "orangered"]
-      [(blue) "royalblue"]))
   
   (define coordinate-snip%
     (class snip%
