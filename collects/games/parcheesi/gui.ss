@@ -39,13 +39,31 @@
         (values (* w 1/24) (* h 1/9))))
   
   (define colors
-    '((green . "green")
+    '((green . "limegreen")
       (red . "red")
       (yellow . "gold")
       (blue . "blue")
       (black . "black")
       (safety . "purple")
       (track-background . "light blue")))
+  
+  #;
+  (define (pawn-drawn-color c)
+    (case c
+      [(yellow) "yellow"]
+      [(green) "green"]
+      [(red) "deeppink" #;"orangered"]
+      [(blue) "royalblue"]))
+  
+  (define (pawn-drawn-color c)
+    (let* ([clr-str (assq c colors)]
+           [color-obj (make-object color% (cdr clr-str))]
+           [move-up (lambda (x) (+ x (quotient (- 255 x) 3)))]
+           [red (move-up (send color-obj red))]
+           [green (move-up (send color-obj green))]
+           [blue (move-up (send color-obj blue))])
+      (send color-obj set red green blue)
+      color-obj))
 
   (define circle-gap 1/20)
   
@@ -352,14 +370,6 @@
          (send dc set-pen old-pen)
          (send dc set-brush old-brush)
          (send dc set-font old-font)))))
-  
-  (define (pawn-drawn-color c)
-    (case c
-      [(yellow) "yellow"]
-      [(green) "limegreen"]
-      [(red) "orangered"]
-      [(blue) "royalblue"]))
-  
   
   (define home-row-coordinates
     (list (list 'red
