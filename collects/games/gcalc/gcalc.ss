@@ -517,7 +517,7 @@
 (define gcalc-frame
   (instantiate
    (class frame%
-     (define/override (on-close) (maybe-save-and-exit))
+     (define/augment (on-close) (maybe-save-and-exit))
      (define/public (open-file file) (open file))
      (super-instantiate ("GCalc") (style '(no-resize-border)))
      (send this stretchable-width #f)
