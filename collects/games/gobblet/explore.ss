@@ -86,6 +86,7 @@
       (define no-goodness null)
 
       (define hit-count 0)
+      (define depth-count 0)
       (define explore-count 0)
       (define enter-count 0)
       (define move-count 0)
@@ -123,6 +124,7 @@
 		  [(winner? board me)
 		   (hash-table-put! memory win/lose-key '((+inf.0)))
 		   '((+inf.0))]
+		  [(begin (set! depth-count (add1 depth-count)) #f) (void)]
 		  [(depth . >= . max-depth)
 		   (let ([l (list (list (rate-board board me last-to-i last-to-j)))])
 		     (hash-table-put! memory key l)
@@ -267,6 +269,7 @@
 	  ((fold-board (lambda (i j v) (+ v (length (board-ref board i j)))) 0) . < . 2))
 	(define now (current-inexact-milliseconds))
 	(set! hit-count 0)
+	(set! depth-count 0)
 	(set! explore-count 0)
 	(set! enter-count 0)
 	(set! move-count 0)
@@ -288,9 +291,9 @@
 				  (available-off-board board me))
 			      (available-off-board board (other me))
 			      board #f #f)])
-	  (log-printf 2 indent "~a>> Done ~a ~a ~a+~a [~a secs]~n" 
+	  (log-printf 2 indent "~a>> Done ~a ~a ~a ~a+~a [~a secs]~n" 
 		      (make-string indent #\space) 
-		      hit-count explore-count enter-count move-count
+		      hit-count depth-count explore-count enter-count move-count
 		      (float->string (/ (- (current-inexact-milliseconds) now) 1000)))
 	  (let ([plays
 		 (map (lambda (v)
