@@ -19,8 +19,6 @@
       (define colors (map (lambda (x) (make-object color% x)) (list "blue" "red" "magenta" "yellow" "cyan")))
       (define pens (map (lambda (x) (make-object pen% x 1 'solid)) colors))
       (define brushes (map (lambda (x) (make-object brush% x 'solid)) colors))
-      (define xor-pens (map (lambda (x) (make-object pen% x 1 'xor)) colors))
-      (define xor-brushes (map (lambda (x) (make-object brush% x 'xor)) colors))
       (define white-pen (make-object pen% "white" 1 'solid))
       (define white-brush (make-object brush% "white" 'solid))
       
@@ -65,26 +63,21 @@
               (let ([index (vector-ref (vector-ref (vector-ref board i) j) 0)]
                     [x (* i (get-x-step))]
                     [y (* j (get-y-step))])
-                (cond
-                  [highlight?
-                   (send dc set-pen white-pen)
-                   (send dc set-brush white-brush)
-                   (send dc draw-ellipse x y (get-x-step) (get-y-step))
-                   (when index
-                     (send dc set-pen (list-ref pens index))
-                     (send dc set-brush (list-ref brushes index))
-                     (send dc draw-ellipse 
-                           (floor (+ x (/ (get-x-step) 4)))
-                           (floor (+ y (/ (get-y-step) 4)))
-                           (floor (/ (get-x-step) 2))
-                           (floor (/ (get-y-step) 2))))]
-                  [else
-                   (if index
-                       (begin (send dc set-pen (list-ref pens index))
-                              (send dc set-brush (list-ref brushes index)))
-                       (begin (send dc set-pen white-pen)
-                              (send dc set-brush white-brush)))
-                   (send dc draw-ellipse x y (get-x-step) (get-y-step))])))]
+		(send dc set-brush white-brush)
+		(send dc set-pen white-pen)
+		(send dc draw-rectangle x y (get-x-step) (get-y-step))
+		(when index
+		  (send dc set-brush (list-ref brushes index))
+		  (send dc set-pen (list-ref pens index))
+		  (cond
+		   [highlight?
+		    (send dc draw-ellipse 
+			  (floor (+ x (/ (get-x-step) 4)))
+			  (floor (+ y (/ (get-y-step) 4)))
+			  (floor (/ (get-x-step) 2))
+			  (floor (/ (get-y-step) 2)))]
+		   [else
+		    (send dc draw-ellipse x y (get-x-step) (get-y-step))]))))]
           
           [define/public  draw-line
             (lambda (dc i)
@@ -282,11 +275,6 @@
               (let ([dc (get-dc)])
                 (send dc set-pen white-pen)
                 (send dc set-brush white-brush)
-                (let-values ([(x y width height border) (get-game-over-size dc)])
-                  (send dc draw-rectangle
-                        (- x border) (- y border)
-                        (+ width border border)
-                        (+ height border border)))
                 (let loop ([i board-width])
                   (cond
                     [(zero? i) (void)]
@@ -295,7 +283,9 @@
                 (when game-over?
                   (paint-game-over dc))))]
           
-          (super-new)))
+          (super-new)
+
+	  (send (get-dc) set-smoothing 'aligned)))
       
       (define semaphore (make-semaphore 0))
       (define same-frame%
