@@ -2,7 +2,7 @@
 (let ([elaboration-time-files
        (list "awk.ss" "compatm.ss" "constan.ss" "defstru.ss" 
 	     "macro.ss" "macrox.ss" "match.ss"
-	     "shared.ss" "restarts.ss"
+	     "shared.ss" "restarts.ss" "cmdlinem.ss"
 	     "spidey.ss" "synrule.ss" "trace.ss"
 	     "cmdlines.ss" "dates.ss" "strings.ss"
 	     "compats.ss" "files.ss" "threads.ss"
