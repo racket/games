@@ -68,12 +68,8 @@
 	    [draw
 	     (lambda (dc x y left top right bottom dx dy draw-caret)
 	       (if semi-flipped?
-		   (send dc blit (+ x (/ width 4)) y (/ width 2) height 
-			 (if flipped? semi-back semi-front) 
-			 0 0)
-		   (send dc blit x y width height 
-			 (if flipped? back front) 
-			 0 0)))]
+		   (send dc draw-bitmap (if flipped? semi-back semi-front) (+ x (/ width 4)) y)
+		   (send dc draw-bitmap (if flipped? back front) x y)))]
 	    [copy (lambda () (make-object card% suit-id value width height 
 					  front back semi-front semi-back))])
 	   (private

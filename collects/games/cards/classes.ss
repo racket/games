@@ -358,15 +358,18 @@
   
   (define table%
     (class mred:frame% (title w h)
+      (inherit reflow-container)
       (override
 	[on-close
 	 (lambda ()
 	   (exit))])
       (public
-	[table-width (lambda () 
+	[table-width (lambda ()
+		       (reflow-container)
 		       (let-values ([(x y w h) (send pb get-full-box)])
 			 w))]
-	[table-height (lambda () 
+	[table-height (lambda ()
+			(reflow-container)
 			(let-values ([(x y w h) (send pb get-full-box)])
 			  h))]
 	[begin-card-sequence

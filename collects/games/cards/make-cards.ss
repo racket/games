@@ -4,21 +4,17 @@
 
   (define (get-bitmap file)
     (make-object mred:bitmap% file 'gif))
-  (define (get-bitmap/dc file)
-    (let ([bm (get-bitmap file)])
-      (let ([m (make-object mred:memory-dc%)])
-	(send m select-object bm)
-	m)))
 
-  (define (make-semi dc w h)
+  (define (make-semi bm-in w h)
     (let* ([bm (make-object mred:bitmap% (floor (/ w 2)) h)]
-	   [mdc (make-object mred:memory-dc%)])
-      (send mdc select-object bm)
+	   [mdc (make-object mred:bitmap-dc%)])
+      (send mdc set-bitmap bm)
       (let loop ([i (floor (/ w 2))])
 	(unless (zero? i)
-	  (send mdc blit i 0 1 h dc (* 2 i) 0)
+	  (send mdc draw-bitmap-section bm-in i 0 (* 2 i) 0 1 h)
 	  (loop (sub1 i))))
-      mdc))
+      (send mdc set-bitmap #f)
+      bm))
 
   (define tmpframe
     (let* ([f (make-object mred:frame% "Please Wait")])
@@ -42,9 +38,6 @@
     (let* ([back (get-bitmap (here "back.gif"))]
 	   [w (send back get-width)]
 	   [h (send back get-height)]
-	   [back (let ([m (make-object mred:memory-dc%)])
-		   (send m select-object back)
-		   m)]
 	   [semi-back (make-semi back w h)])
       (let sloop ([suit 4])
 	(if (zero? suit)
@@ -53,7 +46,7 @@
 	      (sleep)
 	      (if (zero? value)
 		  (sloop (sub1 suit))
-		  (let ([front (get-bitmap/dc
+		  (let ([front (get-bitmap
 				(here 
 				 (format "card-~a-~a.gif"
 					 (sub1 value)
