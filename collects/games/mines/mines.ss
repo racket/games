@@ -4,10 +4,12 @@
 ;; do you expect in 400 lines?
 ;;  -Matthew
 
-(define TILE-HW 24)    ; height/width of a tile
-(define WIDTH 16)      ; number of tiles across
-(define HEIGHT 16)     ; number of tiles down
-(define BOMB-COUNT 30) ; number of bombs to hide
+(require-library "core.ss")
+
+(define TILE-HW 24)        ; height/width of a tile
+(define B-WIDTH 16)        ; number of tiles across
+(define B-HEIGHT 16)       ; number of tiles down
+(define THE-BOMB-COUNT 30) ; number of bombs to hide
 
 (define DIGIT-COLOR-NAMES
   ; 0th is background; 8th is foreground
@@ -17,17 +19,15 @@
 
 (define DIGIT-COLORS
   (build-vector 9 (lambda (i)
-		    (send wx:the-colour-database find-colour 
+		    (send the-color-database find-color 
 			  (vector-ref DIGIT-COLOR-NAMES i)))))
 
 (define BG-COLOR (vector-ref DIGIT-COLORS 0))
 (define FG-COLOR (vector-ref DIGIT-COLORS 8))
-(define EXPLODE-COLOR (send wx:the-colour-database find-colour "RED"))
+(define EXPLODE-COLOR (send the-color-database find-color "RED"))
 
-(define BG-PEN (send wx:the-pen-list find-or-create-pen BG-COLOR 
-		     1 wx:const-solid))
-(define FG-PEN (send wx:the-pen-list find-or-create-pen FG-COLOR 
-		     1 wx:const-solid))
+(define BG-PEN (send the-pen-list find-or-create-pen BG-COLOR 1 'solid))
+(define FG-PEN (send the-pen-list find-or-create-pen FG-COLOR 1 'solid))
 
 ;; There's a lot of number-based loops below
 (define step-while
@@ -103,7 +103,8 @@
     (public
       [set-explode-source
        (lambda (s?)
-	 (set! explode-source? s?))]
+	 (set! explode-source? s?))])
+    (override
       [draw
        (lambda (dc x y w h hilite?)
 	 (if (eq? (get-state) 'uncovered)
@@ -127,8 +128,8 @@
 		(step-while -1 <= 1 add1
 			   (lambda (dy)
 			     (if (and (not (and (zero? dx) (zero? dy)))
-				      (< -1 (+ x dx) WIDTH)
-				      (< -1 (+ y dy) HEIGHT))
+				      (< -1 (+ x dx) B-WIDTH)
+				      (< -1 (+ y dy) B-HEIGHT))
 				 (f dx dy)
 				 default))
 			   accum start))
@@ -146,23 +147,23 @@
 	 0))))
 
 (define (for-each-tile b f)
-  (step-while 0 < WIDTH add1
+  (step-while 0 < B-WIDTH add1
 	      (lambda (x)
-		(step-while 0 < HEIGHT add1
+		(step-while 0 < B-HEIGHT add1
 			    (lambda (y)
 			      (f (get-tile b x y) x y))))))
 
 (define (make-board)
-  (let ([b (build-vector WIDTH
+  (let ([b (build-vector B-WIDTH
 			 (lambda (i)
-			   (build-vector HEIGHT
+			   (build-vector B-HEIGHT
 					 (lambda (j)
 					   (make-object tile:plain%)))))])
-    (let loop ([n BOMB-COUNT])
+    (let loop ([n THE-BOMB-COUNT])
       (unless (zero? n)
 	(let rloop ()
-	  (let* ([x (random WIDTH)]
-		 [y (random HEIGHT)]
+	  (let* ([x (random B-WIDTH)]
+		 [y (random B-HEIGHT)]
 		 [t (get-tile b x y)])
 	    (if (is-a? t tile:bomb%)
 		(rloop)
@@ -179,22 +180,21 @@
 ;; class for drawing to the screen. It isn't necessary to put everything
 ;; in this class, but it's convenient.
 (define ms:canvas%
-  (class mred:canvas% (vpanel)
-    (inherit get-dc clear 
-	     set-min-width set-min-height 
-	     stretchable-in-x stretchable-in-y)
+  (class canvas% (vpanel)
+    (inherit get-dc min-client-width min-client-height 
+	     stretchable-width stretchable-height)
     (private
-      [panel (make-object mred:horizontal-panel% vpanel)])
+      [panel (make-object horizontal-panel% vpanel)])
     (sequence
-      (send panel stretchable-in-y #f))
+      (send panel stretchable-height #f))
     (private
-      [lspace (make-object mred:vertical-panel% panel)]
-      [time (make-object mred:message% panel "Time: 00000")]
-      [lmspace (make-object mred:vertical-panel% panel)]
-      [button (make-object mred:button% panel (lambda (b e) (reset)) "Reset")]
-      [rmspace (make-object mred:vertical-panel% panel)]
-      [count (make-object mred:message% panel "Count: 000")]
-      [rspace (make-object mred:vertical-panel% panel)]
+      [lspace (make-object vertical-panel% panel)]
+      [time (make-object message% "Time: 00000" panel)]
+      [lmspace (make-object vertical-panel% panel)]
+      [button (make-object button% "Reset" panel (lambda (b e) (reset)))]
+      [rmspace (make-object vertical-panel% panel)]
+      [count (make-object message% "Count: 000" panel)]
+      [rspace (make-object vertical-panel% panel)]
 
       [set-time
        (lambda (t)
@@ -210,8 +210,8 @@
       [start-time #f]
       [elapsed-time 0]
       [timer #f]
-      [bomb-count BOMB-COUNT]
-      [cover-count (* HEIGHT WIDTH)]
+      [bomb-count THE-BOMB-COUNT]
+      [cover-count (* B-HEIGHT B-WIDTH)]
       [board null])
     (public
       (stop-timer
@@ -224,8 +224,8 @@
 	 (set! start-time (current-seconds))
 	 (set! timer
 	       (make-object
-		(class wx:timer% ()
-		  (public
+		(class timer% ()
+		  (override
 		    [notify
 		     (lambda ()
 		       (let ([e (- (current-seconds) start-time)])
@@ -242,7 +242,7 @@
 	 (set! start-time #f)
 	 (unless win?
 	   (show-all-bombs))
-	 (set-count BOMB-COUNT)))
+	 (set-count THE-BOMB-COUNT)))
       (explode
        (lambda ()
 	 (end-of-game #f)))
@@ -255,11 +255,11 @@
 	 (set! ready? #t)
 	 (set! start-time #f)
 	 (set! elapsed-time 0)
-	 (set! cover-count (* HEIGHT WIDTH))
-	 (clear)
+	 (set! cover-count (* B-HEIGHT B-WIDTH))
+	 (send dc clear)
 	 (set-time 0)
-	 (set! bomb-count BOMB-COUNT)
-	 (set-count BOMB-COUNT)
+	 (set! bomb-count THE-BOMB-COUNT)
+	 (set-count THE-BOMB-COUNT)
 	 (set! board (make-board))
 	 (on-paint)))
       (show-all-bombs
@@ -325,8 +325,15 @@
 		 (begin
 		   (when (zero? nc)
 		     (autoclick-surrounding x y))))
-	     (when (and ready? (= cover-count BOMB-COUNT))
+	     (when (and ready? (= cover-count THE-BOMB-COUNT))
 	       (win))))))
+      (paint-one
+       (lambda (t x y)
+	 (let ([xloc (* x TILE-HW)]
+	       [yloc (* y TILE-HW)])
+	   (send t draw dc xloc yloc TILE-HW TILE-HW
+		 (eq? t clicking))))))
+    (override
       (on-event
        (lambda (e)
 	 (when ready?
@@ -337,8 +344,8 @@
 				(floor (send e get-x))) TILE-HW)]
 		  [y (quotient (inexact->exact 
 				(floor (send e get-y))) TILE-HW)]
-		  [t (if (and (< -1 x WIDTH)
-			      (< -1 y HEIGHT))
+		  [t (if (and (< -1 x B-WIDTH)
+			      (< -1 y B-HEIGHT))
 			 (get-tile board x y)
 			 #f)])
 	     (cond
@@ -362,33 +369,27 @@
 		(set! clicking-x -1)]
 	       [(and clicking (send e button-up?))
 		(set! clicking #f)
-		(do-select x y (send e button-up? 3))]
+		(do-select x y (send e button-up? 'right))]
 	       [else 'ok])))))
-      (paint-one
-       (lambda (t x y)
-	 (let ([xloc (* x TILE-HW)]
-	       [yloc (* y TILE-HW)])
-	   (send t draw dc xloc yloc TILE-HW TILE-HW
-		 (eq? t clicking)))))
       (on-paint
        (lambda ()
 	 (for-each-tile board (lambda (t x y)
 				(paint-one t x y))))))
     (sequence
       (super-init vpanel)
-      (set-min-width (* TILE-HW WIDTH))
-      (set-min-height (* TILE-HW HEIGHT))
-      (stretchable-in-x #f)
-      (stretchable-in-y #f))
+      (min-client-width (* TILE-HW B-WIDTH))
+      (min-client-height (* TILE-HW B-HEIGHT))
+      (stretchable-width #f)
+      (stretchable-height #f))
     (private
       [dc (get-dc)])
     (sequence
       (reset)
       (send dc set-text-background BG-COLOR)
-      (send dc set-brush (send wx:the-brush-list find-or-create-brush 
-			       BG-COLOR wx:const-solid)))))
+      (send dc set-brush (send the-brush-list find-or-create-brush 
+			       BG-COLOR 'solid)))))
 
-;; Make a frame, install the game, and then show the frame
-(define f (make-object mred:frame% null "Minesweeper"))
-(make-object ms:canvas% (make-object mred:vertical-panel% f))
-(send f show #t)
+;; Make a dialog, install the game, and then show the dialog
+(define d (make-object dialog% "Minesweeper"))
+(make-object ms:canvas% d)
+(send d show #t)
