@@ -9,6 +9,7 @@
            (lib "class.ss")
            (lib "unit.ss")
            (lib "pretty.ss")
+           (lib "list.ss")
            (lib "mred.ss" "mred"))
   
   (provide game-unit)
@@ -18,12 +19,28 @@
   (preferences:set-un/marshall 'paint-by-numbers:font
                                (lambda (font)
                                  (list (send font get-point-size)
-                                       (send font get-face)
                                        (send font get-family)
                                        (send font get-style)
                                        (send font get-weight)
                                        (send font get-underlined)))
-                               (lambda (lst) (send the-font-list find-or-create-font . lst)))
+                               (lambda (lst)
+                                 (let ([size (first lst)]
+                                       [family (second lst)]
+                                       [style (third lst)]
+                                       [weight (fourth lst)]
+                                       [underline (fifth lst)])
+                                   (cond
+                                     [(and (number? size)
+                                           (<= 1 size 72)
+                                           (memq family '(default decorative roman 
+                                                                  script swiss modern symbol system))
+                                           (memq style '(normal italic slant))
+                                           (memq weight '(normal bold light))
+                                           (boolean? underline))
+                                      
+                                      (or (send the-font-list find-or-create-font size family style weight underline)
+                                          default-font)]
+                                     [else default-font]))))
   
   (define problems (car problemss))
   
