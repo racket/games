@@ -1,8 +1,11 @@
 (eval
- (let loop ([files (directory-list (collection-path
+ (let loop ([files (call-with-input-file
+		       (build-path (collection-path
 				    "games"
 				    "paint-by-numbers"
-				    "problems"))])
+				    "problems")
+				   "directory")
+		     read)])
    (cond
      [(null? files)
       (unit/sig paint-by-numbers:all-problems^
