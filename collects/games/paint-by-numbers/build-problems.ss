@@ -17,6 +17,7 @@ yet defined.
 
 |#
 
+(require-library "macro.ss")
 (require-library "functios.ss")
 (require-library "prettys.ss")
 
@@ -35,11 +36,27 @@ yet defined.
 	    mzlib:pretty-print^
 	    (argv))
 
+    (define hattori-count 10)
+
     (define problems-dir (collection-path "games" "paint-by-numbers"))
     (define input-file (build-path problems-dir "raw-problems.ss"))
     (define output-file (build-path problems-dir "problems.ss"))
     
     (define problems (call-with-input-file input-file (compose eval read)))
+
+    (define raw-hattori (load-relative "raw-hattori.ss"))
+
+    (printf "a random selection of hattoris will be included:~n  ")
+    (define trimmed-hattori
+      (let loop ([n hattori-count])
+	(cond
+	 [(zero? n) null]
+	 [else (cons
+		(let ([n (random (length raw-hattori))])
+		  (list-ref raw-hattori n)
+		  (printf " ~a" n))
+		(loop (- n 1)))])))
+    (newline)
 
     (define (sum-list l) (apply + l))
     (define (sum-lists ls) (sum-list (map sum-list ls)))

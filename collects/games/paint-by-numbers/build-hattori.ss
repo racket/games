@@ -8,7 +8,6 @@
 
 (define pixel-size 10)
 
-
 (define (main n)
   (let ([grid (calculate-grid (format "~a.gif" n))])
     (display-grid grid)
@@ -155,11 +154,9 @@
 (define (transpose l) (apply map list l))
 
 (define (build-problem n on-off-lists)
-  `(make-problem
-    ,(format "Hitori ~a" n)
-    ',(map on-off->blocks on-off-lists)
-    ',(map on-off->blocks (transpose on-off-lists))
-    ,(list->vector (map list->vector on-off-lists))))
+  `'(,(format "Hitori ~a" n)
+     ,(map on-off->blocks on-off-lists)
+     ,(map on-off->blocks (transpose on-off-lists))))
 
 
 (printf "(list~n")
