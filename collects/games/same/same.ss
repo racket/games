@@ -58,10 +58,10 @@
         (class100-asi canvas%
           (inherit get-dc get-size)
           (private-field
-           [width #f]
-           [height #f]
-           [x-step #f]
-           [y-step #f])
+           [width 1]
+           [height 1]
+           [x-step 1]
+           [y-step 1])
           (public
             [draw-cell
              (lambda (dc highlight? i j)
