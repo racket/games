@@ -104,8 +104,49 @@
 	     (min-y (- 1 board-size)) (max-y (sub1 (* 2 board-size)))
 	     (lift 1.2)
 	     (move move)))
+      (define bottom (new (class horizontal-pane% 
+			    ;; Override place-children for the 3-child case,
+			    ;;  make first and third the same width
+			    (define/override (place-children l w h)
+			      (let ([r (super place-children l w h)])
+				(if (= (length r) 3)
+				    (let ([a (list-ref r 0)]
+					  [b (list-ref r 1)]
+					  [c (list-ref r 2)])
+				      (let* ([aw (list-ref a 2)]
+					     [cw (list-ref c 2)]
+					     [naw (quotient (+ aw cw) 2)])
+					(list
+					 (list (car a) (cadr a) naw (cadddr a))
+					 (list (+ (car b) (- naw aw)) (cadr b) (caddr b) (cadddr b))
+					 (list (+ naw (caddr b)) (cadr c) (- (+ cw aw) naw) (cadddr c)))))
+				    r)))
+			    (super-new))
+			  (parent f)
+			  (stretchable-height #f)))
       (define msg
-	(new message% (label "") (parent f) (stretchable-width #t)))
+	(new message% (label "") (parent bottom) (stretchable-width #t)))
+      (define bottom-middle (new horizontal-pane% 
+				 (parent bottom)
+				 (stretchable-height #f)
+				 (stretchable-width #f)))
+      (define backward-button
+	(new button% (label "<") (parent bottom-middle) 
+	     (callback (lambda (b e) (void)))))
+      (define forward-button
+	(new button% (label ">") (parent bottom-middle)
+	     (callback (lambda (b e) (void)))))
+      (define bottom-right (new horizontal-pane% 
+				(parent bottom)
+				(stretchable-height #f)
+				(alignment '(right center))))
+      (new button% (label "Reset") (parent bottom-right)
+	   (callback (lambda (b e) (void))))
+      (new button% (label "Help") (parent bottom-right)
+	   (callback (lambda (b e) (void))))
+
+      (send backward-button enable #f)
+      (send forward-button enable #f)
 
       (define q
 	(send board with-gl-context
@@ -120,14 +161,14 @@
 		  (gl-new-list list-id 'compile)
 		  (gl-material-v 'front 'ambient-and-diffuse dark-blue)
 		  (gl-begin 'polygon)
-		  (gl-vertex 0.0 0.0 -0.01)
-		  (gl-vertex 1.0 0.0 -0.01)
-		  (gl-vertex 1.0 1.0 -0.01)
-		  (gl-vertex 0.0 1.0 -0.01)
+		  (gl-vertex 0.0 0.0 -0.02)
+		  (gl-vertex 1.0 0.0 -0.02)
+		  (gl-vertex 1.0 1.0 -0.02)
+		  (gl-vertex 0.0 1.0 -0.02)
 		  (gl-end)
 		  (gl-material-v 'front 'ambient-and-diffuse light-blue)
 		  (gl-push-matrix)
-		  (gl-translate 0.5 0.5 0.0)
+		  (gl-translate 0.5 0.5 -0.01)
 		  (gl-disk q 0.0 .40 25 1)
 		  (gl-pop-matrix)
 		  (gl-end-list)
@@ -153,7 +194,7 @@
 		    (send board add-space
 			  (lambda ()
 			    (gl-push-matrix)
-			    (gl-translate i j 0)
+			    (gl-translate i j 0.01)
 			    (gl-call-list space-dl)
 			    (gl-pop-matrix))
 			  (cons i j)))

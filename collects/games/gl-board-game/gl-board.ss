@@ -36,7 +36,7 @@
 
   (define gl-board%
     (class canvas%
-      (inherit with-gl-context swap-gl-buffers refresh get-width get-height)
+      (inherit with-gl-context swap-gl-buffers refresh get-width get-height focus)
       
       ;; min-x, max-x, min-y, max-y, lift: real
       ;; move: info gl-double-vector ->
@@ -165,9 +165,12 @@
       (define/override (on-paint)
         (with-gl-context
          (lambda ()
-           (gl-clear 'color-buffer-bit 'depth-buffer-bit)
+           (gl-clear 'color-buffer-bit 'depth-buffer-bit 'stencil-buffer-bit)
            (draw #f #t #t)
            ;; Very simple shadowing on the board
+	   (gl-enable 'stencil-test)
+	   (gl-stencil-func 'equal 0 1)
+	   (gl-stencil-op 'keep 'keep 'incr)
            (gl-push-matrix)
            (gl-translate center-x center-y light-distance)
            (gl-mult-transpose-matrix shadow-projection)
@@ -179,6 +182,7 @@
            (draw #f #f #t)
 	   (gl-disable 'blend)
            (gl-enable 'lighting)
+	   (gl-disable 'stencil-test)
            (gl-pop-matrix)
            (gl-flush)
            (swap-gl-buffers))))
@@ -282,16 +286,16 @@
       
       (define/override (on-char e)
         (case (send e get-key-code)
-          ((#\a) (set! phi (+ phi 5)))
-          ((#\d) (set! phi (- phi 5)))
-          ((#\w) (set! theta (- theta 5)))
-          ((#\s) (set! theta (+ theta 5)))
-          ((left) (unless (< fov 10)
-                    (set! fov (- fov 5))))
-          ((right) (unless (> fov 170)
-                     (set! fov (+ fov 5))))
-          ((up) (set! eye-distance (- eye-distance 5)))
-          ((down) (set! eye-distance (+ eye-distance 5))))
+          ((left) (set! phi (+ phi 5)))
+          ((right) (set! phi (- phi 5)))
+          ((up) (set! theta (- theta 5)))
+          ((down) (set! theta (+ theta 5)))
+          ((#\+) (unless (< fov 10)
+		   (set! fov (- fov 5))))
+          ((#\=) (set! eye-distance (- eye-distance 5)))
+          ((#\_) (unless (> fov 170)
+		   (set! fov (+ fov 5))))
+	  ((#\-) (set! eye-distance (+ eye-distance 5))))
         (with-gl-context
          (lambda ()
            (setup-view/proj)))
@@ -299,6 +303,7 @@
       
       (let ([cfg (new gl-config%)])
 	(send cfg set-multisample-size 4)
+	(send cfg set-stencil-size 1)
 	(super-new (style '(no-autoclear)) (gl-config cfg)))
       
       ;; initial setup
@@ -316,5 +321,6 @@
          ;(gl-light-v 'light0 'diffuse (gl-float-vector 0.0 0.0 0.0 1.0))
          ;(gl-light-v 'light0 'specular (gl-float-vector 0.0 0.0 0.0 1.0))
          (gl-clear-color 1.0 1.0 1.0 1.0)
-         (setup-view/proj)))))
+         (setup-view/proj)))
+      (focus)))
   )
