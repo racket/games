@@ -1,6 +1,7 @@
 
 
 (module solve mzscheme
+  
   (provide solve)
   ; solve : ((list-of (list-of nat)) (list-of (list-of nat)) (num num symbol -> void) (num -> void) -> void)
 
@@ -44,7 +45,7 @@
 
   (define (solve row-info col-info set-entry setup-progress)
     (local (
-	    (define (pause) (sleep 1/16))
+	    (define (pause) '(sleep 1/16))
 	    
 	    ; all test cases are commented out.
 	    
@@ -91,7 +92,7 @@
             ; (type: tally-row (list-of (union 'off 'on 'unknown 'maybe-off 'maybe-on 'mixed)))
             ; (type: try-row (list-of (union 'maybe-off 'maybe-on 'unknown)))
             (define try-row? (listof (symbols 'maybe-off 'maybe-on 'unknown)))
-            (define try-batch? (listof (or/f false? (listof try-row?))))
+            (define try-batch? (listof (or/f number? (listof try-row?))))
             
             ;    
             ; (type: board (list-of board-row))
@@ -142,6 +143,11 @@
             
             (define (entirely-unknown row)
               (andmap (lambda (x) (eq? x 'unknown)) row))
+            
+            ; finished? : does this board contain no unknown squares?
+            
+            (define (finished? board)
+              (not (ormap (lambda (row) (ormap (lambda (cell) (eq? cell 'unknown)) row)) board)))
 	    
 
             ; threshold info : the threshold is the limit at which
@@ -149,11 +155,9 @@
             
             (define initial-threshold 2000)
             
-            (define (too-high threshold)
-              (>= threshold 50000))
-            
             (define (next-threshold threshold)
-              (+ threshold 3000))
+              (+ threshold 2000))
+            
             
             ; procedures to simplify the construction of test cases:
             
@@ -276,6 +280,51 @@
                     #t)
 	    |#
 	    
+            #| choose : like math.  as in, "9 choose 3"
+            (num num -> num)
+            |#
+            
+            (define (factorial a)
+              (if (<= a 1)
+                  1
+                  (* a (factorial (- a 1)))))
+            
+            (define (choose a b)
+              (if (> b a)
+                  (error 'choose "(choose ~v ~v): ~v is greater than ~v" a b b a)
+                  (let ([b (max b (- a b))])
+                    (/ (let loop ([x a])
+                         (if (= x (- a b))
+                             1
+                             (* x (loop (- x 1))))) 
+                       (factorial b)))))
+            
+            #|
+            (and
+             (= (choose 0 0) 1)
+             (= (choose 10 10) 1)
+             (= (choose 10 1) 10)
+             (= (choose 10 2) 45)
+             (= (choose 10 8) 45))
+            |#
+            
+            #| initial-num-possibilities :
+            given a list of block lengths, calculate the number of ways they could fit
+            into a row of the given length.  The easiest way to model this is to imagine
+            inserting blocks at given locations in a fixed set of spaces
+            
+            (listof num) num -> num
+            
+            |#
+            
+            (define (initial-num-possibilities blocks size)
+              (choose (+ 1 (- size (apply + blocks))) (length blocks)))
+
+            #|
+            (= (initial-num-possibilities '(2 3 3 4) 40) 
+               (choose 29 4))
+            |#
+            
 	    #| build-possibles:
 	    builds a list of the possible rows.  given a number of spaces, and a number
 	    of bins to put the spaces in, and a row-formulator, and a line-checker predicate,
@@ -301,7 +350,9 @@
                                       [so-far-rev null])
                     (let* ([this-try-rev (cons things so-far-rev)]
                            [formulated (row-formulator (reverse this-try-rev))])
-                      (when (line-checker formulated)
+                      ;(when (= debug-counter 0)
+                      ;  (printf "~v\n~v\n" formulated (line-checker formulated)))
+                      (when (or (= bins total-bins) (line-checker formulated))
                         (if (= bins 1)
                             (add-to-built-list formulated)
                             (let try-loop ([in-this-bin (if (= bins total-bins)
@@ -424,28 +475,32 @@
 	    ((list-of (list-of num)) num (list-of board-row) (-> void) boolean -> (or/f (list-of try-row) #f))
 	    |#
 	    
-	    (define (memoize-tries info-list line-length board-rows update-progress old-tries threshold)
-	      (map (lambda (old-try-set block-list board-row)
-		     (update-progress)
-                     (if old-try-set
-                         (begin
-                           (fprintf (current-error-port) "row already memoized\n")
-                           old-tries)
-                         (let ([result
-                                (begin (fprintf (current-error-port) "memoizing with threshold ~v\n" threshold)
-                                       (let ([spaces (spare-spaces block-list line-length)]
-                                             [bins (+ (length block-list) 1)]
-                                             [row-formulator (make-row-formulator block-list)]
-                                             [line-checker (check-try board-row)])
-                                         (build-possibles spaces bins row-formulator line-checker threshold)))
-                                ])
-                           (if result
-                               (fprintf (current-error-port) "length of list generated: ~v\n" (length result))
-                               (fprintf (current-error-port) "search aborted\n" ))
-                           result)))
-                   old-tries
-		   info-list
-		   board-rows))
+	    (define (memoize-tries info-list line-length board-rows old-tries threshold)
+              (let* ([unmemoized (filter number? old-tries)])
+                (if (null? unmemoized)
+                    old-tries
+                    (let* ([least-difficult
+                            (apply min unmemoized)])
+                      (fprintf (current-error-port) "guessed tries: ~v\n" least-difficult)
+                      (map (lambda (old-try-set block-list board-row)
+                             (cond [(and (number? old-try-set) (= old-try-set least-difficult))
+                                    (let ([result
+                                           (begin (fprintf (current-error-port) "memoizing with threshold ~v\n" threshold)
+                                                  (let ([spaces (spare-spaces block-list line-length)]
+                                                        [bins (+ (length block-list) 1)]
+                                                        [row-formulator (make-row-formulator block-list)]
+                                                        [line-checker (check-try board-row)])
+                                                    (or (build-possibles spaces bins row-formulator line-checker threshold)
+                                                        (* 2 old-try-set))))
+                                           ])
+                                      (if (not (number? result))
+                                          (fprintf (current-error-port) "length of list generated: ~v\n" (length result))
+                                          (fprintf (current-error-port) "search aborted\n" ))
+                                      result)]
+                                   [else old-try-set]))
+                           old-tries
+                           info-list
+                           board-rows)))))
 	    
 	    #|
 	    (equal? (memoize-tries '((4) (1 3)) 
@@ -468,12 +523,12 @@
 	    
 	    (define (batch-try board-line-list try-list-list-list)
 	      (map (lambda (line try-list-list)
-                     (if try-list-list
+                     (if (not (number? try-list-list))
                          (filter! ; filter-rev
                           (let ([f (check-try line)])
                             (lambda (try-list) (f try-list)))
                           try-list-list)
-                         #f))
+                         try-list-list))
 		   board-line-list
 		   try-list-list-list))
 	    
@@ -491,7 +546,7 @@
 	    |#
 	    
 	    ; tabulate-try : take one possibility, and merge it with the row possibles
-	    ; (tally-list try-list) -> null
+	    ; (tally-list try-list) -> tally-list
 	    
 	    (define (tabulate-try tally-list try-list)
 	      (map (lambda (tally try)
@@ -517,7 +572,7 @@
 	    ; (board-line-list try-list-list-opt-list) -> tally-list
 	    (define (batch-tabulate board-line-list try-list-list-opt-list)
 	      (map (lambda (board-line try-list-list-opt)
-                     (if try-list-list-opt
+                     (if (not (number? try-list-list-opt))
                          (foldl (lambda (x y) (tabulate-try y x)) board-line try-list-list-opt)
                          board-line))
 		   board-line-list
@@ -629,11 +684,14 @@
                                          (board-height initial-board))])
                 (let outer-loop ([outer-board initial-board]
                                  [skip-threshold initial-threshold]
-                                 [old-row-tries (build-list (board-height initial-board) (lambda (x) #f))]
-                                 [old-col-tries (build-list (board-width initial-board) (lambda (x) #f))])
-                  (let* ([update-progress (setup-progress (+ rows cols))]
-                         [row-try-list-list-opt-list (memoize-tries row-info cols initial-board update-progress old-row-tries skip-threshold)]
-                         [col-try-list-list-opt-list (memoize-tries col-info rows (transpose initial-board) update-progress old-col-tries skip-threshold)])
+                                 [old-row-tries (map (lambda (info)
+                                                       (initial-num-possibilities info (board-width initial-board))) 
+                                                     row-info)]
+                                 [old-col-tries (map (lambda (info)
+                                                       (initial-num-possibilities info (board-height initial-board))) 
+                                                     col-info)])
+                  (let* ([row-try-list-list-opt-list (memoize-tries row-info cols outer-board old-row-tries skip-threshold)]
+                         [col-try-list-list-opt-list (memoize-tries col-info rows (transpose outer-board) old-col-tries skip-threshold)])
                     (let loop ([board outer-board] 
                                [row-tries row-try-list-list-opt-list]
                                [col-tries col-try-list-list-opt-list]
@@ -641,7 +699,7 @@
                       (if changed
                           (call-with-values (lambda () (full-set board row-tries col-tries))
                                             loop)
-                          (if (too-high skip-threshold)
+                          (if (finished? board)
                               board
                               (if (equal? outer-board board)
                                   (outer-loop board (next-threshold skip-threshold) row-tries col-tries)
