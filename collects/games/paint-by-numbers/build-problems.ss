@@ -26,7 +26,7 @@ yet defined.
 (require-library "raw-sig.ss" "games" "paint-by-numbers")
 
 (if (eq? (vector) argv)
-    (fprintf (current-error-port) "pass any commad line argument to skip the solver~n~n")
+    (fprintf (current-error-port) "pass any command line argument to skip the solver~n~n")
     (fprintf (current-error-port) "skipping the solver~n"))
 
 (define BOARD
