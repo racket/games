@@ -41,15 +41,16 @@
       ;; Configuration
       (define opponents-count (get-preference 'crazy8s:num-opponents (lambda () 1)))
       (define init-hand-size (get-preference 'crazy8s:hand-size (lambda () 7)))
+      (define drag-mode? (get-preference 'crazy8s:drag-mode (lambda () #f)))
       
-      (define (start-new-game opponents-count init-hand-size)
+      (define (start-new-game opponents-count init-hand-size drag-mode?)
 	(define orig-eventspace (current-eventspace))
 	;; Procedure for a game to use to start a sibling game
-	(define (new-game oc ihs)
+	(define (new-game oc ihs dm?)
 	  (parameterize ([current-eventspace orig-eventspace])
 	    (queue-callback
 	     (lambda ()
-	       (start-new-game oc ihs)))))
+	       (start-new-game oc ihs dm?)))))
 	;; Start a new game as a child process:
 	(parameterize ([current-custodian (make-custodian)])
 	  (parameterize ([exit-handler (lambda (v)
@@ -60,15 +61,16 @@
 		 (invoke-unit configured-game-unit 
 			      opponents-count 
 			      init-hand-size
+                              drag-mode?
 			      new-game)))))))
 
       ;; Start the initial child game:
-      (start-new-game opponents-count init-hand-size)))
+      (start-new-game opponents-count init-hand-size drag-mode?)))
   
   ;; This unit is for a particular Crazy 8 instance:
   (define configured-game-unit
     (unit
-      (import opponents-count init-hand-size new-game)
+      (import opponents-count init-hand-size drag-mode? new-game)
       (export)
 
       ;; Randomize
@@ -93,7 +95,7 @@
 	(define d (new dialog%
 		       [parent t]
 		       [label "Crazy 8 Options"]))
-	(define kinds (new radio-box%
+        (define kinds (new radio-box%
 			   [label #f]
 			   [choices '("1 opponent, 10 cards"
 				      "1 opponent, 7 cards"
@@ -101,13 +103,18 @@
 				      "3 opponents, 7 cards")]
 			   [parent (new group-box-panel%
 					[parent d]
-					[label "Configuration"])]
+					[label "Players and Cards"])]
 			   [callback void]))
+	(define drag-mode-check
+          (new check-box%
+               [parent d]
+               [label "Drag cards instead of single-click"]
+               [callback void]))
 	(define button-panel (new horizontal-pane%
 				  [parent d]
 				  [alignment '(right center)]))
 	(new button%
-	     [label "Cancel"]
+	     [label "Close"]
 	     [parent button-panel]
 	     [callback (lambda (b e)
 			 (send d show #f))])
@@ -120,12 +127,13 @@
 					 [(0) (values 1 10)]
 					 [(1) (values 1 7)]
 					 [(2) (values 2 7)]
-					 [(3) (values 3 7)])])
+					 [(3) (values 3 7)])]
+                                      [(dm?) (send drag-mode-check get-value)])
 			   (put-preferences
-			    '(crazy8s:num-opponents crazy8s:hand-size)
-			    (list oc ihs)
+			    '(crazy8s:num-opponents crazy8s:hand-size crazy8s:drag-mode)
+			    (list oc ihs dm?)
 			    void)
-			   (new-game oc ihs)
+			   (new-game oc ihs dm?)
 			   (send d show #f)))]
 	     [style '(border)])
 	(send kinds set-selection
@@ -133,6 +141,7 @@
 		[(1) (if (= init-hand-size 7) 1 0)]
 		[(2) 2]
 		[(3) 3]))
+        (send drag-mode-check set-value drag-mode?)
 	(send d show #t))
 
       ;; Show the table
@@ -197,7 +206,8 @@
 		     (- (region-y discard-region) (/ MARGIN 2))
 		     (+ cw MARGIN) (+ ch MARGIN)
 		     "" #f))
-      (send t add-region discard-target-region)
+      (when drag-mode?
+        (send t add-region discard-target-region))
 
       ;; Put the cards on the table
       (send t add-cards-to-region deck deck-region)      
@@ -278,31 +288,53 @@
       (define you (car players))
       (define opponents (cdr players))
 
-      ;; Add the "Clean" button:
+      ;; Add the "Clean" and "Sort" buttons:
+      (define (sort-hand! card<)
+        (let ([sorted
+               (quicksort
+                (player-hand you)
+                card<)])
+          (set-player-hand! you sorted)
+          (send t stack-cards sorted)
+          (send t move-cards-to-region
+                sorted
+                (player-hand-r you))))
+      (define clean-button
+        (make-button-region (region-x (player-r you))
+                            (- (region-y (player-r you))
+                               (+ BUTTON-HEIGHT MARGIN))
+                            PASS-W BUTTON-HEIGHT
+                            "Clean" (lambda ()
+                                      (sort-hand!
+                                       (lambda (a b)
+                                         (let-values ([(ax ay) (send t card-location a)]
+                                                      [(bx by) (send t card-location b)])
+                                           (> ax bx)))))))
+      (send t add-region clean-button)
+      (define (remap v)
+        ;; So tat black and red suits are interleaved
+        (case v [(2) 1][(1) 2][else v]))
+      (define (card< a b)
+        (or (< (remap (send a get-suit-id))
+               (remap (send b get-suit-id)))
+            (and (= (send a get-suit-id)
+                    (send b get-suit-id))
+                 (or
+                  (= 8 (send a get-value))
+                  (and (< (send a get-value)
+                          (send b get-value))
+                       (not (= 8 (send b get-value))))))))
       (send t add-region
-	    (make-button-region (region-x (player-r you))
-				(- (region-y (player-r you))
-				   (+ BUTTON-HEIGHT MARGIN))
+	    (make-button-region (+ (region-x clean-button) PASS-W MARGIN)
+				(region-y clean-button)
 				PASS-W BUTTON-HEIGHT
-				"Clean" (lambda ()
-					  (let ([ordered
-						 (map
-						  cdr
-						  (quicksort
-						   (map (lambda (c)
-							  (let-values ([(x y) (send t card-location c)])
-							    (cons x c)))
-							(player-hand you))
-						   (lambda (a b)
-						     (> (car a) (car b)))))])
-					    (send t stack-cards ordered)
-					    (send t move-cards-to-region
-						  ordered
-						  (player-hand-r you))))))
+				"Sort" (lambda ()
+                                         (sort-hand! card<))))
       
       ;; Card setup: Deal the cards
       (for-each (lambda (player)
-		  (set-player-hand! player (deal init-hand-size))
+		  (set-player-hand! player (quicksort (deal init-hand-size) card<))
+                  (send t stack-cards (player-hand player))
 		  (send t move-cards-to-region 
 			(player-hand player)
 			(player-hand-r player)))
@@ -313,7 +345,7 @@
        (lambda (card) (send card user-can-move #f))
        (append
 	(apply append
-	       (map player-hand opponents))
+	       (map player-hand (if drag-mode? opponents players)))
 	deck))
       (for-each (lambda (c) (send c home-region (player-r you)))
 		(player-hand you))
@@ -331,11 +363,6 @@
       
       ;; More card setup: Show your cards
       (send t flip-cards (player-hand you))
-
-      ;; Function to enable/disable moving your cards
-      (define (enable-your-cards on?)
-	(for-each (lambda (c) (send c user-can-move on?))
-		  (player-hand you)))
       
 
       ;; ========== Game engine ========================================
@@ -421,11 +448,16 @@
       
       ;; Utility: disables cards for "you"
       (define (allow-cards on?)
-	(when (pair? deck)
-	  (send (car deck) user-can-move on?))
-	(for-each (lambda (c)
-		    (send c user-can-move on?))
-		  (player-hand you))
+        (when (pair? deck)
+          (send (car deck) user-can-move (and drag-mode? on?)))
+        (for-each (lambda (c)
+                    (send c user-can-move (and drag-mode? on?)))
+                  (player-hand you))
+        (send t set-single-click-action (if (and on? (not drag-mode?))
+                                            click-card
+                                            (if drag-mode?
+                                                void
+                                                bell)))
 	(when (null? deck)
 	  (if on?
 	      (send t add-region pass-button)
@@ -476,13 +508,16 @@
        (lambda (cs)
 	 (let ([c (get-discard-card cs)])
 	   (when c
-	     (send c home-region #f)
-	     (set! discards (cons c discards))
-	     (set-player-hand! you (remq c (player-hand you)))
-	     (send t card-to-front c)
-	     (send t move-cards-to-region (list c) discard-region)
-	     (send c user-can-move #f)
-	     (async-channel-put msg 'discard)))))
+             (you-discard c)))))
+      
+      (define (you-discard c)
+        (send c home-region #f)
+        (set! discards (cons c discards))
+        (set-player-hand! you (remq c (player-hand you)))
+        (send t card-to-front c)
+        (send t move-cards-to-region (list c) discard-region)
+        (send c user-can-move #f)
+        (async-channel-put msg 'discard))
 
       ;; Install interactive callback for hand: accept the card
       ;; (from the deck) and release it from its home:
@@ -497,17 +532,40 @@
        (player-r you)
        (lambda (cs)
 	 (let ([c (car cs)])
-	   (send t flip-card c)
-	   (send c home-region (player-r you))
-	   (set-player-hand! you (cons c (player-hand you)))
-	   (deal 1)
-	   (async-channel-put msg 'draw))))
+           (you-draw c))))
+      
+      (define (you-draw c)
+        (send t flip-card c)
+        (send c home-region (player-r you))
+        (set-player-hand! you (let loop ([l (player-hand you)])
+                                (cond
+                                  [(null? l) (list c)]
+                                  [(card< c (car l)) (cons c l)]
+                                  [else (cons (car l) (loop (cdr l)))])))
+        (deal 1)
+        (unless drag-mode?
+          (send t stack-cards (player-hand you))
+          (send t move-cards-to-region (player-hand you) (player-hand-r you)))
+        (async-channel-put msg 'draw))
+      
+      (define (click-card c)
+        (cond
+          [(memq c deck) (you-draw c)]
+          [(memq c (player-hand you)) 
+           (if (get-discard-card (list c))
+               (you-discard c)
+               (bell))]
+          [else (bell)]))
+      
+      (unless drag-mode?
+        (send t set-single-click-action click-card))
 
       ;; Run the game loop
       (let loop ()
 	;; Ready deck and/or pass button:
 	(when (pair? deck)
-	  (send (car deck) user-can-move #t)
+          (when drag-mode?
+            (send (car deck) user-can-move #t))
 	  (send (car deck) home-region deck-region))
 	(when (null? deck)
 	  (send t add-region pass-button))
