@@ -1,4 +1,4 @@
 (module info (lib "infotab.ss" "setup")
-  (define name "Gin Rummy")
+  (define name "Rummy")
   (define game "ginrummy.ss")
   (define game-set "Cards"))

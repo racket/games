@@ -33,7 +33,7 @@
       (random-seed (modulo (current-milliseconds) 10000))
       
       ;; Set up the table
-      (define t (make-table "Gin Rummy" 8 4.5))
+      (define t (make-table "Rummy" 8 4.5))
       (send t create-status-line)
       (send t show #t)
       (send t set-double-click-action #f)
@@ -133,7 +133,7 @@
       (send t card-face-up (car discards))
       (send t move-card (car discards) discard-x discard-y)
       
-      ;; ;;;;;;;;;;;;; Finding Gin and The Machine Player Strategy ;;;;;;;;
+      ;; ;;;;;;;;;;;;; Finding Rummy and The Machine Player Strategy ;;;;;;;;
       
       ;; Check whether a group of (at least 3) cards forms a set (building
       ;; up to gin).
