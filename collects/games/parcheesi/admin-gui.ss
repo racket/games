@@ -584,12 +584,15 @@ corresponds to the unplayed move! that's confusing.
     (class snip%
       (define/override (draw dc x y left top right bottom dx dy draw-caret)
         (let ([old-pen (send dc get-pen)]
-              [old-brush (send dc get-brush)])
+              [old-brush (send dc get-brush)]
+              [old-smoothing (send dc get-smoothing)])
           (send dc set-pen (send the-pen-list find-or-create-pen "black" 1 'solid))
           (send dc set-brush (send the-brush-list find-or-create-brush (pawn-drawn-color color) 'solid))
+          (send dc set-smoothing 'aligned)
           (send dc draw-ellipse x y w h)
           (send dc set-pen old-pen)
-          (send dc set-brush old-brush)))
+          (send dc set-brush old-brush)
+          (send dc set-smoothing old-smoothing)))
       (define/override (get-extent dc x y wb hb descent space lspace rspace)
         (set-box/f! wb w)
         (set-box/f! hb h)
