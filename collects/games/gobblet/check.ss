@@ -1,3 +1,9 @@
+
+;; Checks that all paths in a tree of games leads to the expected
+;; winner. It also generates information for known plays to be used to
+;; speed up future games (i.e., converts learned strategy to a compact
+;; form).
+
 (module check mzscheme
   (require (lib "unitsig.ss")
 	   (lib "etc.ss")
@@ -37,6 +43,8 @@
 				 [history null])
 			(set! cnt (+ cnt 1))
 			(when (= cnt FLUSH-CACHE-COUNT)
+			  ;; Keep the canonlicalization information in `search'
+			  ;; from getting too big.
 			  (set! cnt 0)
 			  (set! search (mk-search)))
 			(printf "------------~n~a~n" (board->string depth board))

@@ -15,13 +15,17 @@
       (define PIECE-COUNT (sub1 BOARD-SIZE))
       
       ;; A piece is
-      ;;  (make-piece num sym ht)
+      ;;  (make-piece num sym hash-table)
       ;;  where the sym is 'red or 'yellow
+      ;; The hash table maps a stack to a stack.
       (define-struct piece (size color gobble-table))  
 
       (define red-pieces (map (lambda (sz) (make-piece sz 'red (make-hash-table))) SIZES))
       (define yellow-pieces (map (lambda (sz) (make-piece sz 'yellow (make-hash-table))) SIZES))
 
+      ;; Fill in stacks for pieces. By building each possible
+      ;;  stack once, we avoid allocating redudant stacks, and
+      ;;  we get a value we can eq-hash for canonicalization.
       (define all-stacks
 	(let loop ([red-pieces red-pieces]
 		   [yellow-pieces yellow-pieces]
@@ -227,6 +231,8 @@
 					      (values l cnt))))]))])
 		 l)))))
 
+      ;; Canonicalization of boards ------------------------------
+
       ;; Xforms for finding canonical forms. Seven transforms
       ;;  (including the identity) are equivalent. We generate
       ;;  them all and hash when a new board is encountered.
@@ -304,6 +310,8 @@
 				 (vector-ref v 9) (vector-ref v 13)
 				 (vector-ref v 0) (vector-ref v 4) (vector-ref v 8) (vector-ref v 12))))))
 
+      ;; Generates the compact representation of a board, which is
+      ;; good for hashing, but bad for applying moves
       (define flatten-board
 	(if (= BOARD-SIZE 3)
 	    (lambda (board stack-ids)
@@ -334,9 +342,13 @@
 		      (hash-table-get stack-ids (board-ref board 2 3))
 		      (hash-table-get stack-ids (board-ref board 3 3))))))
 
+
+      ;; Generate a numerical ID for each stack. This numerical
+      ;;  ID must stay constant for all of time, because we
+      ;;  record boards in compact form using these numbers.
+      ;;  (For example, see "plays-3x3.ss".)
       (define red-stack-ids (make-hash-table))
       (define yellow-stack-ids (make-hash-table))
-
       (for-each (lambda (s)
 		  (hash-table-put! red-stack-ids s (hash-table-count red-stack-ids)))
 		all-stacks)
@@ -352,12 +364,17 @@
 		    (hash-table-put! yellow-stack-ids s (hash-table-get red-stack-ids inverse))))
 		all-stacks)
 
+      ;; Applies an appropriate flattener
       (define (compact-board board who)
 	(flatten-board board
 		       (if (eq? who 'red) red-stack-ids yellow-stack-ids)))
 
       ;; make-canonicalize : -> (union (board sym -> (cons compact xform))
       ;;                               (compact #f -> (cons compact xform)))
+      ;;  The resulting procedure embeds a table for mapping a compact
+      ;;  board to its canonical compact board. The result includes an
+      ;;  xform for getting from the given board's locations to
+      ;;  locations in the canonical board.
       (define (make-canonicalize)
 	(let ([memory (make-hash-table 'equal)])
 	  ;; Convert the board into a flat vector, normalizing player:
@@ -376,16 +393,22 @@
 					    (cdr xforms) (cdr xform-procs))
 				  pr)))))))
 
+      ;; apply-xform : xform num num -> num
+      ;;  Returns a position in a canonical board
       (define (apply-xform xform i j)
 	(vector-ref xform (+ (* j BOARD-SIZE) i)))
+      ;; unapply-xform : xform num -> (values num num)
+      ;;  Maps a canonical-board position to a position in
+      ;;  a specific board.
       (define (unapply-xform xform v)
 	(let loop ([i 0])
 	  (if (= (vector-ref xform i) v)
 	      (values (modulo i BOARD-SIZE) (quotient i BOARD-SIZE))
 	      (loop (add1 i)))))
 
+      ;; Printing boards ------------------------------
 
-      ;; Debugging helper
+      ;; helper
       (define (board->string depth b)
 	(let jloop ([j 0])
 	  (if (= j BOARD-SIZE)

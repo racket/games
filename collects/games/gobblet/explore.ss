@@ -1,3 +1,7 @@
+
+;; This is the main search engine for auto-play.
+;; See `make-search' for the main entry point.
+
 (module explore mzscheme
   (require (lib "unitsig.ss")
 	   (lib "etc.ss")
@@ -6,6 +10,7 @@
 
   (provide explore-unit)
 
+  ;; Debugging:
   (define-syntax (log-printf stx)
     (syntax-case stx ()
       [(_ n i arg ...)
@@ -21,14 +26,107 @@
     (unit/sig explore^
       (import config^ model^)
 
+      ;; make-search : (canonicalize-proc -> (board sym num num -> num))
+      ;;               (canonicalize-proc hash-table -> (board sym compact xform -> plan)) 
+      ;;               -> search-proc
+      ;;  where canonicalize-proc = (board sym -> (cons compact xform))
+      ;;  and search-proc is below.
+      ;; Returns a search procedure that embeds a canonicalization table and 
+      ;; a memory of canned moves from the `make-canned-moves' procedure.
+      ;; The `make-canned-moves' proc can add to the given hash table, mapping
+      ;;  canonical compact boards to (listof (cons num plan)), where the
+      ;;  num for a plan is a rating for how good the plan is; +inf.0 means
+      ;;  forced win, and -inf.0 means forced loss. A plan is created
+      ;;  with `make-plan', described below.
+      (define (make-search make-rate-board make-canned-moves)
+	(define init-memory (make-hash-table 'equal))
+	(define canonicalize (make-canonicalize))
+	(define rate-board (make-rate-board canonicalize))
+	(define canned-moves (make-canned-moves canonicalize init-memory))
+	(when learn?
+	  (load-memory init-memory canonicalize))
+	;; search-proc : num num num sym board (listof board) -> play
+	;;  Finds a move given search parameters, whose turn it is,
+	;;  the current board, and a list of past boards (not
+	;;  including the current one, used to avoid cycles in the game).
+	;; The result is a play, which can be applied to a board with
+	;;  `apply-play'.
+	(lambda (timeout max-steps one-step-depth
+			 me board history)
+	  (let* ([result #f]
+		 [once-sema (make-semaphore)]
+		 [result-sema (make-semaphore)]
+		 [memory (make-hash-table 'equal)])
+	    ;; Record game-history boards as loop ties
+	    (let loop ([history history][me (other me)])
+	      (unless (null? history)
+		(let ([key+xform (canonicalize (car history) me)])
+		  (hash-table-put! memory (car key+xform) LOOP-TIE))
+		(loop (cdr history) (other me))))
+	    (hash-table-for-each init-memory (lambda (k v) (hash-table-put! memory k v)))
+	    (let ([t (thread
+		      (lambda ()
+			(let loop ([steps 1][max-depth 2])
+			  (set! result
+				(let ([v (multi-step-minmax steps
+							    (min max-depth one-step-depth)
+							    3 ; span
+							    0 ; indent 
+							    memory init-memory canonicalize 
+							    rate-board canned-moves
+							    me board)])
+				  (log-printf 1 0 "> ~a/~a Result: ~a~n" 
+					      steps (min max-depth one-step-depth)
+					      (play->string v))
+				  v))
+			  (semaphore-post once-sema)
+			  (unless (or (and (= steps max-steps)
+					   (one-step-depth . <= . max-depth))
+				      ((car result) . = . +inf.0)
+				      ((car result) . = . -inf.0))
+			    (if (one-step-depth . <= . max-depth)
+				(loop (add1 steps) 2)
+				(loop steps (add1 max-depth)))))
+			(semaphore-post result-sema)))])
+	      (sync/timeout timeout result-sema)
+	      (semaphore-wait once-sema)
+	      (kill-thread t)
+	      (when (null? (cdr result))
+		(error 'search "didn't find a move!?"))
+	      (cdr result)))))
+
+      ;; `make-plan' takes a piece size, the source position (#f and #f for off
+      ;;  the board), the destination position, a xform inidcating how to
+      ;;  transform the positions into canonical positions, and a number
+      ;;  that estimates how many more steps until the end of game.
+      (define-struct plan (size from-i from-j to-i to-j xform turns))
+
+      ;; apply-play : board play -> board
+      ;; A play is (list piece from-i from-j to-i to-j turns)
+      ;;  where turns is an estimate of how many moves remain in
+      ;;  the game; the turns part is not used here (it can be left
+      ;;  out), but it is returned by a search-proc.
+      (define (apply-play board m)
+	(move board 
+	      (list-ref m 0)
+	      (list-ref m 1)
+	      (list-ref m 2)
+	      (list-ref m 3)
+	      (list-ref m 4)
+	      (lambda (new-board)
+		new-board)
+	      (lambda ()
+		(error 'apply-play "bad move: ~a" m))))
+
+      ;; ------------------------------------------------------------
+      ;; Internal functions
+            
       (define delay-loss? #t)
 
       (define learn? #f)
       (define MEMORY-FILE (and learn?
 			       (build-path (find-system-path 'addon-dir)
 					   (format "gobblet-memory-~a.ss" BOARD-SIZE))))
-
-      (define-struct plan (size from-i from-j to-i to-j xform turns))
 
       (define (xlate m xform)
 	(let-values ([(from-i from-j)
@@ -127,7 +225,9 @@
 		    (plan-from-i (cdar sv)) (plan-from-j (cdar sv)) (plan-to-i (cdar sv)) (plan-to-j (cdar sv))
 		    (caar sv) (get-depth (car sv)))))
 
-      ;; -> (values (cons val plan) xform)
+      ;; ...state and search params... -> (values (listof (cons num plan)) xform)
+      ;; Minimax search up to the given max-depth, returning up to span
+      ;; choices of move.
       (define (minmax depth max-depth span memory canonicalize 
 		      rate-board canned-moves
 		      me him my-pieces his-pieces board last-to-i last-to-j)
@@ -278,18 +378,9 @@
 			 goodness)))])])
 	    (values goodness xform))))
 
-      (define (apply-play board m)
-	(move board 
-	      (list-ref m 0)
-	      (list-ref m 1)
-	      (list-ref m 2)
-	      (list-ref m 3)
-	      (list-ref m 4)
-	      (lambda (new-board)
-		new-board)
-	      (lambda ()
-		(error 'apply-play "bad move: ~a" m))))
-
+      ;; Apply minmax, and if steps > 1, rate resulting moves by applying
+      ;; minmax to them. Meanwhile, in learning mode, record any resulting
+      ;; move that is known to lead to winning or losing.
       (define (multi-step-minmax steps one-step-depth span indent 
 				 memory init-memory canonicalize 
 				 rate-board canned-moves
@@ -412,111 +503,5 @@
 						 (list-ref n 2) (list-ref n 3) (list-ref n 4) (list-ref n 5)
 						 (cdr board-key+xform)
 						 (list-ref n 6)))))))
-		    (loop))))))))
-
-      (define (make-search make-rate-board make-canned-moves)
-	(define init-memory (make-hash-table 'equal))
-	(define canonicalize (make-canonicalize))
-	(define rate-board (make-rate-board canonicalize))
-	(define canned-moves (make-canned-moves canonicalize init-memory))
-	(when learn?
-	  (load-memory init-memory canonicalize))
-	(lambda (timeout max-steps one-step-depth
-			 me board history)
-	  (let* ([result #f]
-		 [once-sema (make-semaphore)]
-		 [result-sema (make-semaphore)]
-		 [memory (make-hash-table 'equal)])
-	    ;; Record game-history boards as loop ties
-	    (let loop ([history history][me (other me)])
-	      (unless (null? history)
-		(let ([key+xform (canonicalize (car history) me)])
-		  (hash-table-put! memory (car key+xform) LOOP-TIE))
-		(loop (cdr history) (other me))))
-	    (hash-table-for-each init-memory (lambda (k v) (hash-table-put! memory k v)))
-	    (let ([t (thread
-		      (lambda ()
-			(let loop ([steps 1][max-depth 2])
-			  (set! result
-				(let ([v (multi-step-minmax steps
-							    (min max-depth one-step-depth)
-							    3 ; span
-							    0 ; indent 
-							    memory init-memory canonicalize 
-							    rate-board canned-moves
-							    me board)])
-				  (log-printf 1 0 "> ~a/~a Result: ~a~n" 
-					      steps (min max-depth one-step-depth)
-					      (play->string v))
-				  v))
-			  (semaphore-post once-sema)
-			  (unless (or (and (= steps max-steps)
-					   (one-step-depth . <= . max-depth))
-				      ((car result) . = . +inf.0)
-				      ((car result) . = . -inf.0))
-			    (if (one-step-depth . <= . max-depth)
-				(loop (add1 steps) 2)
-				(loop steps (add1 max-depth)))))
-			(semaphore-post result-sema)))])
-	      (sync/timeout timeout result-sema)
-	      (semaphore-wait once-sema)
-	      (kill-thread t)
-	      (when (null? (cdr result))
-		(error 'search "didn't find a move!?"))
-	      (cdr result)))))
-
-      ;; Simple search tests
-      #;
-      (let ([memory (make-hash-table 'equal)])
-	(define (mv b p fi fj ti tj k)
-	  (move b p fi fj ti tj k void))
-	(let loop ([limit 1])
-	  (define (go board)
-	    (minmax 0
-		    limit
-		    1
-		    memory
-		    canonicalize
-		    (lambda args 0)
-		    'red
-		    'yellow
-		    (available-off-board board 'red)
-		    (available-off-board board 'yellow)
-		    board #f #f))
-	  (let ([v 
-		 ;; One-step win
-		 #;
-		 (mv empty-board (list-ref red-pieces 2) #f #f 0 0
-		     (lambda (board)
-		       (mv board (list-ref red-pieces 2) #f #f 1 1
-			   go)))
-		 ;; 2-step win
-		 #;
-		 (mv empty-board (list-ref red-pieces 2) #f #f 0 0
-		     (lambda (board)
-		       (mv board (list-ref yellow-pieces 2) #f #f 1 0
-			   (lambda (board)
-			     (mv board (list-ref red-pieces 2) #f #f 1 1
-				 (lambda (board)
-				   (mv board (list-ref yellow-pieces 2) 1 0 2 2
-				       (lambda (board)
-					 (mv board (list-ref red-pieces 1) #f #f 1 0
-					     (lambda (board)
-					       (mv board (list-ref yellow-pieces 2) #f #f 1 0
-						   (lambda (board)
-						     (printf "~a~n" (board->string 0 board))
-						     (go board)))))))))))))
-		 ;; Hopeless case
-		 #;
-		 (mv empty-board (list-ref yellow-pieces 2) #f #f 0 0
-		     (lambda (board)
-		       (mv board (list-ref yellow-pieces 2) #f #f 1 1
-			   (lambda (board)
-			     (mv board (list-ref yellow-pieces 2) #f #f 0 1
-				 (lambda (board)
-				   (go board)))))))])
-	    (printf "~a ~a ~a~n" limit (caar v) (if (null? (cdar v))
-						    "???"
-						    ((cdar v))))
-	    (loop (add1 limit))))))))
+		    (loop)))))))))))
   

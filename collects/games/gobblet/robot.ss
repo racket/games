@@ -1,3 +1,6 @@
+
+;; Plays automatic games, often useful when learning is enabled in explore.ss
+
 (module robot mzscheme
   (require (lib "unitsig.ss")
 	   (lib "etc.ss")
