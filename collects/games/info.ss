@@ -4,7 +4,7 @@
   (define mred-launcher-libraries (list "games.ss"))
   (define mred-launcher-names (list "Games"))
   (define doc-sub-collections
-    (list "cards" "paint-by-numbers" "same" "lights-out" "aces" 
+    (list "cards" "paint-by-numbers" "same" "lights-out" "aces" "spider"
 	  "memory" "pousse" "crazy8s"
           "gcalc" "parcheesi" "gl-board-game"))
   (define blurb 
