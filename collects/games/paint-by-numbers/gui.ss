@@ -35,7 +35,7 @@ paint by numbers.
 (unit/sig GUI^
 
   (import mzlib:function^
-	  mred-interfaces^)
+	  mred^)
 
   (define UNKNOWN-BRUSH (send the-brush-list find-or-create-brush "DARK GRAY" 'solid))
   (define ON-BRUSH (send the-brush-list find-or-create-brush "BLUE" 'solid))
@@ -410,7 +410,9 @@ paint by numbers.
 
 	[check-modifier
 	 (lambda (evt)
-	   (or (send evt get-alt-down)
+	   (or (send evt get-right-down)
+	       (send evt button-up? 'right)
+	       (send evt get-alt-down)
 	       (send evt get-meta-down)
 	       (send evt get-control-down)
 	       (send evt get-shift-down)))]
@@ -514,10 +516,7 @@ paint by numbers.
 		(let* ([i (car p)]
 		       [j (cdr p)]
 		       [prev (get-raw-rect i j)]
-		       [new (new-brush prev (or (send evt get-alt-down)
-						(send evt get-control-down)
-						(send evt get-meta-down)
-						(send evt get-shift-down)))])
+		       [new (new-brush prev (check-modifier evt))])
 		  (set! undo-history (cons (make-do i j prev new) undo-history))
 		  (set! redo-history null)
 		  (set-raw-rect i j new)

@@ -12,7 +12,7 @@
   (compound-unit/sig (import)
     (link
      [C : mzlib:core^ ((require-library "corer.ss"))]
-     [MRED : mred-interfaces^ (mred-interfaces@)]
+     [MRED : mred^ (mred@)]
      [FW : framework^ ((require-library "frameworkr.ss" "framework") C MRED)]
      [G : GUI^ ((require-library "gui.ss" "games" "paint-by-numbers") (C function) MRED)]
      [S : SOLVE^ ((require-library "solve.ss" "games" "paint-by-numbers") (C function))]

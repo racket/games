@@ -13,11 +13,14 @@ gather as much information as you can about each row, and then use that
 information to determine more about each column. Eventually you should be
 able to fill in the entire puzzle.
 
-Click on a square to toggle it between gray and blue. Hold down a modifier
+Click on a square to toggle it between blue and gray. Hold down a modifier
 key (shift, command, meta, or alt depending on the platform) to toggle a
-square between white and gray. For some puzzles, hints are
-available. Choose the Nongram|Show Mistakes menu item to receive the
-hints. This will turn all incorrectly colored squares red.
+square between white and gray. The third button under unix and the right
+button under windows also toggles between white and gray.
+
+For some puzzles, hints are available. Choose the Nongram|Show Mistakes
+menu item to receive the hints. This will turn all incorrectly colored
+squares red.
 
 Thanks to Shoichiro Hattori for his puzzles! Visit him on the web at: 
 http://www.ask.ne.jp/~hattori/puzzle/menu.html
