@@ -37,9 +37,25 @@ paint by numbers.
     (define-struct problem (name rows cols solution))
     (include "raw-problems.ss")
 
-    (define frame (make-object frame% "Paint by Numbers"))
-    (send frame stretchable-width #t)
-    (send frame stretchable-height #t)
+    (define semaphore (make-semaphore 0))
+    (define sema-frame%
+      (class frame% (name)
+	(override
+	 [on-close
+	  (lambda ()
+	    (semaphore-post semaphore))])
+	(sequence (super-init name))))
+	  
+    (define frame (make-object sema-frame% "Paint by Numbers"))
+
+    (define menu-bar (make-object menu-bar% frame))
+    (define file-menu (make-object menu% "File" menu-bar))
+    (make-object menu-item% "Close" file-menu (lambda (_1 _2)
+						(send frame show #f)
+						(semaphore-post semaphore)))
+    (define edit-menu (make-object menu% "Edit" menu-bar))
+    (make-object menu-item% "Undo" edit-menu (lambda (_1 _2) (send canvas undo)) #\z)
+    (make-object menu-item% "Redo" edit-menu (lambda (_1 _2) (send canvas redo)) #\y)
 
     (define top-panel (make-object horizontal-panel% frame))
     (define choice (make-object choice%
@@ -59,6 +75,10 @@ paint by numbers.
     
     (define (set-problem prlmb)
       (send frame change-children (lambda (x) (list top-panel)))
+      (send frame stretchable-width #f)
+      (send frame stretchable-height #f)
+      (send frame stretchable-width #t)
+      (send frame stretchable-height #t)
       (let ([rows (problem-rows prlmb)]
 	    [cols (problem-cols prlmb)])
 	(set! problem prlmb)
@@ -70,7 +90,8 @@ paint by numbers.
     (set-problem (car problems))
     (send choice set-selection 0)
 
-    (send frame show #t)))
+    (send frame show #t)
+    (yield semaphore)))
 
 (invoke-unit/sig
  (compound-unit/sig (import)
