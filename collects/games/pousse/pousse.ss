@@ -520,14 +520,14 @@
       ;; Create the GUI interface with the above pieces ;;
       
       ; Instantiate the canvas in a frame (= a top-level window)
-      (define frame (make-object (class100 frame% args
-                                   (override
-                                     [can-close? (lambda () #t)]
-                                     ; Close the frame => exit the program
-                                     ; No fancy "Quit" menus here!
-                                     [on-close (lambda () (exit))])
-                                   (sequence (apply super-init args)))
-                      "Pousse"))
+      (define frame (new (class frame%
+			   (override*
+			    [can-close? (lambda () #t)]
+					; Close the frame => exit the program
+					; No fancy "Quit" menus here!
+			    [on-close (lambda () (exit))])
+			   (super-new))
+			 [label "Pousse"] [style '(metal no-resize-border)]))
       
       ;; Panels are for GUI item layout (auto geometry management)
       (define h-layout-panel (make-object horizontal-panel% frame))
