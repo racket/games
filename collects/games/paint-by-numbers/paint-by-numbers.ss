@@ -14,7 +14,7 @@
      [C : mzlib:core^ ((require-library "corer.ss"))]
      [MRED : mred^ (mred@)]
      [FW : framework^ ((require-library "frameworkr.ss" "framework") C MRED)]
-     [G : GUI^ ((require-library "gui.ss" "games" "paint-by-numbers") (C function) MRED)]
+     [G : GUI^ ((require-library "gui.ss" "games" "paint-by-numbers") (C function) MRED FW)]
      [S : SOLVE^ ((require-library "solve.ss" "games" "paint-by-numbers") (C function))]
      [problem : paint-by-numbers:problem^ ((require-library "problem.ss" "games" "paint-by-numbers"))]
      [all : paint-by-numbers:all-problems^ ((require-library "all-problems.ss" "games" "paint-by-numbers") problem)]

@@ -27,6 +27,9 @@ same length. paint-by-numbers-canvas% objects accepts four methods:
   all-unknown : (-> void)
     Sets all board positions to 'unknown
 
+  close-up : (-> void)
+    call when canvas is closed.
+
 See the bottom of this file for the creation of a file and a test
 paint by numbers.
 
@@ -35,7 +38,8 @@ paint by numbers.
 (unit/sig GUI^
 
   (import mzlib:function^
-	  mred^)
+	  mred^
+	  framework^)
 
   (define UNKNOWN-BRUSH (send the-brush-list find-or-create-brush "DARK GRAY" 'solid))
   (define ON-BRUSH (send the-brush-list find-or-create-brush "BLUE" 'solid))
@@ -58,6 +62,9 @@ paint by numbers.
   (define paint-by-numbers-canvas%
     (class canvas% (parent _row-numbers _col-numbers)
       (inherit get-dc get-client-size)
+
+      (public
+	[get-font (lambda () (send (get-dc) get-font))])
 
       (public
 	[get-row-numbers
@@ -676,15 +683,28 @@ paint by numbers.
 
       (inherit min-width min-height)
       (sequence
-	(super-init parent)
-	
-	(let ([fixed-font
-	       (let* ([delta (make-object style-delta% 'change-family 'modern)]
-		      [basic (send the-style-list find-named-style "Basic")]
-		      [new-style (send the-style-list find-or-create-style basic delta)])
-		 (send new-style get-font))])
-	  (send (get-dc) set-font fixed-font))
+	(super-init parent))
 
+      (public
+	[close-up
+	 (lambda ()
+	   (remove-pref-callback))])
+      (private
+	[reset-font
+	 (lambda (font)
+	   (send (get-dc) set-font font)
+	   (calculate-row-margins)
+	   (calculate-col-margins)
+	   (update-min-spacing))]
+
+	[remove-pref-callback
+	 (preferences:add-callback
+	  'paint-by-numbers:font
+	  (lambda (pref new-value)
+	    (reset-font new-value)))])
+
+      (sequence
+	(reset-font (preferences:get 'paint-by-numbers:font))
 	(calculate-row-margins)
 	(calculate-col-margins)
 	(update-min-spacing))))
