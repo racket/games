@@ -185,7 +185,7 @@
 ;;;;;;;;;;;;;;;;; Graphic Interface ;;;;;;;;;;;;;;;;;;
 
 ;; Make a frame:
-(define frame (make-object frame% "Minesweeper"))
+(define frame (make-object frame% "Minesweeper" #f #f #f #f #f '(no-resize-border)))
 
 ;; Make the row of controls at the top of the frame:
 (define panel (make-object horizontal-panel% frame))
