@@ -297,6 +297,14 @@ paint by numbers.
 	   (set-raw-rect i j (sym->brush sym)))]
 
 
+	;; (int int -> void)
+	[set-to-error
+	 (lambda (i j)
+	   (let ([brush (sym->brush 'wrong)])
+	     (set! undo-history (cons (make-do i j (get-raw-rect i j) brush) undo-history))
+	     (set-raw-rect i j brush)
+	     (paint-rect i j)))]
+
 	;; (-> void)
 	[all-unknown
 	 (lambda ()
