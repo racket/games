@@ -2,10 +2,10 @@
 (require-library "letplsrc.ss")
 (require-library "function.ss")
 
-(define board-width 30)
-(define board-height 15)
-(define cell-size 16)
-(define colors (map (lambda (x) (make-object color% x)) (list "red" "blue" "green" "yellow" "orange")))
+(define board-width 20)
+(define board-height 10)
+(define cell-size 30)
+(define colors (map (lambda (x) (make-object color% x)) (list "blue" "red" "purple" "yellow" "cyan")))
 (define pens (map (lambda (x) (make-object pen% x 1 'solid)) colors))
 (define brushes (map (lambda (x) (make-object brush% x 'solid)) colors))
 (define white-pen (make-object pen% "white" 1 'solid))
@@ -14,12 +14,16 @@
 (define board
   (build-vector
    board-width
-   (lambda (j)
+   (lambda (i)
      (build-vector
       board-height
-      (lambda (i)
+      (lambda (j)
 	(vector
-	 (random (length colors))
+	 (begin
+	   (if (= j (- board-height 1))
+	       (- (length colors) 1)
+	       (modulo i (- (length colors) 1)))
+	   (random (length colors)))
 	 #f))))))
 
 (define score 0)
@@ -129,10 +133,9 @@
 				  (lambda (x y) (<= (third x) (third y)))))
 
 		      ;; slide empty over empty rows
-		      (set! is (quicksort is <=))
-		      (let ([empty-is (filter (lambda (x) (not (vector-ref (vector-ref (vector-ref board i)
-										       (- board-height 1))
-									   0)))
+		      (set! is (quicksort is >))
+		      (let ([empty-is (filter (lambda (i)
+						(not (vector-ref (vector-ref (vector-ref board i) (- board-height 1)) 0)))
 					      is)])
 			(let ([is (if (null? empty-is)
 				      is
@@ -141,20 +144,18 @@
 			  (for-each (lambda (empty-i)
 				      (let loop ([i empty-i])
 					(cond
-					  [(< i (- board-width 1))
+					  [(<= i (- board-width 2))
 					   (vector-set! board i (vector-ref board (+ i 1)))
 					   (loop (+ i 1))]
-					  [else
+					  [(= i (- board-width 1))
 					   (vector-set! board i (build-vector board-height
-									      (lambda (i) (vector #f #f))))]))
-				      (on-paint))
-				    (quicksort empty-is >))
+									      (lambda (i) (vector #f #f))))])))
+				    empty-is)
 
 			  ;; draw changed lines
-
 			  (for-each (lambda (i) (draw-line (get-dc) i)) is)
 			  (unless (null? empty-is)
-			    (let loop ([i (car empty-is)])
+			    (let loop ([i (car (last-pair empty-is))])
 			      (cond
 				[(= i board-width) (void)]
 				[else (draw-line (get-dc) i)
