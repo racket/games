@@ -618,6 +618,13 @@ paint by numbers.
       (sequence
 	(super-init parent)
 	
+	(let ([fixed-font
+	       (let* ([delta (make-object style-delta% 'change-family 'modern)]
+		      [basic (send the-style-list find-named-style "Basic")]
+		      [new-style (send the-style-list find-or-create-style basic delta)])
+		 (send new-style get-font))])
+	  (send (get-dc) set-font fixed-font))
+
 	(calculate-row-margins)
 	(calculate-col-margins)
 	(update-min-spacing))))
