@@ -9,6 +9,12 @@
 	    
 	    ; to work on large lists, we must make filter tail-recursive. 
 	    ; this one reverses.
+            
+            ; filter-rev : returns a list of all elements in a-list which 
+            ; satisfy the predicate.  If a precedes b in a-list, and both
+            ; occur in the result, then b will precede a in the result.
+            ; ((A -> boolean) (list-of A) -> (list-of A))
+            
 	    (define (filter-rev fun a-list)
 	      (foldl (lambda (elt built-list) 
 		       (if (fun elt) 
@@ -17,59 +23,95 @@
 		     null
 		     a-list))
 	    
-	    #|
-	    (equal? (filter-rev (lambda (x)  (> x 13)) '(2 98 27 1 23 2 09))
-		    '(23 27 98))
-	    |#
+	    ;(equal? (filter-rev (lambda (x)  (> x 13)) '(2 98 27 1 23 2 09))
+            ;	    '(23 27 98))
 	    
-	    #| transpose: 
-	    ((list-of (list-of T)) -> (list-of (list-of T)))
-	    |#
+	    
+	    ; transpose : transposes a matrix represented as a list of lists
+	    ; ((list-of (list-of T)) -> (list-of (list-of T)))
 	    
 	    (define (transpose list-list)
 	      (apply map list list-list))
+	     
+	    ;(equal? (transpose '((a b c d e)
+            ;			 (f g h i j)
+            ;			 (k l m n o)))
+            ;	    '((a f k)
+            ;         (b g l)
+            ;	      (c h m)
+            ;	      (d i n)
+            ;	      (e j o)))
 	    
-	    #| 
-	    (equal? (transpose '((a b c d e)
-				 (f g h i j)
-				 (k l m n o)))
-		    '((a f k)
-		      (b g l)
-		      (c h m)
-		      (d i n)
-		      (e j o)))
-	    |#
-	    
-	    ; board-ref : board row col -> ['on 'off 'unknown]
+
+            ; TYPE-DECLARATIONS:
+            ; there are three kinds of cell-list: the board-row-list, the tally-list, and the try-list.
+	    ;    
+            ; (type: board-row (list-of (union 'off 'on 'unknown)))
+            ; (type: tally-row (list-of (union 'off 'on 'unknown 'maybe-off 'maybe-on 'mixed)))
+            ; (type: try-row (list-of (union 'maybe-off 'maybe-on)))
+            ;    
+            ; (type: board (list-of board-row))
+            
+	    ; board-ref : returns the board element in (col,row);
+            ; (board num num -> (union 'on 'off 'unknown))
+            
 	    (define (board-ref board row col)
-	      (case (list-ref (list-ref board row) col)
-		((off) 'off)
-		((on) 'on)
-		((unknown) 'unknown)))
+              (list-ref (list-ref board row)))
 	    
-	    ; extract-rows : board -> board-line-list
+	    ; extract-rows : returns the board as a list of rows
+            ; (board -> board)
+            
 	    (define (extract-rows board)
 	      board)
 	    
-	    ; extract-cols : board -> board-line-list
+	    ; extract-cols : returns the board as a list of columns
+            ; (board -> board)
+            
 	    (define (extract-cols board)
 	      (transpose board))
 	    
+            ; reassemble-rows : turns a list of rows into a board
+            ; (board -> board)
+            
 	    (define (reassemble-rows board-line-list)
 	      board-line-list)
 	    
+            ; reassemble-cols : turns a list of columns into a board
+            ; (board -> board)
+            
 	    (define (reassemble-cols board-line-list)
 	      (transpose board-line-list))
 	    
-	    #| TYPE-DECLARATIONS:
-	       there are three kinds of cell-list: the board-row-list, the tally-list, and the try-list.
-	       
-	       (define board-row (list-of (union 'off 'on 'unknown)))
-	       (define tally-row (list-of (union 'off 'on 'unknown 'maybe-off 'maybe-on 'mixed)))
-	       (define try-row (list-of (union 'maybe-off 'maybe-on)))
-	       |#
+
+            ; procedures to simplify the construction of test cases:
+            
+            ; condensed->long-form : takes a tree of short-form symbols and
+            ; converts them to their long form, following this mapping:
+            ; u -> unknown     |  X -> off
+            ; ? -> maybe-on    |  O -> on
+            ; ! -> maybe-off   |  * -> mixed
+            
+            (define (condensed->long-form symbol-tree)
+              (cond [(cons? symbol-tree)
+                     (cons (condensed->long-form (car symbol-tree))
+                           (condensed->long-form (cdr symbol-tree)))]
+                    [(case symbol-tree
+                       ((u) 'unknown)
+                       ((?) 'maybe-on)
+                       ((!) 'maybe-off)
+                       ((X) 'off)
+                       ((O) 'on)
+                       ((*) 'mixed)
+                       ((()) ())
+                       (else (error 'condensed->long-form "bad input: ~a" symbol-tree)))]))
+            
+            ;(equal? (condensed->long-form '(((? !) u) (* () X O)))
+            ;        '(((maybe-on maybe-off) unknown) (mixed () off on)))
 	    
-	    ; check-changed: tally-list -> boolean
+	    ; check-changed : check whether a tally-row reveals new information to be added
+            ; to the grid
+            ; (tally-row -> boolean)
+            
 	    (define (check-changed tally-list)
 	      (ormap (lambda (cell)
 		       (case cell
@@ -78,16 +120,14 @@
 			 (else (error "unknown element found in check-changed: ~a" cell))))
 		     tally-list))
 	    
-	    #|
-	       (and (equal? (check-changed '(off off on unknown mixed)) #f)
-		    (equal? (check-changed '(off on maybe-off on mixed)) #t)
-		    (equal? (check-changed '(off maybe-on on on unknown)) #t))
-	    |#
+            ;(and (equal? (check-changed '(off off on unknown mixed)) #f)
+            ;	    (equal? (check-changed '(off on maybe-off on mixed)) #t)
+            ;       (equal? (check-changed '(off maybe-on on on unknown)) #t))
 	    
-	    #| rectify:
-	    (tally-row -> board-row)
-	    |#
-	    
+	    ; rectify : transform a tally-row into a board row, by changing maybe-off
+            ; to off and maybe-on to on.
+	    ; (tally-row -> board-row)
+
 	    (define (rectify tally-list)
 	      (map (lambda (cell)
 		     (case cell
@@ -98,10 +138,8 @@
 		       (else (error "unknown element in rectified row"))))
 		   tally-list))
 	    
-	    #| rectify test case
-	    (equal? (rectify '(off on maybe-on mixed unknown maybe-off))
-		    '(off on on unknown unknown off))
-	    |#
+	    ;(equal? (rectify '(off on maybe-on mixed unknown maybe-off))
+            ;	    '(off on on unknown unknown off))
 	    
 	    ; make-row-formulator:
 	    ; given a set of block lengths, create a function which accepts a 
