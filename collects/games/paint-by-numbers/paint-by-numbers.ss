@@ -27,6 +27,8 @@ paint by numbers.
 (require-library "functios.ss")
 
 (define-signature GUI^ (paint-by-numbers-canvas%))
+(define-signature MAIN^ (canvas))
+(define-signature SOLVE^ (solve))
 
 (define GUI
   (unit/sig GUI^
@@ -287,17 +289,34 @@ paint by numbers.
 	  (min-width (inexact->exact (+ row-label-width (* grid-x-size col-label-width))))
 	  (min-height (inexact->exact (+ col-label-height (* grid-y-size row-label-height)))))))))
 
-(define MAIN
-  (unit/sig ()
+(define SOLVE
+  (unit/sig SOLVE^
+    (import [MAIN : MAIN^]
+	    mzlib:function^)
 
-    (import GUI^
+    (define (pause secs) (sleep secs))
+
+    ;(include "solver.ss")
+
+    ;;; JOHN, put your solver here. Call `pause' to pause. It will be a
+    ;;; different function later, if we want to break the animation.
+
+    (define (solve)
+      (send MAIN:canvas set-rect 1 1 'on)
+      (send MAIN:canvas paint-rect 1 1))))
+
+(define MAIN
+  (unit/sig MAIN^
+
+    (import [GUI : GUI^]
+	    [SOLVE : SOLVE^]
 	    mred^)
 
     (define-struct problem (name rows cols))
     (define problems
       (list (make-problem "First"
-			  '((1) (2)   (1 6) (9)   (6)   (5) (5) (4) (3) (4))
-			  '((2) (1 1) (4)   (2 1) (3 1) (8) (8) (7) (5) (3)))
+			  '((2) (1 1) (4)   (2 1) (3 1) (8) (8) (7) (5) (3))
+			  '((1) (2)   (1 6) (9)   (6)   (5) (5) (4) (3) (4)))
 	    (make-problem "Second"
 			  '((1) (2 3 1) (9) (8) (8)
 			    (3 2 1) (6 6) (9 4) (11 2) (13)
@@ -320,24 +339,33 @@ paint by numbers.
 			    (16 2) (16 1) (3 12 2) (4 6 4) (4 1 8)
 			    (3 8 2) (4 8 1) (10 6) (11 3) (3)))))
 
-
     (define frame (make-object frame% "Paint by Numbers"))
+    (send frame stretchable-width #t)
+    (send frame stretchable-width #f)
 
+    (define top-panel (make-object horizontal-panel% frame))
     (define choice (make-object choice%
 		     "Choose a Board"
 		     (map problem-name problems)
-		     frame
+		     top-panel
 		     (lambda (choice evt)
 		       (set-problem (list-ref problems (send choice get-selection))))))
+    (define solve-button
+      (make-object button%
+	"Solve"
+	top-panel
+	(lambda (button evt) (SOLVE:solve))))
 							    
+    (define canvas #f)
+
     (define (set-problem problem)
-      (send frame change-children (lambda (x) (list choice)))
+      (send frame change-children (lambda (x) (list top-panel)))
       (let ([rows (problem-rows problem)]
 	    [cols (problem-cols problem)])
 	(make-object message%
 	  (format "The board is ~a cells wide and ~a cells tall" (length cols) (length rows))
 	  frame)
-	(make-object paint-by-numbers-canvas% frame rows cols)))
+	(set! canvas (make-object GUI:paint-by-numbers-canvas% frame rows cols))))
 
     (set-problem (car problems))
     (send choice set-selection 0)
@@ -348,9 +376,10 @@ paint by numbers.
  (compound-unit/sig (import)
    (link
     [F : mzlib:function^ ((require-library "functior.ss"))]
-    [M : mred^ (mred@)]
-    [G : GUI^ (GUI F M)]
-    [MN : () (MAIN G M)])
+    [MRED : mred^ (mred@)]
+    [G : GUI^ (GUI F MRED)]
+    [S : SOLVE^ (SOLVE M F)]
+    [M : MAIN^ (MAIN G S MRED)])
    (export)))
 
 (yield (make-semaphore))
