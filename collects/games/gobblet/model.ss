@@ -361,10 +361,10 @@
 	  (lambda (board who)
 	    (let ([v (flatten-board board
 				    (if (eq? who 'red) red-stack-ids yellow-stack-ids))])
-	      (if ((hash-table-count memory) . < . max-c)
-		  ;; Find cannonical mapping.
-		  (hash-table-get memory v
-				  (lambda ()
+	      ;; Find cannonical mapping.
+	      (hash-table-get memory v
+			      (lambda ()
+				(if ((hash-table-count memory) . < . max-c)
 				    (let* ([n (hash-table-count memory)]
 					   [pr (cons n (car xforms))])
 				      (hash-table-put! memory v pr)
@@ -372,10 +372,10 @@
 				      (for-each (lambda (xform xform-proc)
 						  (hash-table-put! memory (xform-proc v) (cons n xform)))
 						(cdr xforms) (cdr xform-procs))
-				      pr)))
-		  ;; Don't try to cannonicalize, because it mostly
-		  ;;  pays off only at the beginning
-		  (cons v (car xforms)))))))
+				      pr)
+				    ;; Don't try to cannonicalize, because it mostly
+				    ;;  pays off only at the beginning
+				    (cons v (car xforms)))))))))
 
       (define (apply-xform xform i j)
 	(vector-ref xform (+ (* j BOARD-SIZE) i)))

@@ -104,7 +104,12 @@
 
       ;; GUI Board and Pieces ------------------------------
 
-      (define f (new frame% (label "Gobblet") (width 800) (height 600)))
+      (define f (new (class frame% 
+		       (define/augment (on-close)
+			 (inner (void) on-close)
+			 (exit))
+		       (super-new))
+		     (label "Gobblet") (width 800) (height 600)))
       (define gui-board
 	(new gl-board% (parent f)  (who "Gobblet")
 	     (min-x (if JR? (- 1 BOARD-SIZE) -1)) (max-x (if JR? (sub1 (* 2 BOARD-SIZE)) (add1 BOARD-SIZE)))
@@ -368,12 +373,13 @@
       ;; Auto-play ----------------------------------------
 
       (define auto-play-key #f)
-      (define auto-play-thread #f)
+      (define auto-play-custodian #f)
 
       (define (check-auto-play)
-	(when auto-play-thread
+	(when auto-play-custodian
 	  (set! auto-play-key (gensym))
-	  (kill-thread auto-play-thread)
+	  (custodian-shutdown-all auto-play-custodian)
+	  (set! auto-play-custodian #f)
 	  (send auto-play-msg set-label "")
 	  (enable-for-turn! turn))
 	(when (and (null? future)
@@ -384,13 +390,15 @@
 		[turn turn])
 	    (enable-for-turn! #f)
 	    (set! auto-play-key key)
-	    (set! auto-play-thread (thread
-				    (lambda () 
-				      (let ([move (auto-play board turn)])
-					(queue-callback
-					 (lambda ()
-					   (when (eq? auto-play-key key)
-					     (auto-move board turn move))))))))
+	    (set! auto-play-custodian (make-custodian))
+	    (parameterize ([current-custodian auto-play-custodian])
+	      (thread
+	       (lambda () 
+		 (let ([move (auto-play board turn)])
+		   (queue-callback
+		    (lambda ()
+		      (when (eq? auto-play-key key)
+			(auto-move board turn move))))))))
 	    (send auto-play-msg set-label 
 		  (format "   Auto-play thinking for ~a..."
 			  (if (eq? turn 'red) "Red" "Yellow"))))))
@@ -398,10 +406,16 @@
 
       (define (auto-play board turn)
 	(let ([search (make-search)])
-	  (search 3.0 4 2 128
+	  (search 3.0 
+		  4 ; lookahead steps (non-exhaustive)
+		  (if (= BOARD-SIZE 3) 3 2) ; single-step lookahead (exhaustive)
+		  128
 		  (if (= BOARD-SIZE 3)
-		      3x3-simple-heuristic
-		      4x4-simple-heuristic)
+		      make-3x3-rate-board
+		      make-4x4-rate-board)
+		  (if (= BOARD-SIZE 3)
+		      make-3x3-canned-moves
+		      make-4x4-canned-moves)
 		  turn board)))
 
       (define (auto-move board turn move)

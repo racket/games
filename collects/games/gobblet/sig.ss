@@ -9,11 +9,15 @@
     (BOARD-SIZE))
 
   (define-signature heuristics^
-    (3x3-simple-heuristic
-     4x4-simple-heuristic))
+    (make-3x3-rate-board
+     make-3x3-canned-moves
+     make-4x4-rate-board
+     make-4x4-canned-moves))
 
   (define-signature explore^
-    (make-search apply-play))
+    (make-search 
+     apply-play ; a play is (list piece from-i from-j to-i to-j)
+     (struct plan (piece from-i from-j to-i to-j xform))))
 
   (define-signature model^
     (move 

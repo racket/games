@@ -39,7 +39,7 @@
 					       (set! help (show-help (list "games" "gobblet") "Gobblet Help" #f)))
 					     (help)))))))]
 	       [MODEL : model^ (model-unit CONFIG)]
-	       [HEURISTICS : heuristics^ (heuristics-unit CONFIG MODEL)]
+	       [HEURISTICS : heuristics^ (heuristics-unit CONFIG MODEL EXPLORE)]
 	       [EXPLORE : explore^ (explore-unit CONFIG MODEL)]
 	       [GUI : () (gui-unit CONFIG MODEL RESTART HEURISTICS EXPLORE)])
 	 (export)))
