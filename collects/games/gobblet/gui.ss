@@ -11,7 +11,7 @@
   
   (define gui-unit
     (unit/sig ()
-      (import config^ model^)
+      (import config^ model^ restart^)
 
       ;; Configuration ------------------------------
       
@@ -258,6 +258,10 @@
 					    f
 					    '(default=1 caution))))
 			 (reset!)))))
+      (new button% (label (if (= BOARD-SIZE 3) "4x4 Game" "3x3 Game"))
+	   (parent bottom-right)
+	   (callback (lambda (b e)
+		       (new-game (if (= BOARD-SIZE 3) 4 3)))))
       (new button% (label "Help") (parent bottom-right)
 	   (callback (lambda (b e) (void))))
 

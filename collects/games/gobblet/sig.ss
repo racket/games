@@ -1,7 +1,7 @@
 (module sig mzscheme
   (require (lib "unitsig.ss"))
 
-  (provide config^ model^)
+  (provide config^ model^ restart^)
 
   (define-signature config^
     (BOARD-SIZE))
@@ -15,5 +15,9 @@
      board-ref
      fold-board 
      fold-rowcol 
-     other)))
+     other))
+
+  (define-signature restart^
+    (new-game)))
+
 
