@@ -10,6 +10,7 @@
 	   set-region-callback!
 	   set-region-interactive-callback!
 	   make-button-region
+	   make-background-region
 
 	   make-deck
 	   make-table

@@ -130,6 +130,9 @@
 	   (when before?
 	     (for-each
 	      (lambda (region)
+		(when (region-paint-callback region)
+		  (let-values ([(sx sy sw sh) (get-region-box region)])
+		    ((region-paint-callback region) dc (+ dx sx) (+ dy sy) sw sh)))
 		(when (region-label region)
 		  (let-values ([(sx sy sw sh) (get-region-box region)]
 			       [(old-b) (send dc get-brush)])
