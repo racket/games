@@ -7,6 +7,7 @@
            "board.ss"
 	   "moves.ss"
            "best-players.ss"
+	   "../show-help.ss"
            (lib "class.ss")
            (lib "list.ss")
            (lib "mred.ss" "mred"))
@@ -362,6 +363,14 @@
                                 (callback 
                                  (lambda (x y)
                                    (semaphore-post semaphore))))]
+	       [help (new button%
+			  (parent bottom-panel)
+			  (label "Help")
+			  (callback
+			   (let ([sh (show-help (list "games" "parcheesi")
+						"Parcheesi Help")])
+			     (lambda (x y)
+			       (sh)))))]
                [radio-boxes
                 (map (lambda (player-control-panel)
                        (let* ([color (car player-control-panel)]
@@ -393,7 +402,7 @@
                                          (send panel change-children (lambda (l) '()))))))])
                          radio-box))
                     gui-player-control-panels)])
-          (send bottom-panel change-children (lambda (l) (list start-game)))
+          (send bottom-panel change-children (lambda (l) (list start-game help)))
           (yield semaphore)
           (make-all-dice)
           (for-each (lambda (player-control-panel)
