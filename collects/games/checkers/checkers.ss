@@ -175,8 +175,6 @@
               ;(gl-material 'front 'shininess 120.0)  
               (gl-material-v 'front 'ambient-and-diffuse real-color)
               
-              ; (glTexEnvi q 'unknown 'smooth) ; ???
-              
               (gl-cylinder q .35 .35 height 25 1)
               (gl-push-matrix)
               (gl-translate 0.0 0.0 height)

@@ -4,7 +4,7 @@
            (lib "mred.ss" "mred")
            (lib "class.ss"))
 
-  (provide dark-honu-bitmap light-honu-bitmap)
+  (provide honu-bitmap honu-bitmap-down)
   
   (define body-path (make-object dc-path%))
   
@@ -351,37 +351,57 @@
   (define current-left-hole-path left-hole-path)
   (define current-right-hole-path right-hole-path)
   
-  (define bitmap-width 64)
-  (define bitmap-height 64)
+  (define bitmap-size 128)
   
-  (define (make-honu-bitmap main-pen-color main-color left-pen-color left-color right-pen-color right-color)
-    (let* ([bitmap (make-object bitmap% bitmap-width bitmap-height)]
-           [dc (make-object bitmap-dc% bitmap)]
-           [dx 110]
-           [dy 30])
+  (define (make-honu-bitmap main-pen-color main-color left-pen-color left-color right-pen-color right-color rot dx dy)
+    (let* ([bitmap (make-object bitmap% bitmap-size bitmap-size)]
+           [dc (make-object bitmap-dc% bitmap)])
       (send dc set-smoothing 'aligned)
       (send dc set-pen pale-background-color 1 'transparent)
       (send dc set-brush pale-background-color 'solid)
-      (send dc draw-rectangle 0 0 bitmap-width bitmap-height)
-      (send dc draw-ellipse
-            (* .15 bitmap-width)
-            (* .15 bitmap-height)
-            (* .7 bitmap-width)
-            (* .7 bitmap-height))
-      (send dc set-scale 1/5 1/5)
+      (send dc set-brush "white" 'solid)
+      (send dc draw-rectangle 0 0 bitmap-size bitmap-size)
+      (send dc set-scale 1/2 1/2)
       (send dc set-brush main-color 'solid)
       (send dc set-pen main-pen-color 1 'solid)
-      (send dc draw-path current-body-path dx dy)
+      (send dc draw-path (rotate-path current-body-path rot) dx dy)
       (send dc set-brush left-color 'solid)
       (send dc set-pen left-pen-color 1 'solid)
-      (send dc draw-path current-left-hole-path dx dy)
+      (send dc draw-path (rotate-path current-left-hole-path rot) dx dy)
       (send dc set-brush right-color 'solid)
       (send dc set-pen right-pen-color 1 'solid)
-      (send dc draw-path current-right-hole-path dx dy)
+      (send dc draw-path (rotate-path current-right-hole-path rot) dx dy)
       (send dc set-bitmap #f)
       bitmap))
   
-  (define dark-honu-bitmap (make-honu-bitmap "black" "black" "red" "red" "blue" "blue"))
-  (define light-honu-bitmap (make-honu-bitmap pale-blue-color "white"
-                                              pale-red-color pale-red-color
-                                              pale-blue-color pale-blue-color)))
+  (define (rotate-path path rot)
+    (let ([pth (new dc-path%)])
+      (send pth append path)
+      (send pth rotate rot)
+      pth))
+
+  (define honu-bitmap (make-honu-bitmap "black" "black" "red" "red" "blue" "blue" (* pi 1/2 8/10) 0 143))
+  (define honu-bitmap-down
+    (make-honu-bitmap "black" "black" "red" "red" "blue" "blue" (* pi -1/2 12/10) 265 116))
+  #|
+  (define dx 0)
+  (define dy 0)
+  (define f (new frame% (label "")))
+  (define c (new canvas%
+                 (parent f)
+                 (paint-callback
+                  (lambda (c dc)
+                    (send dc draw-bitmap honu-bitmap dx dy)))))
+  (send c min-width bitmap-size)
+  (send c min-height bitmap-size)
+  (define b+ (new button%
+                  (label "+1")
+                  (parent f)
+                  (callback (lambda (x y) (set! dy (+ dy 1)) (send c refresh)))))
+  (define b- (new button%
+                  (label "-1")
+                  (parent f)
+                  (callback (lambda (x y) (set! dy (- dy 1)) (send c refresh)))))
+  (send f show #t)  
+|#
+  )
