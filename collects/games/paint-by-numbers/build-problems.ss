@@ -36,9 +36,9 @@ yet defined.
 	    mzlib:pretty-print^
 	    (argv))
 
-    (define time-limit 20) ;; in seconds
+    (define time-limit 40) ;; in seconds
 
-    (define hattori-count 15)
+    (define hattori-count 30)
 
     (define problems-dir (collection-path "games" "paint-by-numbers"))
     (define input-file (build-path problems-dir "raw-problems.ss"))
@@ -57,7 +57,10 @@ yet defined.
 	  (cond
 	   [(zero? n) null]
 	   [else (cons
-		  (let ([n (random (length raw-hattori))])
+		  (let ([n 
+			 (+ n -1) ;; offset selection
+			 ;(random (length raw-hattori)) ;; random selection
+			 ])
 		    (fprintf (current-error-port) " ~a" (+ n 1))
 		    (list-ref raw-hattori n))
 		  (loop (- n 1)))]))
