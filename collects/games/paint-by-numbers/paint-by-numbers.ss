@@ -199,7 +199,7 @@
 	(lambda (_1 _2)
 	  (send (get-canvas) redo))]
       
-      (super-instantiate ())
+      (super-new (style '(no-resize-border)))
       
       [field [top-panel (make-object horizontal-panel% (get-area-container))]
              [help-button
