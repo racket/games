@@ -126,7 +126,7 @@
       ;; The timer turns out to be the most difficult part:
       (define (make-time-region secs)
 	(make-region time-x time-y cw time-h
-		     (if (> secs 6000)
+		     (if (>= secs 6000)
 			 "XX:XX"
 			 (format 
 			  "~a:~a"

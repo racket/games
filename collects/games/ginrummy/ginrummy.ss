@@ -227,7 +227,7 @@
               (max (find-set value-sorted)
                    (find-set suit-sorted)
                    ;; the suit-sorted list with with Aces at the end instead of the beginning
-                   (let ace-loop ([pre null][l value-sorted])
+                   (let ace-loop ([pre null][l suit-sorted])
                      (cond
                        [(null? l)
                         ;; No more aces to find
@@ -261,7 +261,7 @@
       ;; the machine sees two choices that are equally good according to
       ;; gin-size, then it computes a rating based on pairs, i.e., cards
       ;; that might eventually go together in a set.
-      (define (pair-rating cards)
+      (define (pair-rating cards gone-cards)
         (let ([suits (map (lambda (card) (send card get-suit-id)) cards)]
               [values (map (lambda (card) (send card get-value)) cards)])
           ;; Its O(n*n), but n is always 10 or 11
@@ -269,29 +269,90 @@
                  (map (lambda (suit value)
                         (apply +
                                (map (lambda (suit2 value2)
-                                      (if (or (= value value2)
-                                              (and (= suit suit2)
-                                                   (> 2 (abs (- value value2)))))
-                                          1
-                                          0))
+				      (cond
+				       [(= value value2)
+					(- 2 (count-gone value gone-cards))]
+				       [(= suit suit2)
+					(rate-straight suit value value2 gone-cards)]
+				       [else 0]))
                                     suits values)))
                       suits values))))
+
+      ;; count-gone checks how many of a given value are known
+      ;;  to be permanently discarded
+      (define (count-gone value gone-cards)
+	(cond
+	 [(null? gone-cards) 0]
+	 [(= value (send (car gone-cards) get-value)) 
+	  (+ 1 (count-gone value (cdr gone-cards)))]
+	 [else (count-gone value (cdr gone-cards))]))
+
+      ;; count-avail checks whether a given value/suit is
+      ;;  known to be discarded (returns 0) or not (returns 1)
+      (define (count-avail value suit gone-cards)
+	(cond
+	 [(null? gone-cards) 1]
+	 [(and (= value (send (car gone-cards) get-value)) 
+	       (= suit (send (car gone-cards) get-suit-id))) 
+	  0]
+	 [else (count-avail value suit (cdr gone-cards))]))
+
+      ;; rates the possibility for forming a straight given
+      ;;  two card values in a particular suit, and taking
+      ;;  into account cards known to be discarded; the
+      ;;  rating is the number of non-discarded cards that 
+      ;;  would form a straight with the given values
+      (define (rate-straight suit value value2 gone-cards)
+	(let ([v1 (if (= value 1)
+		      (if (value2 . > . 6)
+			  14
+			  1)
+		      value)]
+	      [v2 (if (= value2 1)
+		      (if (value . > . 6)
+			  14
+			  1)
+		      value2)])
+	  (let ([delta (abs (- v1 v2))])
+	    (cond
+	     [(= delta 1)
+	      (cond
+	       [(or (= v1 1) (= v2 1))
+		;; Might get the 3?
+		(count-avail 3 suit gone-cards)]
+	       [(or (= v1 14) (= v2 14))
+		;; Might get the queen?
+		(count-avail 12 suit gone-cards)]
+	       [(or (= v1 13) (= v2 13))
+		;; Might get the jack or ace?
+		(+ (count-avail 11 suit gone-cards)
+		   (count-avail 1 suit gone-cards))]
+	       [else
+		;; Might get top or bottom?
+		(+ (count-avail (sub1 (min v1 v2)) suit gone-cards)
+		   (count-avail (add1 (max v1 v2)) suit gone-cards))])]
+	     [(= delta 2)
+	      ;; Might get the middle one?
+	      (let ([middle (quotient (+ v1 v2) 2)])
+		(count-avail middle suit gone-cards))]
+	     [else 0]))))
       
       ;; The procedure implements the machine's card-drawing choice
-      (define (machine-wants-card? machine-hand card)
+      (define (machine-wants-card? machine-hand card gone-cards)
         ;; Simple strategy: the machine wants the card if taking it will
         ;; make the gin-size of its hand increase, or if taking it will not
         ;; make the gin-size decrease but will increase the pair rating.
         (let* ([orig-size (gin-size machine-hand)]
-               [new-hand (remq (machine-discard (cons card machine-hand)) 
+               [new-hand (remq (machine-discard (cons card machine-hand) gone-cards) 
                                (cons card machine-hand))]
                [new-size (gin-size new-hand)])
           (or (> new-size orig-size)
               (and (= new-size orig-size)
-                   (> (pair-rating new-hand) (pair-rating machine-hand))))))
+                   (> (pair-rating new-hand gone-cards) 
+		      (pair-rating machine-hand gone-cards))))))
       
       ;; The procedure implements the machine's discard choice
-      (define (machine-discard machine-hand)
+      (define (machine-discard machine-hand gone-cards)
         ;; Discard the card that leaves the hand with the largest
         ;; gin-size.  If multiple cards leave the same largest gin size,
         ;; pick card leaving the best pair rating.
@@ -303,9 +364,9 @@
                [best (filter (lambda (x) (= most (car x))) gin-size-card-pairs)]
                [best-cards (map cdr best)]
                [rating-card-pairs
-                (map (lambda (card) (cons (pair-rating (remq card machine-hand))
+                (map (lambda (card) (cons (pair-rating (remq card machine-hand) gone-cards)
                                           card))
-                     machine-hand)]
+                     best-cards)]
                [most (apply max (map car rating-card-pairs))]
                [best (filter (lambda (x) (= most (car x))) rating-card-pairs)])
           (cdar best)))
@@ -422,7 +483,7 @@
                 (begin
                   (check-empty-deck)
                   ;; Machine picks a card
-                  (if (machine-wants-card? machine-hand (car discards))
+                  (if (machine-wants-card? machine-hand (car discards) (cdr discards))
                       (let ([card (car discards)])
                         (set! discards (cdr discards))
                         (send t card-face-down card)
@@ -436,7 +497,7 @@
                   (send t move-cards-to-region machine-hand machine-display-region)
                   
                   ;; Machine discards
-                  (let ([card (machine-discard machine-hand)])
+                  (let ([card (machine-discard machine-hand discards)])
                     (send t card-face-up card)
                     (send t card-to-front card)
                     (send t move-card card discard-x discard-y)
