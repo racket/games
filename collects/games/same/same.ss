@@ -124,17 +124,11 @@
        (public
 	 [get-game-over-size
 	  (lambda (dc)
-	    (let ([border 5]
-		  [w (box 0)]
-		  [h (box 0)]
-		  [d (box 0)]
-		  [l (box 0)])
-	      (send dc get-text-extent game-over w h d l)
-	      (let* ([text-height (unbox h)]
-		     [text-width (unbox w)]
-		     [x (- (/ width 2) (/ text-width 2))]
-		     [y (- (/ height 2) (/ text-height 2))])
-		(values x y text-width text-height border))))]
+	    (let ([border 5])
+	      (let-values ([(text-width text-height d l) (send dc get-text-extent game-over)])
+		(let ([x (- (/ width 2) (/ text-width 2))]
+		      [y (- (/ height 2) (/ text-height 2))])
+		  (values x y text-width text-height border)))))]
 
 	 [paint-game-over
 	  (lambda (dc)
