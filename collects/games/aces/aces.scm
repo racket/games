@@ -178,26 +178,35 @@ possible to remap single click (instead of double click)?
 
    (define (game-over?)
      (and (null? draw-pile)
-	  (let ([suits
-                 (filter 
-                  (lambda (x) x)
-                  (map (lambda (x) 
-                         (let ([stack-cards (stack-cards x)])
-                           (if (null? stack-cards)
-                               #f
-                               (send (car stack-cards) get-suit))))
-                       stacks))])
-            (let loop ([suits suits])
-              (cond
-                [(null? suits) #t]
-                [else (if (memq (car suits) (cdr suits))
-                          #f
-                          (loop (cdr suits)))])))))
+	  (let ([suits/false
+                 (map (lambda (x) 
+                        (let ([stack-cards (stack-cards x)])
+                          (if (null? stack-cards)
+                              #f
+                              (send (car stack-cards) get-suit))))
+                      stacks)])
+            
+            (if (member #f suits/false)
+                #f
+                (and (memq 'clubs suits/false)
+                     (memq 'diamonds suits/false)
+                     (memq 'hearts suits/false)
+                     (memq 'spades suits/false))))))
+   
+   (define (won?)
+     (and (game-over?)
+          (andmap (lambda (x) 
+                    (let ([cards (stack-cards x)])
+                      (and (not (null? cards))
+                           (= 1 (send (car stack-cards) get-value)))))
+                  stacks)))
 
    (define (check-game-over)
      (when (game-over?)
        (case (message-box "Aces"
-			  "Game Over. Play again?"
+			  (if (won?)
+                              "Congratulations! You win! Play again?"
+                              "Game Over. Play again?")
 			  table
 			  '(yes-no))
 	 [(yes) (reset-game)]
