@@ -409,18 +409,16 @@
       
 
       (define (auto-play board turn)
-	(let ([search (make-search)])
-	  (search 3.0 
-		  4 ; lookahead steps (non-exhaustive)
+	(let ([search (make-search (if (= BOARD-SIZE 3)
+				       make-3x3-rate-board
+				       make-4x4-rate-board)
+				   (if (= BOARD-SIZE 3)
+				       make-3x3-canned-moves
+				       make-4x4-canned-moves))])
+	  (search 60.0 ; 3.0 
+		  1 ; 4 ; lookahead steps (non-exhaustive)
 		  (if (= BOARD-SIZE 3) 3 2) ; single-step lookahead (exhaustive)
-		  128
-		  (if (= BOARD-SIZE 3)
-		      make-3x3-rate-board
-		      make-4x4-rate-board)
-		  (if (= BOARD-SIZE 3)
-		      make-3x3-canned-moves
-		      make-4x4-canned-moves)
-		  turn board)))
+		  turn board null)))
 
       (define (auto-move board turn move)
 	(send auto-play-msg set-label "")

@@ -352,30 +352,29 @@
 		    (hash-table-put! yellow-stack-ids s (hash-table-get red-stack-ids inverse))))
 		all-stacks)
 
-      	    
+      (define (compact-board board who)
+	(flatten-board board
+		       (if (eq? who 'red) red-stack-ids yellow-stack-ids)))
 
-      ;; make-canonicalize : -> (board sym -> (cons num xform))
-      (define (make-canonicalize max-c)
+      ;; make-canonicalize : -> (union (board sym -> (cons compact xform))
+      ;;                               (compact #f -> (cons compact xform)))
+      (define (make-canonicalize)
 	(let ([memory (make-hash-table 'equal)])
 	  ;; Convert the board into a flat vector, normalizing player:
 	  (lambda (board who)
-	    (let ([v (flatten-board board
-				    (if (eq? who 'red) red-stack-ids yellow-stack-ids))])
+	    (let ([v (if who
+			 (compact-board board who)
+			 board)])
 	      ;; Find cannonical mapping.
 	      (hash-table-get memory v
 			      (lambda ()
-				(if ((hash-table-count memory) . < . max-c)
-				    (let* ([n (hash-table-count memory)]
-					   [pr (cons n (car xforms))])
-				      (hash-table-put! memory v pr)
-				      ;; Add each equivalent to table:
-				      (for-each (lambda (xform xform-proc)
-						  (hash-table-put! memory (xform-proc v) (cons n xform)))
-						(cdr xforms) (cdr xform-procs))
-				      pr)
-				    ;; Don't try to cannonicalize, because it mostly
-				    ;;  pays off only at the beginning
-				    (cons v (car xforms)))))))))
+				(let* ([pr (cons v (car xforms))])
+				  (hash-table-put! memory v pr)
+				  ;; Add each equivalent to table:
+				  (for-each (lambda (xform xform-proc)
+					      (hash-table-put! memory (xform-proc v) (cons v xform)))
+					    (cdr xforms) (cdr xform-procs))
+				  pr)))))))
 
       (define (apply-xform xform i j)
 	(vector-ref xform (+ (* j BOARD-SIZE) i)))
@@ -383,4 +382,32 @@
 	(let loop ([i 0])
 	  (if (= (vector-ref xform i) v)
 	      (values (modulo i BOARD-SIZE) (quotient i BOARD-SIZE))
-	      (loop (add1 i))))))))
+	      (loop (add1 i)))))
+
+
+      ;; Debugging helper
+      (define (board->string depth b)
+	(let jloop ([j 0])
+	  (if (= j BOARD-SIZE)
+	      ""
+	      (string-append
+	       (make-string depth #\space)
+	       (let iloop ([i 0])
+		 (if (= i BOARD-SIZE)
+		     ""
+		     (string-append (stack->string (board-ref b i j))
+				    " "
+				    (iloop (add1 i)))))
+	       "\n"
+	       (jloop (add1 j))))))
+      
+      (define (stack->string s)
+	(let ([s (apply string-append 
+			"...."
+			(map (lambda (p)
+			       (list-ref (if (eq? 'red (piece-color p))
+					     '("_" "i" "I" "|")
+					     '("=" "o" "O" "0"))
+					 (piece-size p)))
+			     s))])
+	  (substring s (- (string-length s) BOARD-SIZE)))))))

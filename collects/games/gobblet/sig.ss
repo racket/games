@@ -30,8 +30,10 @@
      fold-rowcol 
      other
      available-off-board
+     compact-board
      make-canonicalize
-     apply-xform unapply-xform))
+     apply-xform unapply-xform
+     board->string))
 
   (define-signature restart^
     (new-game

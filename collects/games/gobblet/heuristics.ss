@@ -2,7 +2,8 @@
   (require (lib "unitsig.ss")
 	   (lib "etc.ss")
 	   (lib "list.ss")
-	   "sig.ss")
+	   "sig.ss"
+	   "plays-3x3.ss")
 
   (provide heuristics-unit)
 
@@ -33,87 +34,27 @@
       (define GOOD 1000.0)
       (define BAD -1000.0)
       
-      (define (make-3x3-canned-moves canon) 
-	(let ([start (canon empty-board 'red)]
-	      [start-yellow (canon (gen-board '((2 #f #f 1 1)))
-				   'yellow)]
-	      [red-2nd (canon (gen-board '((2 #f #f 1 1)
-					   (2 #f #f 2 2)))
-			      'red)]
-	      [pre-red-win (canon (gen-board '((2 #f #f 1 1)
-					       (2 #f #f 2 2)
-					       (2 #f #f 1 2)))
-				  'yellow)]
-	      [pre-red-win.var (canon (gen-board '((2 #f #f 1 1)
-						   (2 #f #f 2 2)
-						   (2 #f #f 1 0)
-						   (1 #f #f 1 2)
-						   (2 1 0 1 2)))
-				      'yellow)]
-	      [red-win (canon (gen-board '((2 #f #f 1 1)
-					   (2 #f #f 2 2)
-					   (2 #f #f 1 2)
-					   (2 #f #f 1 0)))
-			      'red)]
-	      [pre-red-win2 (canon (gen-board '((2 #f #f 1 1)
-						(2 #f #f 2 0)
-						(2 #f #f 0 0)))
-				   'yellow)]
-	      [pre-red-win2.var (canon (gen-board '((2 #f #f 1 1)
-						    (2 #f #f 2 0)
-						    (2 #f #f 2 2)
-						    (1 #f #f 0 0)
-						    (2 2 2 0 0)))
-				       'yellow)]
-	      [red-win2 (canon (gen-board '((2 #f #f 1 1)
-					    (2 #f #f 2 0)
-					    (2 #f #f 0 0)
-					    (2 #f #f 2 2)))
-			       'red)])
+      (define (make-3x3-canned-moves canonicalize) 
+	(let ([ht (make-hash-table 'equal)])
+	  (for-each (lambda (play)
+		      (let ([key+xform (canonicalize (car play) #f)])
+			(hash-table-put! ht
+					 (car key+xform)
+					 (let-values ([(from-i from-j)
+						       (if (list-ref play 2)
+							   (unapply-xform (cdr key+xform) (list-ref play 2))
+							   (values #f #f))]
+						      [(to-i to-j)
+						       (unapply-xform (cdr key+xform) (list-ref play 3))])
+					   (list
+					    (cons +inf.0
+						  (make-plan
+						   (list-ref red-pieces (list-ref play 1))
+						   from-i from-j to-i to-j
+						   (cdr key+xform))))))))
+		    3x3-plays)
 	  (lambda (board me k xform)
-	    (cond
-	     [(canon=? k start)
-	      ;; Empty board
-	      ;; Red start in middle
-	      (list (cons GOOD
-			  (make-plan (list-ref red-pieces 2) #f #f 1 1 xform)))]
-	     [(canon=? k start-yellow)
-	      ;; Red moves on center
-	      ;; Yellow start on corner
-	      (list (cons GOOD
-			  (make-plan (list-ref yellow-pieces 2) #f #f 2 2 xform)))]
-	     [(canon=? k red-2nd)
-	      => (lambda (xform2)
-		   ;; Set up for yellow mistake...
-		   (list (cons GOOD
-			       (make-plan (list-ref red-pieces 2) #f #f 1 2 xform2))))]
-	     [(or (canon=? k pre-red-win)
-		  (canon=? k pre-red-win.var))
-	      => (lambda (xform2)
-		   ;; Don't make the mistake
-		   (list (cons -inf.0
-			       (make-plan (list-ref yellow-pieces 2) #f #f 1 0 xform2))
-			 (cons -inf.0
-			       (make-plan (list-ref yellow-pieces 2) 2 2 1 0 xform2))))]
-	     [(canon=? k red-win)
-	      => (lambda (xform2)
-		   ;; Yellow made a mistake; go for the win!
-		   (list (cons +inf.0
-			       (make-plan (list-ref red-pieces 1) #f #f 0 2 xform2))))]
-	     [(or (canon=? k pre-red-win2)
-		  (canon=? k pre-red-win2.var))
-	      => (lambda (xform2)
-		   ;; Don't make a mistake that leads to a red win
-		   (list (cons -inf.0
-			       (make-plan (list-ref yellow-pieces 2) #f #f 2 2 xform2))
-			 (cons -inf.0
-			       (make-plan (list-ref yellow-pieces 2) 2 0 2 2 xform2))))]
-	     [(canon=? k red-win2)
-	      => (lambda (xform2)
-		   ;; Yellow made a different mistake; go for the win!
-		   (list (cons +inf.0
-			       (make-plan (list-ref red-pieces 1) #f #f 2 1 xform2))))]
-	     [else null]))))
+	    (hash-table-get ht k (lambda () null)))))
 
       (define (make-3x3-rate-board canon)
 	(lambda (board me to-i to-j)

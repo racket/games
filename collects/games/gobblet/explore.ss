@@ -9,7 +9,7 @@
   (define-syntax (log-printf stx)
     (syntax-case stx ()
       [(_ n i arg ...)
-       (<= (syntax-e #'n) 0)
+       (<= (syntax-e #'n) 10)
        #'(begin
 	   (when (i  . < . 100)
 	     (printf arg ...))
@@ -21,6 +21,11 @@
     (unit/sig explore^
       (import config^ model^)
       (rename [make-a-plan make-plan])
+
+      (define learn? #f)
+      (define MEMORY-FILE (and learn?
+			       (build-path (find-system-path 'addon-dir)
+					   (format "gobblet-memory-~a.ss" BOARD-SIZE))))
 
       (define-struct plan (piece from-i from-j to-i to-j xform turns))
       (define (make-a-plan piece from-i from-j to-i to-j xform)
@@ -78,6 +83,17 @@
 	 [else
 	  (cons (car b) (best (sub1 span) a (cdr b)))]))
 
+      (define (found-win? v)
+	(and (pair? v)
+	     (= (caar v) +inf.0)))
+
+      (define (immediate? v)
+	(and (pair? v) (zero? (get-depth (car v)))))
+
+      (define (found-lose? v)
+	(and (pair? v)
+	     (= (caar v) -inf.0)))
+
       (define (get-depth a)
 	(if (plan? (cdr a))
 	    (plan-turns (cdr a))
@@ -91,14 +107,17 @@
       (define enter-count 0)
       (define move-count 0)
 
+      ;; Discourage loops:
+      (define LOOP-TIE `((-1000.0 loop!)))
+
       #;
-      (define (show-recur from-i from-j to-i to-j sv)
+      (define (show-recur sz from-i from-j to-i to-j sv)
 	(if (not (plan? (cdar sv)))
-	    (printf "   Recur (~a,~a)->(~a,~a) ; ??? = ~a~n"
-		    from-i from-j to-i to-j 
+	    (printf "   Recur ~a (~a,~a)->(~a,~a) ; ??? = ~a~n"
+		    sz from-i from-j to-i to-j 
 		    (caar sv))
-	    (printf "   Recur (~a,~a)->(~a,~a) ; (~a,~a)->(~a,~a) = ~a~n"
-		    from-i from-j to-i to-j 
+	    (printf "   Recur ~a (~a,~a)->(~a,~a) ; (~a,~a)->(~a,~a) = ~a~n"
+		    sz from-i from-j to-i to-j 
 		    (plan-from-i (cdar sv)) (plan-from-j (cdar sv)) (plan-to-i (cdar sv)) (plan-to-j (cdar sv))
 		    (caar sv))))
 
@@ -132,7 +151,7 @@
 		  [else 
 		   (set! explore-count (add1 explore-count))
 		   ;; In case we get back here while we're looking, claim an unknown tie:
-		   (hash-table-put! memory win/lose-key `((0 loop! ,me ,depth ,max-depth)))
+		   (hash-table-put! memory win/lose-key LOOP-TIE)
 		   (let* ([canned-goodness
 			   (map (lambda (g)
 				  ;; Make sure each canned move is in our coordinate system:
@@ -177,21 +196,24 @@
 						    (cdr avail-pieces))])
 				    (fold-board
 				     (lambda (i j v)
-				       (move board p #f #f i j
-					     (lambda (new-board)
-					       (set! enter-count (add1 enter-count))
-					       (let-values ([(sv sxform)
-							     (minmax (add1 depth) max-depth 1 memory canonicalize 
-								     rate-board canned-moves
-								     him me his-pieces my-pieces new-board
-								     i j)])
-						 #;
-						 (show-recur #f #f i j sv)
-						 (best span
-						       v
-						       (list (cons (- (caar sv))
-								   (make-plan p #f #f i j xform (add1 (get-depth (car sv)))))))))
-					     (lambda () v)))
+				       (if (and (found-win? v) (immediate? v))
+					   v
+					   (move board p #f #f i j
+						 (lambda (new-board)
+						   (set! enter-count (add1 enter-count))
+						   (let-values ([(sv sxform)
+								 (minmax (add1 depth) max-depth 1 memory canonicalize 
+									 rate-board canned-moves
+									 him me his-pieces my-pieces new-board
+									 i j)])
+						     #;
+						     (when (zero? depth)
+						       (show-recur (piece-size p) #f #f i j sv))
+						     (best span
+							   v
+							   (list (cons (- (caar sv))
+								       (make-plan p #f #f i j xform (add1 (get-depth (car sv)))))))))
+						 (lambda () v))))
 				     no-goodness)))])))]
 			  [move-piece-goodness
 			   (lambda (max-depth)
@@ -202,13 +224,14 @@
 					   (eq? me (piece-color (car l))))
 				      (fold-board
 				       (lambda (to-i to-j v)
-					 (if (ormap (lambda (km)
-						      (let ([m (cdr km)])
-							(and (equal? from-i (plan-from-i m))
-							     (equal? from-j (plan-from-j m))
-							     (equal? to-i (plan-to-i m))
-							     (equal? to-j (plan-to-j m)))))
-						    canned-goodness)
+					 (if (or (and (found-win? v) (immediate? v))
+						 (ormap (lambda (km)
+							  (let ([m (cdr km)])
+							    (and (equal? from-i (plan-from-i m))
+								 (equal? from-j (plan-from-j m))
+								 (equal? to-i (plan-to-i m))
+								 (equal? to-j (plan-to-j m)))))
+							canned-goodness))
 					     v
 					     (move board (car l) from-i from-j to-i to-j
 						   (lambda (new-board)
@@ -219,7 +242,8 @@
 									   him me his-pieces my-pieces new-board
 									   to-i to-j)])
 						       #;
-						       (show-recur from-i from-j to-i to-j sv)
+						       (when (zero? depth)
+							 (show-recur (piece-size (car l)) from-i from-j to-i to-j sv))
 						       (best span
 							     v 
 							     (list (cons (- (caar sv))
@@ -262,7 +286,7 @@
 		(error 'apply-play "bad move: ~a" m))))
 
       (define (multi-step-minmax steps one-step-depth span indent 
-				 memory canonicalize 
+				 memory init-memory canonicalize 
 				 rate-board canned-moves
 				 me board)
 	(define first-move? 
@@ -284,11 +308,7 @@
 			      rate-board canned-moves
 			      me
 			      (other me)
-			      (if first-move?
-				  ;; Ensure that we start with a large piece for first 2 moves:
-				  (list (car (available-off-board board me)))
-				  ;; Use any piece:
-				  (available-off-board board me))
+			      (available-off-board board me)
 			      (available-off-board board (other me))
 			      board #f #f)])
 	  (log-printf 2 indent "~a>> Done ~a ~a ~a ~a+~a [~a secs]~n" 
@@ -300,16 +320,45 @@
 			;; Transform each result, and turn it into a list
 			(cons (car v) 
 			      (let ([m (xlate (cdr v) xform)])
-				(list (plan-piece m)
+				(list (list-ref (if (eq? me 'red)
+						    red-pieces
+						    yellow-pieces)
+						(piece-size (plan-piece m)))
 				      (plan-from-i m)
 				      (plan-from-j m)
 				      (plan-to-i m)
-				      (plan-to-j m)))))
+				      (plan-to-j m)
+				      (get-depth v)))))
 		      (filter (lambda (v) (plan? (cdr v))) vs))])
-	    (log-printf 2 indent "~a>> Best Plays: ~a\n" 
+	    (log-printf 3 indent "~a>> Best Plays: ~a\n" 
 			(make-string indent #\space) (plays->string 
 						      (make-string (+ 15 indent) #\space)
 						      plays))
+
+	    ;; Record what we've learned...
+	    (when (and learn?
+		       (= steps 1))
+	      (when (or (found-win? plays)
+			(found-lose? plays))
+		(let ([board-key+xform (canonicalize board me)])
+		  (hash-table-get init-memory 
+				  (car board-key+xform)
+				  (lambda ()
+				    ;; This is new...
+				    (with-output-to-file MEMORY-FILE
+				      (lambda ()
+					(let ([m (cdar plays)])
+					  (printf "(~a ~a ~a)~n#|~n~a|#~n" 
+						  (if (found-win? plays) 'win 'lose)
+						  (car board-key+xform)
+						  (list
+						   (piece-color (list-ref m 0))
+						   (piece-size (list-ref m 0))
+						   (list-ref m 1) (list-ref m 2) (list-ref m 3) (list-ref m 4)
+						   (list-ref m 5))
+						  (board->string 0 board))))
+				      'append))))))
+
 	    (if (or (steps . <= . 1) first-move?)
 		(car plays)
 		(let ([nexts 
@@ -317,20 +366,20 @@
 			   (mergesort
 			    (map
 			     (lambda (play)
-			       (log-printf 3 indent " ~a>>> Checking: ~a\n" 
+			       (log-printf 4 indent " ~a>>> Checking: ~a\n" 
 					   (make-string indent #\space) (play->string play))
 			       (if (= -inf.0 (car play))
 				   (begin
-				     (log-printf 3 indent " ~a>>>> losing\n" (make-string indent #\space))
+				     (log-printf 4 indent " ~a>>>> losing\n" (make-string indent #\space))
 				     play)
 				   (let ([r (cons (- (car (multi-step-minmax 
 							   (sub1 steps) one-step-depth span (+ 3 indent)
-							   memory canonicalize 
+							   memory init-memory canonicalize 
 							   rate-board canned-moves
 							   (other me)
 							   (apply-play board (cdr play)))))
 						  (cdr play))])
-				     (log-printf 3 indent " ~a>>>> deeper = ~a\n" 
+				     (log-printf 4 indent " ~a>>>> deeper = ~a\n" 
 						 (make-string indent #\space) (float->string (car r)))
 				     r)))
 			     plays)
@@ -339,17 +388,50 @@
 			   (list (car plays)))])
 		  (car nexts))))))
 
-      (define (make-search)
-	(lambda (timeout max-steps one-step-depth cannon-size 
-			 make-rate-board make-canned-moves
-			 me board)
+      ;; to laod what we've learned
+      (define (load-memory init-memory canonicalize)
+	(with-handlers ([exn:fail:filesystem? void])
+	  (with-input-from-file MEMORY-FILE
+	    (lambda ()
+	      (let loop ()
+		(let ([v (read)])
+		  (unless (eof-object? v)
+		    (let ([board-key+xform (canonicalize (cadr v) #f)])
+		      (hash-table-put! init-memory
+				       (car board-key+xform)
+				       (list
+					(cons (if (eq? 'win (car v)) +inf.0 -inf.0)
+					      (let ([n (caddr v)])
+						(make-plan
+						 (list-ref (if (eq? 'red (car n))
+							       red-pieces
+							       yellow-pieces)
+							   (cadr n))
+						 (list-ref n 2) (list-ref n 3) (list-ref n 4) (list-ref n 5)
+						 (cdr board-key+xform)
+						 (list-ref n 6)))))))
+		    (loop))))))))
+
+      (define (make-search make-rate-board make-canned-moves)
+	(define init-memory (make-hash-table 'equal))
+	(define canonicalize (make-canonicalize))
+	(define rate-board (make-rate-board canonicalize))
+	(define canned-moves (make-canned-moves canonicalize))
+	(when learn?
+	  (load-memory init-memory canonicalize))
+	(lambda (timeout max-steps one-step-depth
+			 me board history)
 	  (let* ([result #f]
 		 [once-sema (make-semaphore)]
 		 [result-sema (make-semaphore)]
-		 [memory (make-hash-table 'equal)]
-		 [canonicalize (make-canonicalize cannon-size)]
-		 [rate-board (make-rate-board canonicalize)]
-		 [canned-moves (make-canned-moves canonicalize)])
+		 [memory (make-hash-table 'equal)])
+	    ;; Record game-history boards as loop ties
+	    (let loop ([history history][me (other me)])
+	      (unless (null? history)
+		(let ([key+xform (canonicalize (car history) me)])
+		  (hash-table-put! memory (car key+xform) LOOP-TIE))
+		(loop (cdr history) (other me))))
+	    (hash-table-for-each init-memory (lambda (k v) (hash-table-put! memory k v)))
 	    (let ([t (thread
 		      (lambda ()
 			(let loop ([steps 1])
@@ -358,7 +440,7 @@
 							    one-step-depth
 							    3 ; span
 							    0 ; indent 
-							    memory canonicalize 
+							    memory init-memory canonicalize 
 							    rate-board canned-moves
 							    me board)])
 				  (log-printf 1 0 "> ~a Result: ~a~n" 
@@ -374,9 +456,9 @@
 	      (sync/timeout timeout result-sema)
 	      (semaphore-wait once-sema)
 	      (kill-thread t)
-	      (if (null? (cdr result))
-		  (error 'search "didn't find a move!?")
-		  (cdr result))))))
+	      (when (null? (cdr result))
+		(error 'search "didn't find a move!?"))
+	      (cdr result)))))
 
       ;; Simple search tests
       #;
