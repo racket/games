@@ -53,18 +53,25 @@
 						 (cdr key+xform)
 						 (list-ref play 4))))))))
 		  3x3-plays)
-	  (lambda (board me k xform)
-	    null))
+	(lambda (board me k xform)
+	  null))
+
+      (define (make-3x3-no-canned-moves canonicalize init-memory) 
+	(lambda (board me k xform)
+	  null))
 
       (define (make-3x3-rate-board canon)
 	(lambda (board me to-i to-j)
-	  (+ (let ([l (board-ref board 1 1)])
-	       (if (pair? l)
-		   (if (eq? (piece-color (car l)) me)
-		       2
-		       -2)
-		   0))
+	  (+ (rate-cell board me 1 1)
 	     (random))))
+
+      (define (rate-cell board me i j)
+	(let ([l (board-ref board i j)])
+	  (if (pair? l)
+	      (if (eq? (piece-color (car l)) me)
+		  2
+		  -2)
+	      0)))
 
       (define (make-4x4-canned-moves canon init-memory) 
 	(lambda (board me k xform)
@@ -72,10 +79,16 @@
 
       (define (make-4x4-rate-board canon)
 	(lambda (board me to-i to-j)
-	  (+ (random) (if (and (top-color? board to-i to-j (other me))
-			       (3-in-a-row? board to-i to-j (other me)))
-			  -2
-			  0))))
+	  (+ (random) 
+	     (if (and (top-color? board to-i to-j (other me))
+		      (3-in-a-row? board to-i to-j (other me)))
+		 -10
+		 0)
+	     ;; Controlling the middle cells seems good:
+	     (rate-cell board me 1 1)
+	     (rate-cell board me 1 2)
+	     (rate-cell board me 2 1)
+	     (rate-cell board me 2 2))))
       
       (define (top-color? board i j c)
 	(let ([l (board-ref board i j)])

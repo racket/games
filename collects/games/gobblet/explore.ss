@@ -9,7 +9,7 @@
   (define-syntax (log-printf stx)
     (syntax-case stx ()
       [(_ n i arg ...)
-       (<= (syntax-e #'n) 2)
+       (<= (syntax-e #'n) 0)
        #'(begin
 	   (when (i  . < . 100)
 	     (printf arg ...))
@@ -23,7 +23,7 @@
 
       (define delay-loss? #t)
 
-      (define learn? #t)
+      (define learn? #f)
       (define MEMORY-FILE (and learn?
 			       (build-path (find-system-path 'addon-dir)
 					   (format "gobblet-memory-~a.ss" BOARD-SIZE))))

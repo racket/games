@@ -1,7 +1,8 @@
 (module gui mzscheme
   (require (lib "gl-board.ss" "games" "gl-board-game")
            (lib "class.ss")
-           (lib "mred.ss" "mred")
+	   (lib "mred.ss" "mred")
+           (lib "file.ss")
            (lib "gl-vectors.ss" "sgl")
            (prefix gl- (lib "sgl.ss" "sgl"))
 	   (lib "unitsig.ss")
@@ -20,6 +21,13 @@
       (define PIECE-SIZES (if JR?
 			      '(0.4 0.6 0.75)
 			      '(0.3 0.45 0.65 0.8)))
+
+      ;; Auto-play:
+      (define smart? (get-preference 'gobblet:auto-play-smart? (lambda () #t)))
+      (define timeout (let ([v (get-preference 'gobblet:auto-play-timeout (lambda () #f))])
+			(if (and (number? v) (real? v))
+			    v
+			    3.0)))
       
       ;; GUI ------------------------------
       
@@ -297,13 +305,13 @@
 			  (alignment '(left center))))
 
       (define auto-red (new check-box% 
-			    (label "Auto-play Red")
+			    (label "Auto-Play Red")
 			    (parent bottom)
 			    (callback (lambda (c e)
 					(when (eq? turn 'red)
 					  (check-auto-play))))))
       (define auto-yellow (new check-box% 
-			       (label "Auto-play Yellow")
+			       (label "Auto-Play Yellow")
 			       (parent bottom)
 			       (callback (lambda (c e)
 					   (when (eq? turn 'yellow)
@@ -311,6 +319,55 @@
 
       (define auto-play-msg (new message%
 				 (label "") (parent bottom) (stretchable-width #t)))
+
+      (new button%
+	   [label "Auto-Play Options"]
+	   [parent bottom]
+	   [callback
+	    (lambda (b e)
+	      (letrec ([d (new dialog% 
+			       [label "Auto-Play Options"]
+			       [alignment '(left center)]
+			       [parent f])]
+		       [mode (new choice%
+				  [label "Mode:"]
+				  [parent d]
+				  [choices '("Smart - plays Red perfectly in 3x3 game"
+					     "Ok - tries to plan for next move")]
+				  [callback void])]
+		       [timeout-field (new text-field%
+					   [label "Auto-play Think Time (seconds):"]
+					   [parent d]
+					   [init-value (number->string timeout)]
+					   [callback (lambda (t e)
+						       (let* ([e (send t get-editor)]
+							      [val (string->number (send e get-text))]
+							      [bad? (or (not val)
+									(not (real? val))
+									(val . < . 0))])
+							 (send ok-button enable (not bad?))
+							 (send e change-style 
+							       (send (make-object style-delta%) set-delta-background 
+								     (if bad? "yellow" "white"))
+							       0 (send e last-position))))])]
+		       [button-panel (new horizontal-pane% 
+					  [parent d]
+					  [alignment '(right center)]
+					  [stretchable-height #f])]
+		       [ok-button
+			(new button%
+			     [label "Ok"] [parent button-panel] [style '(border)]
+			     [callback (lambda (b e)
+					 (set! smart? (= 0 (send mode get-selection)))
+					 (set! timeout (string->number (send timeout-field get-value)))
+					 (put-preferences '(gobblet:auto-play-smart?) (list smart?) void)
+					 (send d show #f))])])
+		(new button%
+		     [label "Cancel"] [parent button-panel]
+		     [callback (lambda (b e) (send d show #f))])
+		(send mode set-selection (if smart? 0 1))
+		(send d center)
+		(send d show #t)))])
       
       ;; Extra controls ----------------------------------------
       
@@ -413,11 +470,13 @@
 				       make-3x3-rate-board
 				       make-4x4-rate-board)
 				   (if (= BOARD-SIZE 3)
-				       make-3x3-canned-moves
+				       (if smart?
+					   make-3x3-canned-moves
+					   make-3x3-no-canned-moves)
 				       make-4x4-canned-moves))])
-	  (search 60.0 ; 3.0 
-		  1 ; 4 ; lookahead steps (non-exhaustive)
-		  (if (= BOARD-SIZE 3) 3 2) ; single-step lookahead (exhaustive)
+	  (search timeout ; timeout
+		  2 ; 4 ; lookahead steps (non-exhaustive)
+		  3 ; single-step lookahead (exhaustive)
 		  turn board null)))
 
       (define (auto-move board turn move)

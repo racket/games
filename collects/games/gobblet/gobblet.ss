@@ -26,7 +26,7 @@
 	       [RESTART : restart^ ((unit/sig restart^
 				      (import)
 				      (define (new-game n)
-					(put-preferences '(gobblet:board-size) (list n))
+					(put-preferences '(gobblet:board-size) (list n) void)
 					(parameterize ([current-eventspace orig-eventspace])
 					  (queue-callback
 					   (lambda ()

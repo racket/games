@@ -11,6 +11,7 @@
   (define-signature heuristics^
     (make-3x3-rate-board
      make-3x3-canned-moves
+     make-3x3-no-canned-moves
      make-4x4-rate-board
      make-4x4-canned-moves))
 

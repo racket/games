@@ -8,10 +8,10 @@
 	   "heuristics.ss")
 
   (define board-size 3)
-  (define steps 1)
-  (define depth (if (= board-size 3) 3 2))
+  (define steps 2)
+  (define depth 3)
 
-  (define timeout 300.0)
+  (define timeout 3.0)
   (define cannon-size +inf.0)
 
   (invoke-unit/sig
@@ -27,20 +27,23 @@
      [ROBOT : () ((unit/sig ()
 		    (import config^ explore^ model^ heuristics^)
 
-		    (define init-board (move empty-board 
-					     (list-ref red-pieces 2) #f #f 0 0
-					     (lambda (b)
-					       (move b
-						     (list-ref yellow-pieces 2) #f #f 0 1
-						     (lambda (b) b)
-						     void))
-					     void))
+		    (define init-board 
+		      empty-board
+		      #;
+		      (move empty-board 
+			    (list-ref red-pieces 2) #f #f 0 0
+			    (lambda (b)
+			      (move b
+				    (list-ref yellow-pieces 2) #f #f 0 1
+				    (lambda (b) b)
+				    void))
+			    void))
 		    (define init-who 'red)
 
 		    ;; Play-a-game test
 		    (let go ()
 		      (sleep 1)
-		      (random-seed 12)
+		      ;; (random-seed 12)
 		      (let loop ([board init-board]
 				 [who init-who]
 				 [who-moved "no one"]
@@ -59,7 +62,7 @@
 						     make-3x3-rate-board
 						     make-4x4-rate-board)
 						 (if (= BOARD-SIZE 3)
-						     make-3x3-canned-moves
+						     make-3x3-no-canned-moves
 						     make-4x4-canned-moves)) 
 				    timeout steps depth
 				    who board history)])
