@@ -13,11 +13,11 @@
                               (let ([p (build-path d f)])
                                 (and (directory-exists? p)
                                      (with-handlers ([not-break-exn? (lambda (x) #f)])
-                                       ((get-info (list "games" f)) 'game (lambda () #f))))))
+                                       ((get-info (list (string->path "games") f)) 'game (lambda () #f))))))
                             (directory-list d)))])
        (map (lambda (g)
-              (let ([info (get-info `("games" ,g))])
-                (list g 
+              (let ([info (get-info `(,(string->path "games") ,g))])
+                (list (path->string g)
                       (info 'game (lambda () "wrong.ss"))
                       (info 'name (lambda () g)))))
             games)))
@@ -47,7 +47,7 @@
 		      (lambda (b e)
 			(let ([game-unit (dynamic-wind
                                           begin-busy-cursor
-                                          (lambda () (dynamic-require `(file ,(build-path dir file)) 'game-unit))
+                                          (lambda () (dynamic-require (build-path dir file) 'game-unit))
                                           end-busy-cursor)])
                           (let ([c (make-custodian)])
                             (parameterize ([current-custodian c])

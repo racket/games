@@ -7,7 +7,7 @@
   (provide back deck-of-cards)
 
   (define (get-bitmap file)
-    (make-object mred:bitmap% file 'gif))
+    (make-object mred:bitmap% file))
 
   (define (make-semi bm-in w h)
     (let* ([bm (make-object mred:bitmap% (floor (/ w 2)) h)]
@@ -33,13 +33,16 @@
   (define here 
     (let ([cp (collection-path "games" "cards")])
       (lambda (file)
-	(build-path cp file))))
+	(build-path cp 
+		    (if ((mred:get-display-depth)  . <= . 8)
+			"locolor"
+			"hicolor")
+		    file))))
 
-  (define back (get-bitmap (here "back.gif")))
+  (define back (get-bitmap (here "card-back.png")))
 
   (define deck-of-cards
-    (let* ([back (get-bitmap (here "back.gif"))]
-	   [w (send back get-width)]
+    (let* ([w (send back get-width)]
 	   [h (send back get-height)]
 	   [semi-back (make-semi back w h)])
       (let sloop ([suit 4])
@@ -51,7 +54,7 @@
 		  (sloop (sub1 suit))
 		  (let ([front (get-bitmap
 				(here 
-				 (format "card-~a-~a.gif"
+				 (format "card-~a-~a.png"
 					 (sub1 value)
 					 (sub1 suit))))])
 		    (cons (make-object card-class:card%

@@ -24,5 +24,6 @@
   (define nice-font
     (send the-font-list
 	  find-or-create-font
-	  12 'decorative 'normal 'bold)))
+	  12 'decorative 'normal 'bold
+	  #f 'default #t)))
 

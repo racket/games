@@ -8,6 +8,26 @@
 
   (provide card%)
 
+  (define prev-regions #f)
+  (define prev-region-dc #f)
+
+  (define (with-card-region dc x y width height thunk)
+    (let ([rs (if (eq? prev-region-dc dc)
+		  prev-regions
+		  (cons (make-object mred:region% dc)
+			(make-object mred:region% dc)))])
+      (set! prev-regions rs)
+      (set! prev-region-dc dc)
+      (send (car rs) set-rectangle x (add1 y) width (- height 2))
+      (send (cdr rs) set-rectangle (add1 x) y (- width 2) height)
+      (send (car rs) union (cdr rs))
+      (let ([r (send dc get-clipping-region)])
+	(when r
+	  (send (car rs) intersect r))
+	(send dc set-clipping-region (car rs))
+	(thunk)
+	(send dc set-clipping-region r))))
+
   (define card%
     (class100 mred:snip% (-suit-id -value -width -height -front -back -semi-front -semi-back)
       (inherit set-snipclass set-count get-admin)
@@ -94,7 +114,10 @@
 	 (lambda (dc x y left top right bottom dx dy draw-caret)
 	   (if semi-flipped?
 	       (send dc draw-bitmap (if flipped? semi-back semi-front) (+ x (/ width 4)) y)
-	       (send dc draw-bitmap (if flipped? back front) x y)))]
+	       (with-card-region
+		dc x y width height
+		(lambda ()
+		  (send dc draw-bitmap (if flipped? back front) x y)))))]
 	[copy (lambda () (make-object card% suit-id value width height 
 				      front back semi-front semi-back))])
       (private-field
