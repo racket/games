@@ -1,18 +1,19 @@
 (eval
- (let loop ([files (call-with-input-file
-		       (build-path (collection-path
-				    "games"
-				    "paint-by-numbers"
-				    "problems")
-				   "directory")
-		     read)])
+ (let loop ([files
+	     (call-with-input-file (build-path (collection-path
+						"games"
+						"paint-by-numbers"
+						"problems")
+					       "directory")
+	       read)])
    (cond
      [(null? files)
       (unit/sig paint-by-numbers:all-problems^
 	(import [p : paint-by-numbers:problem^])
 	(define problemss null)
 	(define set-names null))]
-     [(equal? (car files) "CVS")
+     [(or (equal? (car files) "CVS")
+	  (not (file-exists? (build-path (collection-path "games" "paint-by-numbers" "problems") (car files)))))
       (loop (cdr files))]
      [else 
       `(compound-unit/sig 
