@@ -20,7 +20,10 @@
               (let ([info (get-info `(,(string->path "games") ,g))])
                 (list (path->string g)
                       (info 'game (lambda () "wrong.ss"))
-                      (info 'name (lambda () g)))))
+                      (info 'name (lambda () g))
+                      (info 'game-set (lambda () "Other Games"))
+		      (info 'game-icon (lambda () (build-path (collection-path "games" g)
+							      (format "~a.png" g)))))))
             games)))
                
    (define f (new (class frame%
@@ -35,9 +38,9 @@
    (send f stretchable-width #f)
    (send f stretchable-height #f)
 
-   (define p (make-object vertical-panel% main))
+   (define p (make-object horizontal-panel% main))
 
-   (define (game-button desc)
+   (define (game-button p desc)
      (let* ([collect (car desc)]
 	    [file (cadr desc)]
 	    [name (caddr desc)]
@@ -45,7 +48,7 @@
 		   (collection-path "games" collect))])
        (when dir
 	 (make-object button% 
-		      ((bitmap-label-maker name (build-path dir (format "~a.png" collect)))
+		      ((bitmap-label-maker name (list-ref desc 4))
 		       p)
 		      p
 		      (lambda (b e)
@@ -61,11 +64,28 @@
                                    (exit-handler (lambda (v) 
                                                    (custodian-shutdown-all c)))
                                    (invoke-unit game-unit))))))))))))
+   
+   (let ([game-mapping (quicksort game-mapping (lambda (a b)
+						 (string<? (list-ref a 3) (list-ref b 3))))])
+     (let loop ([l game-mapping])
+       (unless (null? l)
+	 (let* ([set (list-ref (car l) 3)]
+		[p (new group-box-panel%
+			[label set]
+			[parent p])])
+	   (let xloop ([here (list (car l))]
+		       [l (cdr l)])
+	     (if (and (pair? l)
+		      (string=? set (list-ref (car l) 3)))
+		 (xloop (cons (car l) here) (cdr l))
+		 (begin
+		   (for-each (lambda (g) (game-button p g)) here)
+		   (loop l))))))))
 
-   (map game-button game-mapping)
-
-   (let ([pred (lambda (x y) (<= (send x min-width) (send y min-width)))])
-     (send p change-children (lambda (l) (quicksort l pred))))
+   (for-each (lambda (p)
+	       (let ([pred (lambda (x y) (<= (send x min-width) (send y min-width)))])
+		 (send p change-children (lambda (l) (quicksort l pred)))))
+	     (send p get-children))
 
    ; (make-object grow-box-spacer-pane% hp)
 

@@ -20,16 +20,6 @@
       (send mdc set-bitmap #f)
       bm))
 
-  (define tmpframe
-    (parameterize ([mred:current-eventspace (mred:make-eventspace)])
-      (let* ([f (make-object mred:frame% "Please Wait")])
-	(make-object mred:message% "Loading cards..." f)
-	(send f stretchable-height #f)
-	(send f stretchable-width #f)
-	(send f center 'both)
-	(send f show #t)
-	f)))
-
   (define here 
     (let ([cp (collection-path "games" "cards")])
       (lambda (file)
@@ -80,6 +70,4 @@
 		   (make-semi front-bm w h) 
 		   (if back-bm 
 		       (make-semi back-bm w h)
-		       semi-back))))
-
-  (send tmpframe show #f))
+		       semi-back)))))
