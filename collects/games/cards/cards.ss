@@ -5,8 +5,8 @@
 
 (require-library "functio.ss")
 
-(invoke-open-unit/sig
- (require-relative-library "cardr.ss")
- #f
- mred^
- mzlib:function^)
+(define-values/invoke-unit/sig cards^
+  (require-relative-library "cardr.ss")
+  #f
+  mred^
+  mzlib:function^)
