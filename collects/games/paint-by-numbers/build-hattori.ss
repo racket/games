@@ -1,12 +1,10 @@
 #!/bin/sh
 
-string=? ; exec mred -qgmvr $0
+string=? ; exec mred -qmvr $0
 
 ;;; these come from:
 ;;; http://www.ask.ne.jp/~hattori/puzzle/menu.html
 ;;; We must cite him in the game somewhere...
-
-
 
 (require-library "pretty.ss")
 (require-library "errortrace.ss" "errortrace")
@@ -67,8 +65,8 @@ string=? ; exec mred -qgmvr $0
 			   (floor
 			    (+ grid-y-start
 			       (* pixel-size (+ j -1 1/2)))))
-			  'on
-			  'off)])
+			  'x
+			  'o)])
 		 ;(fprintf (current-error-port) "(~a, ~a) is ~a~n" i j pixel-value)
 		 (cons pixel-value
 		       (loop (- i 1))))])))
@@ -85,7 +83,7 @@ string=? ; exec mred -qgmvr $0
      (display "|" (current-error-port))
      (for-each
       (lambda (i)
-	(if (eq? i 'on)
+	(if (eq? i 'x)
 	    (display "#" (current-error-port))
 	    (display " " (current-error-port))))
       row)
@@ -136,7 +134,7 @@ string=? ; exec mred -qgmvr $0
 		    null
 		    (list size))]
      [else
-      (let ([on? (eq? (car l) 'on)])
+      (let ([on? (eq? (car l) 'x)])
 	(cond
 	 [(and in? on?) 
 	  (loop (cdr l)
@@ -161,8 +159,8 @@ string=? ; exec mred -qgmvr $0
 (define (build-problem n on-off-lists)
   (list (format "Hattori ~a" n)
 	(map on-off->blocks on-off-lists)
-	(map on-off->blocks (transpose on-off-lists))))
-
+	(map on-off->blocks (transpose on-off-lists))
+	on-off-lists))
 
 (call-with-output-file "raw-hattori.ss"
   (lambda (port)
