@@ -300,9 +300,10 @@
       (define semaphore (make-semaphore 0))
       (define same-frame%
         (class frame%
-          [define/override on-close
+          [define/augment on-close
             (lambda ()
-              (semaphore-post semaphore))]
+	      (semaphore-post semaphore)
+              (inner (void) on-close))]
           (super-new [style '(metal)])))
       
       (define find-largest-connected-region

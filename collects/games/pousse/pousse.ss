@@ -521,11 +521,11 @@
       
       ; Instantiate the canvas in a frame (= a top-level window)
       (define frame (new (class frame%
-			   (override*
-			    [can-close? (lambda () #t)]
-					; Close the frame => exit the program
-					; No fancy "Quit" menus here!
-			    [on-close (lambda () (exit))])
+			   (augment*
+			    [can-close? (lambda () (inner #t can-close?))]
+			    ;; Close the frame => exit the program
+			    ;; No fancy "Quit" menus here!
+			    [on-close (lambda () (inner (void) on-close) (exit))])
 			   (super-new))
 			 [label "Pousse"] [style '(metal no-resize-border)]))
       

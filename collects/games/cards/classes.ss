@@ -388,7 +388,7 @@
     (class mred:frame%
       (init title w h)
       (inherit reflow-container)
-      (override*
+      (augment*
 	[on-close
 	 (lambda ()
 	   (exit))])

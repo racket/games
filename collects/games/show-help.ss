@@ -9,7 +9,7 @@
            [f #f]
            [f%
             (class frame%
-              (define/override (on-close)
+              (define/augment (on-close)
                 (set! f #f))
               (super-instantiate () (label frame-title)))])
       (lambda ()

@@ -201,10 +201,11 @@
       ;; Make a frame:
       (define frame (instantiate
                         (class frame% 
-                          (override*
+                          (augment*
                            [on-close ; stop the timer, in case it's running
                             (lambda ()
-                              (send board-canvas stop-timer))])
+                              (send board-canvas stop-timer)
+			      (inner () on-close))])
                           (super-instantiate ()))
                       ("Minesweeper") 
                       [style '(no-resize-border)]))

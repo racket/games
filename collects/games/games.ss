@@ -23,7 +23,7 @@
             games)))
                
    (define f (new (class frame%
-		    (override*
+		    (augment*
 		      [on-close (lambda () (exit))])
 		    (super-new))
 		  [label "PLT Games"]
