@@ -39,7 +39,8 @@ yet defined.
     (define time-limit (* 5 60)) ;; in seconds
 
     (define problems-dir (collection-path "games" "paint-by-numbers"))
-    (define input-file (build-path problems-dir "raw-problems.ss"))
+    (define games-input-file (build-path problems-dir "raw-problems.ss"))
+    (define games-input-file (build-path problems-dir "raw-misc.ss"))
     (define hattori-input-file (build-path problems-dir "raw-hattori.ss"))
     
     (define hattori-sets
@@ -70,9 +71,15 @@ yet defined.
     (define games-set 
       (list "Games Magazine"
 	    "games"
-	    (call-with-input-file input-file (compose eval read))))
+	    (call-with-input-file games-input-file (compose eval read))))
+    
+    (define misc-set 
+      (list "Misc"
+	    "misc"
+	    (call-with-input-file misc-input-file (compose eval read))))
 
-    (define sets (cons games-set hattori-sets))
+    ;(define sets (cons games-set hattori-sets))
+    (define sets (list games-set))
 
     (define (sum-list l) (apply + l))
     (define (sum-lists ls) (sum-list (map sum-list ls)))
