@@ -164,7 +164,7 @@ paint by numbers.
 	 (lambda (do current-sel new-sel)
 	   (let* ([x (do-x do)]
 		  [y (do-y do)]
-		  [actual (get-rect x y)]
+		  [actual (get-raw-rect x y)]
 		  [current (current-sel do)]
 		  [new (new-sel do)]
 		  [color->val
