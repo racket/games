@@ -242,8 +242,13 @@ paint by numbers.
 	       (set! undo-history (cons do undo-history))
 	       (do-do do do-before do-after))]))]
 
-	;; (int int -> void)
 	[paint-rect
+	 (lambda (i j)
+	   (send (get-dc) set-pen LINES/NUMBERS-PEN)
+	   (paint-rect/lines-numbers-pen i j))]
+
+	;; (int int -> void)
+	[paint-rect/lines-numbers-pen
 	 (lambda (i j)
 	   (let ([dc (get-dc)])
 	     (let-values ([(left top width height) (grid->rect i j)])
@@ -265,7 +270,6 @@ paint by numbers.
 			 (- height spacing spacing)))]
 
 		[else
-		 (send dc set-pen LINES/NUMBERS-PEN)
 		 (send dc set-brush (get-raw-rect i j))
 		 (send dc draw-rectangle left top width height)]))))]
 
@@ -422,6 +426,7 @@ paint by numbers.
 	[button-down-p #f]
 	[draw-small-p #f])
 
+
       (override
        [on-size
 	(lambda (w h)
@@ -536,15 +541,16 @@ paint by numbers.
 	    (let-values ([(width height) (get-client-size)])
 
 	      (send dc set-pen LINES/NUMBERS-PEN)
-	      (let loop ([i grid-x-size])
-		(cond
-		 [(zero? i) (void)]
-		 [else (let loop ([j grid-y-size])
-			 (cond
-			  [(zero? j) (void)]
-			  [else (paint-rect (- i 1) (- j 1))
-				(loop (- j 1))]))
-		       (loop (- i 1))]))
+	      (time
+	       (let loop ([i grid-x-size])
+		 (cond
+		  [(zero? i) (void)]
+		  [else (let loop ([j grid-y-size])
+			  (cond
+			   [(zero? j) (void)]
+			   [else (paint-rect/lines-numbers-pen (- i 1) (- j 1))
+				 (loop (- j 1))]))
+			(loop (- i 1))])))
 
 	      (let loop ([l (get-col-numbers)]
 			 [n 0])
