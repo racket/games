@@ -2,13 +2,14 @@
 (let ([elaboration-time-files
        (list "awk.ss" "compatm.ss" "constan.ss" "defstru.ss" 
 	     "macro.ss" "macrox.ss" "match.ss"
-	     "shared.ss"
+	     "shared.ss" "restarts.ss"
 	     "spidey.ss" "synrule.ss" "trace.ss"
-	     "mzlibs.ss" "cores.ss"
 	     "cmdlines.ss" "dates.ss" "strings.ss"
 	     "compats.ss" "files.ss" "threads.ss"
 	     "compiles.ss" "functios.ss" "pconvers.ss" "triggers.ss"
-	     "inflates.ss" "prettys.ss" "zmaths.ss")])
+	     "inflates.ss" "prettys.ss" "zmaths.ss"
+	     "cores.ss"
+	     "mzlibs.ss")])
   (lambda (request failure)
     (case request
       [(name) "MzLib"]
