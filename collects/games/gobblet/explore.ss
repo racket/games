@@ -160,10 +160,12 @@
 
       (define (multi-step-minmax steps one-step-depth span indent 
 				 memory canonicalize rate-board me board)
+	(define first-move? 
+	  ((fold-board (lambda (i j v) (+ v (length (board-ref board i j)))) 0) . < . 2))
 	(let-values ([(vs xform)
 		      (minmax 0
 			      one-step-depth
-			      (if (steps . <= . 1)
+			      (if (or (steps . <= . 1) first-move?)
 				  1
 				  span)
 			      memory
@@ -171,7 +173,11 @@
 			      rate-board
 			      me
 			      (other me)
-			      (available-off-board board me)
+			      (if first-move?
+				  ;; Ensure that we start with a large piece for first 2 moves:
+				  (list (car (available-off-board board me)))
+				  ;; Use any piece:
+				  (available-off-board board me))
 			      (available-off-board board (other me))
 			      board #f #f)])
 	  (let ([plays
@@ -191,7 +197,7 @@
 			    (cons (car v)
 				  (list (vector-ref x 0) from-i from-j to-i to-j)))))
 		      (filter (lambda (v) (vector? (cdr v))) vs))])
-	    (if (steps . <= . 1)
+	    (if (or (steps . <= . 1) first-move?)
 		(car plays)
 		(let ([nexts 
 		       (if ((caar plays) . < . +inf.0)
@@ -218,44 +224,42 @@
 		  (car nexts))))))
 
       (define (make-search)
-	(let ([memory (make-hash-table 'equal)]
-	      [canonicalize (make-canonicalize +inf.0)])
-	  (lambda (timeout max-steps one-step-depth cannon-size rate-board me board)
-	    (let ([result #f]
-		  [once-sema (make-semaphore)]
-		  [result-sema (make-semaphore)]
-		  [memory (make-hash-table 'equal)]
-		  [canonicalize (make-canonicalize cannon-size)])
-	      (let ([t (thread
-			(lambda ()
-			  (break-enabled #f)
-			  (with-handlers ([exn:break? void])
-			    (let loop ([steps 1])
-			      (set! result
-				    (let ([v (multi-step-minmax steps 3 one-step-depth 0
-								memory canonicalize rate-board
-								me board)])
-				      #;
-				      (printf " ~a -> ~a [~a]~n" 
-					      steps
-					      (cdr v)
-					      (car v))
-				      v))
-			      (semaphore-post once-sema)
-			      (unless (or (= steps max-steps)
-					  ((car result) . = . +inf.0)
-					  ((car result) . = . -inf.0))
-				(loop (add1 steps))))
-			    (semaphore-post result-sema))))])
-		(sync/timeout timeout result-sema)
-		(semaphore-wait once-sema)
-		(break-thread t)
-		(sync t)
-		#;
-		(printf " up to {~a, ~a}~n" hit explore)
-		(if (null? (cdr result))
-		    (error 'search "didn't find a move!?")
-		    (cdr result)))))))
+	(lambda (timeout max-steps one-step-depth cannon-size rate-board me board)
+	  (let ([result #f]
+		[once-sema (make-semaphore)]
+		[result-sema (make-semaphore)]
+		[memory (make-hash-table 'equal)]
+		[canonicalize (make-canonicalize cannon-size)])
+	    (let ([t (thread
+		      (lambda ()
+			(break-enabled #f)
+			(with-handlers ([exn:break? void])
+			  (let loop ([steps 1])
+			    (set! result
+				  (let ([v (multi-step-minmax steps 3 one-step-depth 0
+							      memory canonicalize rate-board
+							      me board)])
+				    #;
+				    (printf " ~a -> ~a [~a]~n" 
+					    steps
+					    (cdr v)
+					    (car v))
+				    v))
+			    (semaphore-post once-sema)
+			    (unless (or (= steps max-steps)
+					((car result) . = . +inf.0)
+					((car result) . = . -inf.0))
+			      (loop (add1 steps))))
+			  (semaphore-post result-sema))))])
+	      (sync/timeout timeout result-sema)
+	      (semaphore-wait once-sema)
+	      (break-thread t)
+	      (sync t)
+	      #;
+	      (printf " up to {~a, ~a}~n" hit explore)
+	      (if (null? (cdr result))
+		  (error 'search "didn't find a move!?")
+		  (cdr result))))))
 
       ;; Simple search tests
       #;
