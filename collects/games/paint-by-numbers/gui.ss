@@ -53,6 +53,8 @@ paint by numbers.
 
   (define-struct do (x y before after))
 
+  (define-struct pt (x y))
+
   (define paint-by-numbers-canvas%
     (class canvas% (parent _row-numbers _col-numbers)
       (inherit get-dc get-client-size)
@@ -143,7 +145,7 @@ paint by numbers.
 		      (< x grid-x-size)
 		      (<= 0 y)
 		      (< y grid-y-size))
-		 (cons x y)
+		 (make-pt x y)
 		 #f)))]
 	
 	[grid->rect
@@ -202,6 +204,14 @@ paint by numbers.
 	     [(on) ON-BRUSH]
 	     [(wrong) WRONG-BRUSH]))])
 
+      (private
+        [in-rect?
+         (lambda (p cp1 cp2)
+           (or (and (<= (pt-x cp1) (pt-x p) (pt-x cp2))
+                    (<= (pt-y cp1) (pt-y p) (pt-y cp2)))
+               (and (<= (pt-x cp2) (pt-x p) (pt-x cp1))
+                    (<= (pt-y cp2) (pt-y p) (pt-y cp1)))))])
+
       (public
 
 	;; ((list-of (list-of (union 'unknown 'off 'on 'wrong))) -> void)
@@ -253,16 +263,20 @@ paint by numbers.
 	   (let ([dc (get-dc)])
 	     (let-values ([(left top width height) (grid->rect i j)])
 	       (cond
-		[(and draw-small-p
-		      (= i (car draw-small-p))
-		      (= j (cdr draw-small-p)))
+                 [(and draw-small-start-p
+                      draw-small-end-p
+                      (in-rect? (make-pt i j)
+                                draw-small-start-p
+                                draw-small-end-p))
 		 (send dc set-pen WHITE-PEN)
 		 (send dc set-brush WHITE-BRUSH)
 		 (send dc draw-rectangle left top width height)
 
 		 (let ([spacing 2])
 		   (send dc set-pen LINES/NUMBERS-PEN)
-		   (send dc set-brush (new-brush (get-raw-rect i j) modifier-on?))
+		   (send dc set-brush (new-brush (get-raw-rect (pt-x draw-small-start-p)
+                                                               (pt-y draw-small-start-p))
+                                                 modifier-on?))
 		   (send dc draw-rectangle
 			 (+ left spacing)
 			 (+ top spacing)
@@ -423,9 +437,29 @@ paint by numbers.
 	
 	[modifier-on? #f]
 	[last-p #f]
-	[button-down-p #f]
-	[draw-small-p #f])
 
+
+        ;; (union #f                   if button not down
+        ;;        (make-pt num num))   if button down
+	[draw-small-start-p #f]
+
+        ;; (union #f                   if button dragged outside board
+        ;;        (make-pt num num))   if button dragged in board
+	[draw-small-end-p #f]
+        
+        [update-range-of-rects
+         (lambda (p1 p2)
+           (let ([x-small (min (pt-x p1) (pt-x p2))]
+                 [x-large (max (pt-x p1) (pt-x p2))]
+                 [y-small (min (pt-y p1) (pt-y p2))]
+                 [y-large (max (pt-y p1) (pt-y p2))])
+             (let loop ([x x-small])
+               (when (<= x x-large)
+                 (let loop ([y y-small])
+                   (when (<= y y-large)
+                     (paint-rect x y)
+                     (loop (+ y 1))))
+                 (loop (+ x 1))))))])
 
       (override
        [on-size
@@ -442,22 +476,23 @@ paint by numbers.
 		  (send evt entering?)
 		  (send evt leaving?))
 
-	      ;; update depressed square
-	      (let ([this-modifier (check-modifier evt)])
-		(cond
-		  [(and (equal? button-down-p p)
-			(equal? this-modifier modifier-on?))
-		   (unless (equal? draw-small-p p)
-		     (set! draw-small-p p)
-		     (paint-rect (car draw-small-p)
-				 (cdr draw-small-p)))]
-		  [else
-		   (let ([old-draw-small-p draw-small-p])
-		     (set! draw-small-p #f)
-		     (set! modifier-on? this-modifier)
-		     (when old-draw-small-p
-		       (paint-rect (car old-draw-small-p)
-				   (cdr old-draw-small-p))))]))
+	      ;; update depressed squares
+              (when draw-small-start-p
+                (let ([old-draw-small-end-p draw-small-end-p])
+                  (cond
+                    [(and draw-small-start-p
+                          p
+                          (or (= (pt-x p) (pt-x draw-small-start-p))
+                              (= (pt-y p) (pt-y draw-small-start-p))))
+                     (set! draw-small-end-p p)
+                     (when old-draw-small-end-p
+                       (update-range-of-rects draw-small-start-p old-draw-small-end-p))
+                     (when draw-small-end-p
+                       (update-range-of-rects draw-small-start-p draw-small-end-p))]
+                    [draw-small-start-p
+                     (set! draw-small-end-p #f)
+                     (when old-draw-small-end-p
+                       (update-range-of-rects draw-small-start-p old-draw-small-end-p))])))
 
 	      (let ([dc (get-dc)])
 
@@ -465,7 +500,7 @@ paint by numbers.
 		(let ([new-highlight-col
 		       (if (and p
 				(not (send evt leaving?)))
-			   (car p)
+			   (pt-x p)
 			   #f)]
 		      [old-highlight-col highlight-col])
 		  (unless (equal? old-highlight-col new-highlight-col)
@@ -478,7 +513,7 @@ paint by numbers.
 		(let ([new-highlight-row
 		       (if (and p
 				(not (send evt leaving?)))
-			   (cdr p)
+			   (pt-y p)
 			   #f)]
 		      [old-highlight-row highlight-row])
 		  (unless (equal? old-highlight-row new-highlight-row)
@@ -496,8 +531,8 @@ paint by numbers.
 		(send dc draw-rectangle 0 0 row-label-width col-label-height)
 		(when (and (not (send evt leaving?))
 			   p)
-		  (let* ([i (car p)]
-			 [j (cdr p)]
+		  (let* ([i (pt-x p)]
+			 [j (pt-y p)]
 			 [string (loc->string (+ i 1) (+ j 1))]
 			 [width (get-string-width string)]
 			 [height (get-string-height string)]
@@ -507,33 +542,48 @@ paint by numbers.
 				(/ height 2))])
 		    (send dc draw-text string sx sy))))]
 	     [(send evt button-down?)
-	      (set! button-down-p p)
-	      (set! draw-small-p p)
+	      (set! draw-small-start-p p)
+	      (set! draw-small-end-p p)
 	      (set! modifier-on? (check-modifier evt))
 	      (when p
-		(paint-rect (car p) (cdr p)))]
+		(paint-rect (pt-x p) (pt-y p)))]
 	     [(send evt button-up?)
 	      (cond
-	       [(and p (equal? button-down-p p))
-		(set! button-down-p #f)
-		(set! draw-small-p #f)
-		(set! modifier-on? #f)
-		(let* ([i (car p)]
-		       [j (cdr p)]
-		       [prev (get-raw-rect i j)]
-		       [new (new-brush prev (check-modifier evt))])
-		  (set! undo-history (cons (make-do i j prev new) undo-history))
-		  (set! redo-history null)
-		  (set-raw-rect i j new)
-		  (paint-rect i j))]
-	       [else
-		(let ([old-draw-small-p draw-small-p])
-		  (set! button-down-p #f)
-		  (set! draw-small-p #f)
-		  (set! modifier-on? (check-modifier evt))
-		  (when old-draw-small-p
-		    (paint-rect (car old-draw-small-p)
-				(cdr old-draw-small-p))))])])))]
+                [(and p (or (= (pt-x p) (pt-x draw-small-start-p))
+                            (= (pt-y p) (pt-y draw-small-start-p))))
+                 (let ([new (new-brush (get-raw-rect 
+                                        (pt-x draw-small-start-p)
+                                        (pt-y draw-small-start-p))
+                                       (check-modifier evt))])
+                   ;(set! undo-history (cons (make-do i j prev new) undo-history))
+                   ;(set! redo-history null)
+                   (let ([x-small (min (pt-x draw-small-start-p) (pt-x p))]
+                         [x-large (max (pt-x draw-small-start-p) (pt-x p))]
+                         [y-small (min (pt-y draw-small-start-p) (pt-y p))]
+                         [y-large (max (pt-y draw-small-start-p) (pt-y p))])
+                     
+                     (set! draw-small-start-p #f)
+                     (set! draw-small-end-p #f)
+                     (set! modifier-on? #f)
+                     
+                     (let loop ([x x-small])
+                       (when (<= x x-large)
+                         (let loop ([y y-small])
+                           (when (<= y y-large)
+                             (set-raw-rect x y new)
+                             (paint-rect x y)
+                             (loop (+ y 1))))
+                         (loop (+ x 1))))))]
+                [else
+                 (let ([old-draw-small-start-p draw-small-start-p]
+                       [old-draw-small-end-p draw-small-end-p])
+                   (set! draw-small-start-p #f)
+                   (set! draw-small-end-p #f)
+                   (set! modifier-on? (check-modifier evt))
+                   (when (and old-draw-small-start-p
+                              old-draw-small-end-p)
+                     (update-range-of-rects old-draw-small-start-p
+                                            old-draw-small-end-p)))])])))]
        [on-paint
 	(lambda ()
 	  (let ([dc (get-dc)])
@@ -541,7 +591,6 @@ paint by numbers.
 	    (let-values ([(width height) (get-client-size)])
 
 	      (send dc set-pen LINES/NUMBERS-PEN)
-	      (time
 	       (let loop ([i grid-x-size])
 		 (cond
 		  [(zero? i) (void)]
@@ -550,7 +599,7 @@ paint by numbers.
 			   [(zero? j) (void)]
 			   [else (paint-rect/lines-numbers-pen (- i 1) (- j 1))
 				 (loop (- j 1))]))
-			(loop (- i 1))])))
+			(loop (- i 1))]))
 
 	      (let loop ([l (get-col-numbers)]
 			 [n 0])
@@ -567,7 +616,7 @@ paint by numbers.
 		 [(null? l) (void)]
 		 [else
 		  (if (and last-p
-			   (= (cdr last-p) n))
+			   (= (pt-y last-p) n))
 		      (begin
 			(send dc set-pen BAR-PEN)
 			(send dc set-brush BAR-BRUSH))
