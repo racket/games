@@ -48,7 +48,20 @@
 					   (2 #f #f 2 2)
 					   (2 #f #f 1 2)
 					   (2 #f #f 1 0)))
-			      'red)])
+			      'red)]
+	      [pre-red-win2.1 (canon (gen-board '((2 #f #f 1 1)
+						  (2 #f #f 2 2)
+						  (2 #f #f 0 0)))
+				     'red)]
+	      [pre-red-win2.2 (canon (gen-board '((2 #f #f 1 1)
+						  (2 #f #f 2 0)
+						  (2 #f #f 0 0)))
+				     'red)]
+	      [red-win2 (canon (gen-board '((2 #f #f 1 1)
+					    (2 #f #f 2 0)
+					    (2 #f #f 0 0)
+					    (2 #f #f 2 2)))
+			       'red)])
 	  (lambda (board me k xform)
 	    (cond
 	     [(canon=? k start)
@@ -69,15 +82,30 @@
 	     [(canon=? k yellow-2nd)
 	      => (lambda (xform2)
 		   ;; Don't make the mistake
-		   (list (cons BAD
+		   (list (cons -inf.0
 			       (make-plan (list-ref yellow-pieces 2) #f #f 1 0 xform2))
-			 (cons BAD
+			 (cons -inf.0
 			       (make-plan (list-ref yellow-pieces 2) 2 2 1 0 xform2))))]
 	     [(canon=? k red-win)
 	      => (lambda (xform2)
 		   ;; Yellow made a mistake; go for the win!
-		   (list (cons GOOD
+		   (list (cons +inf.0
 			       (make-plan (list-ref red-pieces 1) #f #f 0 2 xform2))))]
+	     [(canon=? k pre-red-win2.1)
+	      => (lambda (xform2)
+		   ;; Don't make a mistake that leads to a red win
+		   (list (cons -inf.0
+			       (make-plan (list-ref yellow-pieces 2) #f #f 2 0 xform2))))]
+	     [(canon=? k pre-red-win2.2)
+	      => (lambda (xform2)
+		   ;; Don't make a mistake that leads to a red win
+		   (list (cons -inf.0
+			       (make-plan (list-ref yellow-pieces 2) #f #f 2 2 xform2))))]
+	     [(canon=? k red-win2)
+	      => (lambda (xform2)
+		   ;; Yellow made a different mistake; go for the win!
+		   (list (cons +inf.0
+			       (make-plan (list-ref red-pieces 1) #f #f 2 1 xform2))))]
 	     [else null]))))
 
       (define (make-3x3-rate-board canon)

@@ -259,7 +259,7 @@
 	      (lambda (new-board)
 		new-board)
 	      (lambda ()
-		(error "bad move: ~a~n" m))))
+		(error 'apply-play "bad move: ~a" m))))
 
       (define (multi-step-minmax steps one-step-depth span indent 
 				 memory canonicalize 
