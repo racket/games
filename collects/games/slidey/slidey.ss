@@ -4,7 +4,7 @@
 ;; board = (vector-of (vector-of (union #f (make-loc n1 n2))))
 
 ;; need to make sure that the bitmap divides nicely
-(define bitmap (make-object bitmap% (build-path (current-load-relative-directory) "11.JPG")))
+(define bitmap (make-object bitmap% (build-path (current-load-relative-directory) "11.jpg")))
 (define board-width 6)
 (define board-height 5)
 
