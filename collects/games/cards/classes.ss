@@ -173,12 +173,22 @@
 	 (lambda (snip xb yb)
 	   (super-interactive-adjust-move snip xb yb)
 	   (let-values ([(l t r b) (get-snip-bounds snip)])
-	     (let ([wb (box 0)][hb (box 0)])
-	       (send (get-admin) get-view #f #f wb hb)
-	       (let ([max-x (- (unbox wb) (- r l))]
-		     [max-y (- (unbox hb) (- b t))])
+	     (let-values ([(rl rt rw rh)
+			   (let ([r (send snip stay-in-region)])
+			     (if r
+				 (values (region-x r) (region-y r)
+					 (region-w r) (region-h r))
+				 (let ([wb (box 0)][hb (box 0)])
+				   (send (get-admin) get-view #f #f wb hb)
+				   (values 0 0 (unbox wb) (unbox hb)))))])
+	       (let ([max-x (- (+ rl rw) (- r l))]
+		     [max-y (- (+ rt rh) (- b t))])
+		 (when (< (unbox xb) rl)
+		   (set-box! xb rl))
 		 (when (> (unbox xb) max-x)
 		   (set-box! xb max-x))
+		 (when (< (unbox yb) rt)
+		   (set-box! yb rt))
 		 (when (> (unbox yb) max-y)
 		   (set-box! yb max-y))))))]
 	[after-interactive-move
@@ -243,6 +253,8 @@
 			(when (and (not (eq? in? (region-hilite? region)))
 				   (region-can-select? region))
 			  (set-region-hilite?! region in?)
+			  (when (region-interactive-callback region)
+			    ((region-interactive-callback region) in? (get-reverse-selected-list)))
 			  (invalidate-bitmap-cache sx sy sw sh))))))
 		regions))
 	     (let ([was-bg? bg-click?])
@@ -331,6 +343,10 @@
 	[unhilite-region
 	 (lambda (region)
 	   (set-region-hilite?! region #f)
+	   (update-region region))]
+	[hilite-region
+	 (lambda (region)
+	   (set-region-hilite?! region #t)
 	   (update-region region))]
 	[set-double-click-action
 	 (lambda (a)
@@ -457,6 +473,12 @@
 	[remove-region
 	 (lambda (r)
 	   (send pb remove-region r))]
+	[hilite-region
+	 (lambda (r)
+	   (send pb hilite-region r))]
+	[unhilite-region
+	 (lambda (r)
+	   (send pb unhilite-region r))]
 	[set-button-action
 	 (lambda (button action)
 	   (send pb set-button-action button action))]

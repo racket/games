@@ -1,6 +1,7 @@
 (unit/sig cards:card-class^
   (import [mred : mred^]
-	  [snipclass : cards:snipclass^])
+	  [snipclass : cards:snipclass^]
+	  cards:region-local^)
 
   (define card%
     (class mred:snip% (suit-id value width height front back semi-front semi-back)
@@ -11,6 +12,8 @@
 	    [can-flip? #t]
 	    [can-move? #t]
 	    [snap-back? #f]
+	    [stay-region #f]
+	    [home-reg #f]
 	    [refresh
 	     (lambda ()
 	       (let ([a (get-admin)])
@@ -51,6 +54,14 @@
 	     (case-lambda
 	      [() snap-back?]
 	      [(f) (set! snap-back? (and f #t))])]
+	    [stay-in-region
+	     (case-lambda
+	      [() stay-region]
+	      [(r) (set! stay-region r)])]
+	    [home-region
+	     (case-lambda
+	      [() home-reg]
+	      [(r) (set! home-reg r)])]
 	    [card-width (lambda () width)]
 	    [card-height (lambda () height)])
 	   (override
@@ -82,7 +93,31 @@
 	     [back-to-original-location
 	      (lambda (pb)
 		(when snap-back?
-		  (send pb move-to this (unbox save-x) (unbox save-y))))])
+		  (send pb move-to this (unbox save-x) (unbox save-y)))
+		(when home-reg
+		  (let ([xbox (box 0)]
+			[ybox (box 0)])
+		    (send pb get-snip-location this xbox ybox #f)
+		    ; Completely in the region?
+		    (let* ([l (unbox xbox)]
+			   [rl (region-x home-reg)]
+			   [r (+ l width)]
+			   [rr (+ rl (region-w home-reg))]
+ 			   [t (unbox ybox)]
+			   [rt (region-y home-reg)]
+			   [b (+ t height)]
+			   [rb (+ rt (region-h home-reg))])
+		    (when (or (< l rl) (> r rr)
+			      (< t rt) (> b rb))
+		      ; Out of the region - completely or partly?
+		      (if (and (or (<= rl l rr) (<= rl r rr))
+			       (or (<= rt t rb) (<= rt b rb)))
+			  ; Just slightly out
+			  (send pb move-to this
+				(min (max l rl) (- rr width))
+				(min (max t rt) (- rb height)))
+			  ; Completely out
+			  (send pb move-to this (unbox save-x) (unbox save-y))))))))])
 	   (sequence
 	     (super-init)
 	     (set-count 1)

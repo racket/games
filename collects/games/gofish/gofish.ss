@@ -149,7 +149,7 @@
 
    ; More card setup: Show your cards
    (send t flip-cards (player-hand you))
-
+     
    ; Function to update the display for a player record
    (define (rearrange-cards p)
      ; Stack cards in 3D first-to-last
@@ -253,26 +253,38 @@
 	   (let ([c (list-ref cards-to-try (random (length cards-to-try)))]
 		 [o (list-ref (list you other-player) (random 2))])
 	     (set-player-tried! player (cons c (player-tried player)))
+	     ; Show you the card-to-ask
+	     (send t flip-card c)
+	     ; Hilight player-to-ask
+	     (send t hilite-region (player-r o))
+	     ; Wait a moment
+	     (sleep 0.3)
+	     ; Unhilight player-to-ask
+	     (send t unhilite-region (player-r o))
 	     (if (ask-player-for-match player o c)
 		 ; Got it - go again
 		 (check-done
 		  (lambda ()
 		    (simulate-player player other-player k)))
 		 ; Go fish
-		 (if (null? deck)
-		     ; No more cards; pass
-		     (k)
-		     (begin
-		       ; Draw a card
-		       (set-player-hand! player (append (deal 1) (player-hand player)))
-		       (rearrange-cards player)
-		       (if (check-hand player (car (player-hand player)))
-			   ; Drew a good card - keep going
-			   (check-done
-			    (lambda ()
-			      (simulate-player player other-player k)))
-			   ; End of our turn
-			   (k)))))))))
+		 (begin
+		   ; Wait a bit, then turn the asked-for card back over
+		   (sleep 0.3)
+		   (send t flip-card c)
+		   (if (null? deck)
+		       ; No more cards; pass
+		       (k)
+		       (begin
+			 ; Draw a card
+			 (set-player-hand! player (append (deal 1) (player-hand player)))
+			 (rearrange-cards player)
+			 (if (check-hand player (car (player-hand player)))
+			     ; Drew a good card - keep going
+			     (check-done
+			      (lambda ()
+				(simulate-player player other-player k)))
+			     ; End of our turn
+			     (k))))))))))
 
    ; Function to check for end-of-game
    (define (check-done k)
@@ -281,6 +293,15 @@
 	   (enable-your-cards #f)
 	   (send t set-status-text GAME-OVER-MESSAGE))
 	 (k)))
+
+   ; Look in opponents' initial hands for matches
+   ; (Since each player gets 7 cards, it's impossible to run out of cards this way)
+   (define (find-initial-matches player)
+     (when (ormap (lambda (card) (check-hand player card)) (player-hand player))
+       ; Found a match in the hand
+       (find-initial-matches player)))
+   (find-initial-matches player-1)
+   (find-initial-matches player-2)   
 
    ; Run the game loop
    (let loop ()
