@@ -4,7 +4,8 @@
            (lib "mred.ss" "mred")
            (lib "class.ss"))
 
-  (provide honu-bitmap honu-bitmap-down)
+  (provide honu-bitmap honu-down-bitmap
+           honu-rotation honu-down-rotation)
   
   (define body-path (make-object dc-path%))
   
@@ -51,8 +52,6 @@
                 (unless ccw?
                   (send p reverse)))
               (send path append p))))))
-  
-  (define overall-rotation (- (* pi 1/2 3/8)))
   
   (define body-width 100)
   (define body-height 110)
@@ -336,8 +335,7 @@
   (define left-hole-path (make-left-hole-path))
   
   (define (adjust-path path)
-    (send path translate (+ (- big-fin-right-edge body-width) 1) (+ (- head-cy) (/ head-height 2) 2))
-    (send path rotate overall-rotation))
+    (send path translate (+ (- big-fin-right-edge body-width) 1) (+ (- head-cy) (/ head-height 2) 2)))
   
   (adjust-path body-path)
   (adjust-path left-hole-path)
@@ -346,20 +344,18 @@
   (define pale-red-color (make-object color% 242 183 183))
   (define pale-blue-color (make-object color% 183 202 242))
   (define pale-background-color (make-object color% 209 220 248))
-  
-  (define current-body-path body-path)
-  (define current-left-hole-path left-hole-path)
-  (define current-right-hole-path right-hole-path)
+
+  (send body-path append left-hole-path)
+  (send body-path append right-hole-path)
   
   (define bitmap-size 128)
     
-  (define (make-honu-bitmap bgcolor main-pen-color main-color left-pen-color left-color right-pen-color right-color rot dx dy)
-    (let ([main-bm (make-single-bitmap bgcolor main-pen-color main-color left-pen-color left-color right-pen-color right-color rot dx dy)])
-      (send main-bm set-loaded-mask 
-            (make-single-bitmap "white" "black" "black" "black" "black" "black" "black" rot dx dy))
+  (define (make-honu-bitmap color rot dx dy)
+    (let ([main-bm (make-single-bitmap color color rot dx dy)])
+      (send main-bm set-loaded-mask (make-single-bitmap "white" "black" rot dx dy))
       main-bm))
   
-  (define (make-single-bitmap bgcolor main-pen-color main-color left-pen-color left-color right-pen-color right-color rot dx dy)
+  (define (make-single-bitmap bgcolor main-color rot dx dy)
     (let* ([bitmap (make-object bitmap% bitmap-size bitmap-size)]
            [dc (make-object bitmap-dc% bitmap)])
       (send dc set-smoothing 'aligned)
@@ -368,14 +364,8 @@
       (send dc draw-rectangle 0 0 bitmap-size bitmap-size)
       (send dc set-scale 1/2 1/2)
       (send dc set-brush main-color 'solid)
-      (send dc set-pen main-pen-color 1 'solid)
-      (send dc draw-path (rotate-path current-body-path rot) dx dy)
-      (send dc set-brush left-color 'solid)
-      (send dc set-pen left-pen-color 1 'solid)
-      (send dc draw-path (rotate-path current-left-hole-path rot) dx dy)
-      (send dc set-brush right-color 'solid)
-      (send dc set-pen right-pen-color 1 'solid)
-      (send dc draw-path (rotate-path current-right-hole-path rot) dx dy)
+      (send dc set-pen main-color 1 'solid)
+      (send dc draw-path (rotate-path body-path rot) dx dy)
       (send dc set-bitmap #f)
       bitmap))
   
@@ -385,11 +375,16 @@
       (send pth rotate rot)
       pth))
   
-  (define honu-bitmap
-    (make-honu-bitmap "black" "black" "black" "firebrick" "firebrick" "blue" "blue" (* pi 1/2 8/10) 0 143))
-  (define honu-bitmap-down
-    (make-honu-bitmap "black" "black" "black" "red" "red" "blue" "blue" (* pi -1/2 12/10) 265 116))
-  #|
+  ;(define honu-rotation (* pi 1/2 8/10))
+  ;(define honu-down-rotation (* pi -1/2 12/10))
+  
+  (define honu-rotation (* pi 1/4))
+  (define honu-down-rotation (* pi (+ 1 1/4)))
+  
+  
+  (define honu-bitmap (make-honu-bitmap "mediumorchid" honu-rotation 0 156))
+  (define honu-down-bitmap (make-honu-bitmap "orange" honu-down-rotation 265 108))
+#|
   (define dx 0)
   (define dy 0)
   (define f (new frame% (label "")))
@@ -397,7 +392,12 @@
                  (parent f)
                  (paint-callback
                   (lambda (c dc)
-                    (send dc draw-bitmap honu-bitmap dx dy)))))
+                    (send dc draw-bitmap honu-down-bitmap dx dy)
+                    (send dc draw-line 
+                          (/ bitmap-size 2)
+                          (/ bitmap-size 2)
+                          (+ (/ bitmap-size 2) (* 100 (cos (+ (/ pi 2) honu-down-rotation))))
+                          (+ (/ bitmap-size 2) (* 100 (- (sin (+ (/ pi 2) honu-down-rotation))))))))))
   (send c min-width bitmap-size)
   (send c min-height bitmap-size)
   (define b+ (new button%

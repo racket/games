@@ -1,6 +1,7 @@
 (module checkers mzscheme
   (require (lib "gl-board.ss" "games" "gl-board-game")
            (lib "class.ss")
+           (lib "math.ss")
            (lib "mred.ss" "mred")
            (lib "gl-vectors.ss" "sgl")
            (prefix gl- (lib "sgl.ss" "sgl"))
@@ -51,10 +52,18 @@
   (define dark-square-img (file->image (build-path path "dark.jpg")))
   (define dark-square-color (gl-float-vector .4745 .3569 .2627 1))
   
-  (define light-checker-img (bitmap->image honu-bitmap-down))
-  (define light-checker-color (gl-float-vector .8 0.0 0.0 1.0))
+  (define (color-name->vector name darken?)
+    (let ([color (send the-color-database find-color name)]
+          [adj (if darken? sqr values)])
+      (unless color
+        (error 'color-name->vector "could not find ~e" name))
+      (gl-float-vector (adj (/ (send color red) 255))
+                       (adj (/ (send color green) 255))
+                       (adj (/ (send color blue) 255))
+                       1.0)))
+  
+  (define light-checker-img (bitmap->image honu-down-bitmap))
   (define dark-checker-img (bitmap->image honu-bitmap))
-  (define dark-checker-color (gl-float-vector 0.2 0.2 0.2 1.0))
   
   (define-struct space-info (x y light?))
   (define-struct piece-info (x y color king?) (make-inspector))
@@ -187,51 +196,48 @@
       (init-tex dark-checker-tex dark-checker-img)
       (init-tex light-checker-tex light-checker-img)
       
-      #;
-      (define-syntax (do-em stx)
-        (syntax-case stx ()
-          [(_ reverse? args ...)
-           (with-syntax ([(rev-args ...) (reverse (syntax->list (syntax (args ...))))])
-             (syntax (if reverse?
-                         (begin rev-args ...)
-                         (begin args ...))))]))
-      
-      (define (make-piece-dl color height tex shadow?)
+      (define (make-piece-dl left-color right-color height tex shadow?)
         (send board with-gl-context
-          (lambda ()
-            (let ((list-id (gl-gen-lists 1)))
-              (gl-quadric-draw-style q 'fill)
-              (gl-quadric-normals q 'smooth)
-              (gl-new-list list-id 'compile)
-              
-              (when shadow?
-                (gl-disable 'lighting))
-              ;(gl-material-v 'front 'specular (gl-float-vector 1.0 1.0 1.0 1.0))
-              ;(gl-material 'front 'shininess 120.0)  
-              (gl-material-v 'front 'ambient-and-diffuse color)
-
-              (gl-cylinder q .35 .35 height 25 1)
-              (gl-push-matrix)
-              (gl-translate 0.0 0.0 height)
-              
-              (when (and tex (not shadow?))
-                (gl-enable 'texture-2d)
-                (glBindTexture GL_TEXTURE_2D tex)
-                (glTexEnvf GL_TEXTURE_ENV GL_TEXTURE_ENV_MODE GL_DECAL)
-                ;GL_MODULATE, GL_DECAL, GL_BLEND, or GL_REPLACE.
-                (gl-quadric-texture q #t))
-              (gl-disk q 0.0 .35 25 1)
-              (when (and tex (not shadow?))
-                (gl-quadric-texture q #f)
-                (glTexEnvf GL_TEXTURE_ENV GL_TEXTURE_ENV_MODE GL_MODULATE)
-                (gl-disable 'texture-2d))
-              
-              (gl-pop-matrix)
-
-              (when shadow?
-                (gl-enable 'lighting))
-              (gl-end-list)
-              list-id))))
+              (lambda ()
+                (let ((list-id (gl-gen-lists 1))
+                      [start-angle (/ (* honu-rotation 180) pi)])
+                  (gl-quadric-draw-style q 'fill)
+                  (gl-quadric-normals q 'smooth)
+                  (gl-new-list list-id 'compile)
+                  
+                  (when shadow?
+                    (gl-disable 'lighting))
+                  (gl-material-v 'front 'specular (gl-float-vector 1.0 1.0 1.0 1.0))
+                  (gl-material 'front 'shininess 120.0)  
+                  
+                  (gl-material-v 'front 'ambient-and-diffuse left-color)
+                  (gl-cylinder q .35 .35 height 25 1)
+                  (gl-push-matrix)
+                  (gl-translate 0.0 0.0 height)
+                  
+                  (when (and tex (not shadow?))
+                    (gl-enable 'texture-2d)
+                    (glBindTexture GL_TEXTURE_2D tex)
+                    (glTexEnvf GL_TEXTURE_ENV GL_TEXTURE_ENV_MODE GL_DECAL)
+                    ;GL_MODULATE, GL_DECAL, GL_BLEND, or GL_REPLACE.
+                    (gl-quadric-texture q #t))
+                  
+                  (gl-material-v 'front 'ambient-and-diffuse left-color)
+                  (gl-partial-disk q 0.0 .35 25 1 start-angle 180)
+                  (gl-material-v 'front 'ambient-and-diffuse right-color)
+                  (gl-partial-disk q 0.0 .35 25 1 (+ start-angle 180) 180)
+                  
+                  (when (and tex (not shadow?))
+                    (gl-quadric-texture q #f)
+                    (glTexEnvf GL_TEXTURE_ENV GL_TEXTURE_ENV_MODE GL_MODULATE)
+                    (gl-disable 'texture-2d))
+                  
+                  (gl-pop-matrix)
+                  
+                  (when shadow?
+                    (gl-enable 'lighting))
+                  (gl-end-list)
+                  list-id))))
 
       (define (make-tex-square-dl tex)
         (send board with-gl-context
@@ -274,11 +280,12 @@
       (define checkers
         (map
          (lambda (x)
-           (let ((color (if (car x) light-checker-color dark-checker-color))
+           (let ((left-color (color-name->vector "midnightblue" #t))
+                 (right-color (color-name->vector "darkred" #t))
                  (height (if (cadr x) .4 .2))
                  (tex (if (caddr x) (if (car x) light-checker-tex dark-checker-tex) #f)))
-             (cons x (cons (make-piece-dl color height tex #f)
-                           (make-piece-dl color height tex #t)))))
+             (cons x (cons (make-piece-dl left-color right-color height tex #f)
+                           (make-piece-dl left-color right-color height tex #t)))))
          '((#f #f #f)
            (#f #f #t)
            (#f #t #f)
