@@ -6,9 +6,7 @@
            (lib "unit.ss")
            (lib "etc.ss")
 	   (lib "list.ss")
-           (lib "async-channel.ss")
-	   (lib "string-constant.ss" "string-constants")
-	   "../show-help.ss")
+           (lib "async-channel.ss"))
 
   ;; Player record
   (define-struct player (r hand-r  ; region
@@ -22,7 +20,7 @@
   (define YOUR-NAME "You")
   (define OPPONENT-X-NAME "Opponent ~a")
   (define OPPONENT-NAME "Opponent")
-  (define YOUR-TURN-MESSAGE "Your turn.  (Discard an ~a or ~a, or else ~a.)")
+  (define YOUR-TURN-MESSAGE "Your turn.  (Discard a ~a or crazy 8, or else ~a.)")
   (define GAME-OVER-YOU-WIN "Game over - you win!")
   (define GAME-OVER "Game over - opponent wins")
   
@@ -45,28 +43,14 @@
       
       ;; Set up the table
       (define t (make-table "Crazy 8s" 8 5.5))
-      (send t create-status-line)
+      (define status-pane (send t create-status-pane))
 
-
-      (define mb (make-object menu-bar% t))
-      (define edit-menu (new menu%
-			     (parent mb)
-			     (label (string-constant edit-menu))))
-      (new menu-item% 
-	   (parent edit-menu)
+      (new button% 
+	   (parent status-pane)
 	   (label "Options...")
-	   (callback (lambda (i e)
+	   (callback (lambda (b e)
 		       (message-box "Options" "Coming soon!"))))
-      (define help-menu (new menu%
-			     (parent mb)
-			     (label (string-constant help-menu))))
-      (new menu-item% 
-	   (parent help-menu)
-	   (label (string-constant help-menu-label))
-	   (callback
-	    (let ([show-help (show-help (list "games" "crazy8s") "Crazy 8s Help")])
-	      (lambda x
-		(show-help)))))
+      (send t add-help-button status-pane (list "games" "crazy8s") "Crazy 8s Help" #f)
 
       (send t show #t)
       (send t set-double-click-action #f)
@@ -400,24 +384,26 @@
 	     (set-player-hand! you (cons c (player-hand you)))
 	     (deal 1)
 	     (async-channel-put msg 'draw))))
-	(send t set-status-text (format YOUR-TURN-MESSAGE
-					(let ([v (send (car discards) get-value)])
-					  (if (= v 8)
-					      "8"
-					      (format "8, ~a," (case v
-								 [(1) "ace"]
-								 [(11) "jack"]
-								 [(12) "queen"]
-								 [(13) "king"]
-								 [else v]))))
-					(case (send (car discards) get-suit)
-					  [(hearts) "heart"]
-					  [(spades) "spade"]
-					  [(diamonds) "diamond"]
-					  [(clubs) "club"])
-					(if (null? deck)
-					    "pass"
-					    "draw")))
+	(send t set-status (format YOUR-TURN-MESSAGE
+				   (let ([v (send (car discards) get-value)]
+					 [suit (case (send (car discards) get-suit)
+						 [(hearts) "heart"]
+						 [(spades) "spade"]
+						 [(diamonds) "diamond"]
+						 [(clubs) "club"])])
+				     (if (= v 8)
+					 suit
+					 (format "~a, ~a," 
+						 suit
+						 (case v
+						   [(1) "ace"]
+						   [(11) "jack"]
+						   [(12) "queen"]
+						   [(13) "king"]
+						   [else v]))))
+				   (if (null? deck)
+				       "pass"
+				       "draw")))
 	(let ([what (yield msg)])
 	  ;; Played a crazy 8?
 	  (when (and (eq? what 'discard)
@@ -433,7 +419,7 @@
 	     (when (null? deck)
 	       (send t remove-region pass-button))
 	     ;; ... and run opponents
-	     (send t set-status-text "Opponent's turn...")
+	     (send t set-status "Opponent's turn...")
 	     (unless (null? (player-hand you))
 	       (let oloop ([l opponents])
 		 (cond
@@ -443,7 +429,7 @@
       
       (allow-cards #f)
 
-      (send t set-status-text (if (null? (player-hand you))
-				  GAME-OVER-YOU-WIN
-				  GAME-OVER)))))
+      (send t set-status (if (null? (player-hand you))
+			     GAME-OVER-YOU-WIN
+			     GAME-OVER)))))
 

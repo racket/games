@@ -762,6 +762,9 @@
                                               [(0) "doc.txt"]
                                               [(1) "help.txt"]
                                               [(2) "robots.txt"])))
+			  (when (zero? (send p get-selection))
+			    ;; Delete the "run the Games app" line
+			    (send e delete 0 (send e line-start-position 2)))
                           (send e lock #t)))))
         (define c (make-object editor-canvas% f))
         (define e (make-object text%))
@@ -772,6 +775,8 @@
               set-delta
               (make-object style-delta% 'change-family 'modern))
         (send e load-file (local-file "doc.txt"))
+	;; Delete the "run the Games app" line
+	(send e delete 0 (send e line-start-position 2))
         (send e lock #t)
         (send f show #t))
       

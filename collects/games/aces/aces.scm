@@ -23,6 +23,11 @@ possible to remap single click (instead of double click)?
       (export)
       
       (define table (make-table "Aces" 6 5))
+
+      (make-object button% (string-constant help-menu-label) table
+        (let ([show-help (show-help (list "games" "aces") "Aces Help")])
+          (lambda x
+            (show-help))))
       
       (define draw-pile null)
       
@@ -362,15 +367,5 @@ possible to remap single click (instead of double click)?
         (demand-callback
          (lambda (item)
            (send item enable (not (null? redo-stack))))))
-      (define help-menu (new menu%
-			     (parent mb)
-			     (label (string-constant help-menu))))
-      (new menu-item% 
-	   (parent help-menu)
-	   (label (string-constant help-menu-label))
-	   (callback
-	    (let ([show-help (show-help (list "games" "aces") "Aces Help")])
-	      (lambda x
-		(show-help)))))
       
       (send table show #t))))

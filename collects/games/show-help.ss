@@ -32,16 +32,29 @@
                           [verbatim?
                            (send t insert l)
                            (send t insert #\newline)]
+			  [(regexp-match #rx"^[*][*].*[*][*]$" l)
+			   ;; Skip
+			   (loop)]
                           [(string=? l "")
-                           (send t insert #\newline)
-                           (send t insert #\newline)]
+			   (unless (zero? (send t last-position))
+			     (send t insert #\newline)
+			     (send t insert #\newline))]
                           [else
-                           (send t insert l)
-                           (let ([last-char (string-ref l (- (string-length l) 1))])
-                             (unless (char=? #\space last-char)
-                               (send t insert #\space)))])
+			   (let ([l (regexp-replace #rx" +$" 
+						    (regexp-replace #rx"^ +" l "")
+						    "")])
+			     (send t insert l)
+			     (when (regexp-match #rx"^[*]" l)
+			       (send t set-paragraph-margins
+				     (send t position-paragraph (send t last-position))
+				     16 32 0))
+			     (send t insert #\space))])
                         (loop)))))
                 'text)
+	      (when verbatim?
+		(send t change-style 
+		      (make-object style-delta% 'change-family 'modern)
+		      0 (send t last-position)))
               (send t lock #t)
               (send t set-position 0 0)
               (send frame show #t)

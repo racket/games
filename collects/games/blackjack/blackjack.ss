@@ -59,7 +59,8 @@
       
       ;; Set up the table
       (define t (make-table "Blackjack" 6 3))
-      (send t create-status-line)
+      (define status-pane (send t create-status-pane))
+      (send t add-help-button status-pane '("games" "blackjack") "Blackjack Help" #f)
       (send t show #t)
       (send t set-double-click-action #f)
       (send t set-button-action 'left 'drag/one)
@@ -182,7 +183,7 @@
       (define money 100)
       (define (update-money! d)
         (set! money (+ money d))
-        (send t set-status-text (format "You have $~a. (Each bet is $2.)" money)))
+        (send t set-status (format "You have $~a. (Each bet is $2.)" money)))
       
       ;; Let's play!
       (let shuffle-loop ()

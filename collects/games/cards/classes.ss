@@ -8,7 +8,9 @@
 	   (prefix util: "utils.ss")
 	   "constants.ss"
 	   "make-cards.ss"
-	   "region.ss")
+	   "region.ss"
+	   (lib "string-constant.ss" "string-constants")
+	   "../show-help.ss")
 
   (provide pasteboard%
 	   table%)
@@ -526,8 +528,30 @@
 	[animated
 	 (case-lambda 
 	  [() animate?]
-	  [(on?) (set! animate? (and on? #t))])])
+	  [(on?) (set! animate? (and on? #t))])]
+	[create-status-pane
+	 (lambda ()
+	   (let ([p (make-object mred:horizontal-pane% this)])
+	     (set! msg (new mred:message% 
+			    [parent p]
+			    [label ""]
+			    [stretchable-width #t]))
+	     p))]
+	[set-status
+	 (lambda (str)
+	   (when msg
+	     (send msg set-label str)))]
+	[add-help-button
+	 (lambda (pane where title tt?)
+	   (new mred:button% 
+		(parent pane)
+		(label (string-constant help-menu-label))
+		(callback
+		 (let ([show-help (show-help where title tt?)])
+		   (lambda x
+		     (show-help))))))])
       (begin
+	(define msg #f)
 	(define add-cards-callback
 	 (lambda (card x y)
 	   (send pb insert card #f x y)))

@@ -4,7 +4,7 @@
   (define mred-launcher-names (list "Games"))
   (define doc-sub-collections
     (list "cards" "paint-by-numbers" "same" "lights-out" "aces" 
-	  "memory" "pousse"
+	  "memory" "pousse" "crazy8s"
           "gcalc"))
   (define blurb 
     (list "Demos a few small "

@@ -1,4 +1,6 @@
-The object of _Paint By Numbers_ is to discover which cells should be
+** To play _Paint By Numbers_, run the "Games" application. **
+
+The object of Paint By Numbers is to discover which cells should be
 colored blue and which should be colored white. Initially, all squares are
 grey, indicating that the correct colors are not known. The lists of
 numbers to the left and above the grid are your clues to the correct color

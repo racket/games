@@ -42,7 +42,8 @@
       
       ;; Set up the table
       (define t (make-table "Go Fish" 8 4.5))
-      (send t create-status-line)
+      (define status-pane (send t create-status-pane))
+      (send t add-help-button status-pane '("games" "gofish") "Go Fish Help" #f)
       (send t show #t)
       (send t set-double-click-action #f)
       (send t set-button-action 'left 'drag-raise/one)
@@ -145,7 +146,7 @@
                                  ;;  makes a match:
                                  (lambda (cards) 
                                    (check-hand you (car cards))
-                                   (send t set-status-text YOUR-TURN-MESSAGE))))
+                                   (send t set-status YOUR-TURN-MESSAGE))))
       
       ;; More card setup: Opponents's cards and deck initally can't be moved
       (for-each
@@ -191,7 +192,7 @@
               (begin
                 ;; Make sure the matching cards are face-up and pause for the user
                 (send t cards-face-up (list found card))
-                (send t set-status-text MATCH-MESSAGE)
+                (send t set-status MATCH-MESSAGE)
                 ;; The players has a match! Move the card from the player's hand
                 ;;  to his discard pile
                 (set-player-hand! player (remove* (list card found) h))
@@ -309,7 +310,7 @@
         (if (ormap (lambda (p) (null? (player-hand p))) (list player-1 player-2 you))
             (begin
               (enable-your-cards #f)
-              (send t set-status-text GAME-OVER-MESSAGE))
+              (send t set-status GAME-OVER-MESSAGE))
             (k)))
       
       ;; Look in opponents' initial hands for matches
@@ -326,7 +327,7 @@
         (set-region-callback! (player-r you) #f)
         (set-region-callback! (player-r player-1) (player-callback player-1))
         (set-region-callback! (player-r player-2) (player-callback player-2))
-        (send t set-status-text YOUR-TURN-MESSAGE)
+        (send t set-status YOUR-TURN-MESSAGE)
         (yield something-happened)
         (if go-fish?
             (begin
@@ -335,7 +336,7 @@
                       #f
                       ;; Draw a card (wait for the user to drag it)
                       (begin
-                        (send t set-status-text GO-FISH-MESSAGE)
+                        (send t set-status GO-FISH-MESSAGE)
                         (wiggle-top-card)
                         (enable-your-cards #f)
                         (set-region-callback! (player-r player-1) #f)
@@ -347,11 +348,11 @@
                         (check-hand you (car (player-hand you)))))
                   (check-done loop)
                   (begin
-                    (send t set-status-text PLAYER-1-NAME)
+                    (send t set-status PLAYER-1-NAME)
                     (simulate-player 
                      player-1 player-2
                      (lambda ()
-                       (send t set-status-text PLAYER-2-NAME)
+                       (send t set-status PLAYER-2-NAME)
                        (simulate-player player-2 player-1 loop))))))
             (check-done loop))))))
     
