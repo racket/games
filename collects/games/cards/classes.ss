@@ -591,8 +591,8 @@
         [c (make-object mred:editor-canvas% this #f '(no-vscroll no-hscroll))]
 	[pb (make-object pasteboard%)])
       (sequence
-	(send c min-client-width (inexact->exact (floor (* w (send back get-width)))))
-	(send c min-client-height (inexact->exact (floor (* h (send back get-height)))))
+	(send c min-client-width (+ 10 (inexact->exact (floor (* w (send back get-width))))))
+	(send c min-client-height (+ 10 (inexact->exact (floor (* h (send back get-height))))))
 	(send c stretchable-width #f)
 	(send c stretchable-height #f)
 	(send this stretchable-width #f)
