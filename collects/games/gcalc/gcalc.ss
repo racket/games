@@ -735,7 +735,7 @@
     (define dc     (instantiate bitmap-dc% (bitmap)))
     ;; general operations
     (define evaluate-next #f)
-    (define (draw-contents)
+    (define/private (draw-contents)
       (unhighlight!)
       (set! expr (draw-expr dc expr name evaluate-next))
       (set! evaluate-next #f)
@@ -754,7 +754,7 @@
     (define/public (eval-next-expr) (set! evaluate-next #t))
     (define/public (get-dropper) dropper)
     ;; highlighting
-    (define (frame-xor-bitmap)
+    (define/private (frame-xor-bitmap)
       (set-pen/brush dc XOR-PEN/BRUSH)
       (send* dc
         (draw-rectangle 1 1 size size)
