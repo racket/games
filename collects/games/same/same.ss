@@ -11,7 +11,7 @@
    (define board-width 20)
    (define board-height 10)
    (define cell-size 30)
-   (define colors (map (lambda (x) (make-object color% x)) (list "blue" "red" "purple" "yellow" "cyan")))
+   (define colors (map (lambda (x) (make-object color% x)) (list "blue" "red" "magenta" "yellow" "cyan")))
    (define pens (map (lambda (x) (make-object pen% x 1 'solid)) colors))
    (define brushes (map (lambda (x) (make-object brush% x 'solid)) colors))
    (define xor-pens (map (lambda (x) (make-object pen% x 1 'xor)) colors))
