@@ -47,7 +47,7 @@ possible to remap single click (instead of double click)?
       (get-x-offset 0)
       0
       card-width
-      card-height
+      region-height ; card-height
       #f
       #f))
 
