@@ -104,6 +104,7 @@
 ;		     maybe-mt maybe-mt maybe-mt))
   
   ; pad-pads: add one to every element of a list except the first and last
+  ; pad-pads: ((list-of num) -> (list-of num)
   ; num-list -> num-list
   (define (pad-pads num-list)
     (cons (car num-list)
@@ -115,62 +116,44 @@
   
 ;  (equal? (pad-pads '(3 1 2 4 3 2 1)) '(3 2 3 5 4 3 1))
   
-  ; distribute-try puts things into bins.  given a number of (identical) things, and a
-  ; number of bins, distribute-try calls its thunk with every possible list representation
-  ; of things in bins.
-  ; distribute-try : (num num (num-list -> void) -> void)
-  (define (distribute-try things bins thunk)
-    (letrec ([inner-try 
-	      (lambda (things bins built-list)
-		(if (= bins 1)
-		    (thunk (cons things built-list))
-		    (let loop ((in-this-bin 0))
-		      (if (> in-this-bin things)
-			  null
-			  (begin
-			    (inner-try (- things in-this-bin) (- bins 1) (cons in-this-bin built-list))
-			    (loop (+ in-this-bin 1)))))))])
-      (inner-try things bins null)))
-  
-  ; distribute-try test : commented out because it prints a lot of gunk and seems to be right
-  ;(distribute-try 5 3 (lambda (lon) (printf "~a~n" lon)))
-  
-  ;(let ([count 0])
-  ;  (distribute-try 7 8 (lambda (x) (set! count (+ count 1))))
-  ;  count)
-  
+  ; distribute puts things into bins.  given a number of (identical) things, and a
+  ; number of bins, distribute returns a list containing with every possible list 
+  ; representation of things in bins.
+  ; distribute : (num num -> (listof num))
+  (define (distribute things bins)
+    (let ([built-list null])
+      (let tree-traverse ([things things]
+			  [bins bins]
+			  [so-far null])
+	(if (= bins 1)
+	    (set! built-list (cons (cons things so-far) built-list))
+	    (let try-loop ([in-this-bin 0])
+	      (if (> in-this-bin things)
+		  #f
+		  (begin
+		    (tree-traverse (- things in-this-bin)
+				   (- bins 1)
+				   (cons in-this-bin so-far))
+		    (try-loop (+ in-this-bin 1)))))))
+      built-list))
+
+  ;distribute test case
+  ;(distribute 5 3)
+      
   ; memoize-tries : 
   ; calculates all possibilties for this row, given the black block widths
   ; ((list-of (list-of num)) num (-> void) ->
-  ;  (list (list-of (list-of (union 'maybe-full 'maybe-mt)))))
+  ;  (list-of (list-of (list-of (union 'maybe-full 'maybe-mt)))))
   ; effect : updates the progress bar
-
-  ;; JOHN: Why is the result of this function always a list of length 1?
-
-  ;; I have re-writtent the type for this function, using spidey's notation.
-  ;; Here is the type bnf for spidey (in the subset I used):
-  ;;
-  ;;   T = (T ... T -> T) | void | num | (cons T T) | null
-  ;;     | 'maybe-full | maybe-mt | ... any other symbol ...
-  ;;     | (union T ... T)
-  ;;     | (rec ([x T]) T)    (* recursive types -- x may appear free in either T *)
-  ;;
-  ;; additional type macros I used:
-  ;;   (list T) = (cons T null)
-  ;;   (list T T ... T) = (cons T (list T ... T))
-  ;;   (list-of T) = (rec ([x (union null (cons T x))]) x)
 
   (define (memoize-tries info-list line-length update-progress)
     (map (lambda (info)
-	   (let ([try-list-list null])
-	     (distribute-try (- line-length (+ (apply + info)
-					       (- (length info) 1)))
-			     (+ (length info) 1)
-			     (lambda (pad-list)
-			       (set! try-list-list 
-				     (cons (formulate-row info (pad-pads pad-list)) try-list-list))))
-	     (update-progress)
-	     try-list-list))
+	   (update-progress)
+	   (map (lambda (pad-list)
+		  (formulate-row info (pad-pads pad-list)))
+		(distribute (- line-length (+ (apply + info)
+					      (max (- (length info) 1) 0)))
+			    (+ (length info) 1))))
 	 info-list))
   
 ;  (equal? (memoize-tries '((4) (1 3)) 6 void)
