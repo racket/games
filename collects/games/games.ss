@@ -9,7 +9,7 @@
        ("same" "same.ss" "Same" #f)
        ("paint-by-numbers" "paint-by-numbers.ss" "Paint By Numbers" #f)
        ("gofish" "gofish.ss" "Go Fish" #t)
-       ("blackjack" "blackjack.ss" "Blackjack" #t)
+       ;("blackjack" "blackjack.ss" "Blackjack" #t)
        ("ginrummy" "ginrummy.ss" "Gin Rummy" #t)
        ("mines" "mines.ss" "Minesweeper" #f)))
    
