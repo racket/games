@@ -690,8 +690,7 @@
                                                                             exn))))])
                                   (let ([f (get-file "Get Player Program" d)])
                                     (when f
-                                      (let ([player (parameterize ([current-namespace (make-namespace 'mred)])
-                                                      (load f))])
+                                      (let ([player (dynamic-require `(file ,f) 'robot)])
                                         (let ([name (get-text-from-user "Player Name"
                                                                         "Player Program Name:"
                                                                         d
