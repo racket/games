@@ -4,7 +4,8 @@
 	   "utils.ss"
 	   "region.ss")
 
-  (provide make-region
+  (provide region
+	   make-region
 	   region? region-x region-y region-w region-h 
 	   region-label region-callback region-interactive-callback
 	   set-region-callback!
