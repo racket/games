@@ -12,6 +12,8 @@
            (lib "list.ss")
            (lib "mred.ss" "mred"))
   
+  (provide gui-game%)
+  
   ;; move-candidate = (make-move-candidate coordinate move (listof number))
   (define-struct move-candidate (move dice) (make-inspector))
   
@@ -785,6 +787,4 @@
                       (make-move-candidate (make-enter-piece pawn)
                                            (if (memq 5 roll) '(5) roll)))
                     available-pawns)))))]
-        [else (values null null)])))
-  
-  (new gui-game%))
+        [else (values null null)]))))
