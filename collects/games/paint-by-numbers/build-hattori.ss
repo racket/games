@@ -1,6 +1,11 @@
+#!/bin/sh
+
+string=? ; exec mred -qgmvr $0
+
 ;;; these come from:
 ;;; http://www.ask.ne.jp/~hattori/puzzle/menu.html
 ;;; We must cite him in the game somewhere...
+
 
 
 (require-library "pretty.ss")
@@ -9,7 +14,7 @@
 (define pixel-size 10)
 
 (define (main n)
-  (let ([grid (calculate-grid (format "~a.gif" n))])
+  (let ([grid (calculate-grid (build-path "hattori" (format "~a.gif" n)))])
     (display-grid grid)
     (pretty-print
      (build-problem 
@@ -19,7 +24,7 @@
     (newline (current-error-port))))
 
 (define (calculate-grid filename)
-  (fprintf (current-error-port) "building ~a~n" filename)
+  (fprintf (current-error-port) "reading ~a~n" filename)
   (let* ([bitmap (make-object bitmap% filename)]
 	 [_ (unless (send bitmap ok?)
 	      (error 'bad-bitmap "name: ~a" filename))]
@@ -154,14 +159,19 @@
 (define (transpose l) (apply map list l))
 
 (define (build-problem n on-off-lists)
-  `'(,(format "Hitori ~a" n)
-     ,(map on-off->blocks on-off-lists)
-     ,(map on-off->blocks (transpose on-off-lists))))
+  (list (format "Hattori ~a" n)
+	(map on-off->blocks on-off-lists)
+	(map on-off->blocks (transpose on-off-lists))))
 
 
-(printf "(list~n")
-(let loop ([n 1])
-  (when (<= n 139)
-    (main n)
-    (loop (+ n 1))))
-(printf ")")
+(call-with-output-file "raw-hattori.ss"
+  (lambda (port)
+    (parameterize ([current-output-port port])
+      (printf "`(~n")
+      (let loop ([n 1])
+	(when (<= n 139)
+	  (main n)
+	  (loop (+ n 1))))
+      (printf ")")))
+  'text
+  'truncate)

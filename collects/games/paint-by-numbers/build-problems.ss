@@ -36,27 +36,38 @@ yet defined.
 	    mzlib:pretty-print^
 	    (argv))
 
-    (define hattori-count 10)
+    (define time-limit 20) ;; in seconds
+
+    (define hattori-count 15)
 
     (define problems-dir (collection-path "games" "paint-by-numbers"))
     (define input-file (build-path problems-dir "raw-problems.ss"))
+    (define hattori-input-file (build-path problems-dir "raw-hattori.ss"))
     (define output-file (build-path problems-dir "problems.ss"))
     
-    (define problems (call-with-input-file input-file (compose eval read)))
+    (define raw-hattori
+      (call-with-input-file hattori-input-file (compose eval read)))
 
-    (define raw-hattori (load-relative "raw-hattori.ss"))
+    (fprintf (current-error-port) "a random selection of hattoris will be included:~n  ")
+    (define problems
+      (append
 
-    (printf "a random selection of hattoris will be included:~n  ")
-    (define trimmed-hattori
-      (let loop ([n hattori-count])
-	(cond
-	 [(zero? n) null]
-	 [else (cons
-		(let ([n (random (length raw-hattori))])
-		  (list-ref raw-hattori n)
-		  (printf " ~a" n))
-		(loop (- n 1)))])))
+	;; random hattoris
+	(let loop ([n hattori-count])
+	  (cond
+	   [(zero? n) null]
+	   [else (cons
+		  (let ([n (random (length raw-hattori))])
+		    (fprintf (current-error-port) " ~a" (+ n 1))
+		    (list-ref raw-hattori n))
+		  (loop (- n 1)))]))
+
+         ;; original problems
+        (call-with-input-file input-file (compose eval read))))
+
     (newline)
+    (newline)
+
 
     (define (sum-list l) (apply + l))
     (define (sum-lists ls) (sum-list (map sum-list ls)))
@@ -77,13 +88,15 @@ yet defined.
     (define progress-bar-max 64)
     (define guide-string ".......:.......|.......:.......|.......:.......|.......:........")
 
-    (define (build-progress-outputer max)
+    (define (build-progress-outputer max cleanup)
       (let ([counter 0]
 	    [dots-printed 0])
 	(lambda ()
 	  (set! counter (+ 1 counter))
 	  (cond
 	   [(= counter max)
+
+	    (cleanup)
 
 	    ;; dots-printed should always equal progress-bar-max
 	    (let loop ([n (- progress-bar-max dots-printed)])
@@ -94,7 +107,8 @@ yet defined.
 	    (newline (current-error-port))]
 	   [else
 	    (let ([dots-to-print (floor (- (* progress-bar-max (/ counter (- max 1))) dots-printed))])
-	      '(fprintf (current-error-port) "percentage: ~a ~a ~a ~a~n"
+	      '(fprintf (current-error-port) "~spercentage: ~a ~a ~a ~a~n"
+		       cleanup
 		       dots-to-print
 		       counter
 		       (exact->inexact (/ counter max))
@@ -108,12 +122,10 @@ yet defined.
 		  (loop (- n 1))]))
 	      (flush-output (current-error-port)))]))))
 
-    (define (setup-progress max)
+    (define (setup-progress max cleanup)
       (display guide-string (current-error-port))
       (newline (current-error-port))
-      (build-progress-outputer max))
-
-    (define time-limit 60) ;; in seconds
+      (build-progress-outputer max cleanup))
 
     (define (solve name rows cols)
       (cond
@@ -125,17 +137,33 @@ yet defined.
 		(build-vector col-count
 			      (lambda (i) (make-vector row-count 'unknown))))
 	  (set! known 0)
-	  (set! solving-progress-output (build-progress-outputer (* row-count col-count))))
+	  (set! solving-progress-output (build-progress-outputer
+					 (* row-count col-count)
+					 void)))
 	(letrec ([done (make-semaphore 0)]
 		 [kill (make-semaphore 1)]
 		 [sucessful? #f]
 		 [t (thread
 		     (lambda ()
-		       (SOLVE:solve rows cols set-entry setup-progress)
-		       (set! sucessful? #t)
-		       (semaphore-wait kill)
-		       (kill-thread k)
-		       (semaphore-post done)))]
+		       (with-handlers ([(lambda (x) #t)
+					(lambda (x)
+					  (semaphore-wait kill)
+					  (set! sucessful? #f)
+					  (kill-thread k)
+					  (fprintf (current-error-port) "~nsolver raised an exception~n~a~n"
+						  (if (exn? x)
+						      (exn-message x)
+						      x))
+					  (semaphore-post done))])
+			 (SOLVE:solve rows cols set-entry
+				      (lambda (max)
+					(setup-progress
+					 max
+					 (lambda ()
+					   (semaphore-wait kill)
+					   (set! sucessful? #t)
+					   (kill-thread k)))))
+			 (semaphore-post done))))]
 		 [k
 		  (thread
 		   (lambda ()
