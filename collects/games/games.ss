@@ -5,7 +5,8 @@
    (import mred^ mzlib:function^)
 
    (define game-mapping 
-     '(("lights-out" "lights-out.ss" "Lights Out" #f)
+     '(("slidey" "slidey.ss" "Slidey" #f)
+       ("lights-out" "lights-out.ss" "Lights Out" #f)
        ("same" "same.ss" "Same" #f)
        ("paint-by-numbers" "paint-by-numbers.ss" "Paint By Numbers" #f)
        ("gofish" "gofish.ss" "Go Fish" #t)

@@ -4,9 +4,9 @@
 ;; board = (vector-of (vector-of (union #f (make-loc n1 n2))))
 
 ;; need to make sure that the bitmap divides nicely
-(define bitmap (make-object bitmap% "11.JPG"))
+(define bitmap (make-object bitmap% (build-path (collection-path "games" "slidey") "11.JPG")))
 (define board-width 6)
-(define board-height 2)
+(define board-height 5)
 
 (define board
   (build-vector
@@ -15,8 +15,7 @@
      (build-vector
       board-height
       (lambda (j)
-	(make-loc (modulo (+ i 1) board-width)
-		  (modulo (+ j 1) board-height)))))))
+	(make-loc i j))))))
 
 (define (board-for-each board f)
   (let loop ([i (vector-length board)])
@@ -32,52 +31,187 @@
 	    (loop (- j 1))])))
       (loop (- i 1))])))
 
+(define (move-one from-i from-j to-i to-j)
+  (let ([from-save (board-ref board from-i from-j)]
+        [to-save (board-ref board to-i to-j)])
+    (board-set! board from-i from-j to-save)
+    (board-set! board to-i to-j from-save)))
+
 (define (board-set! board i j v)
   (vector-set! (vector-ref board i) j v))
-
-(define (board-get board i j)
+(define (board-ref board i j)
   (vector-ref (vector-ref board i) j))
 
-(board-set! board 0 0 #f)
+(define hole-i (- board-width 1))
+(define hole-j (- board-height 1))
+(board-set! board hole-i hole-j #f)
+
+(define (randomize-board)
+  (let loop ([no-good #f]
+             [i (* 10 board-width board-height)]
+             [m-hole-i hole-i]
+             [m-hole-j hole-j])
+    (cond
+      [(zero? i) ;; move hole back to last spot
+       (let ([i-diff (abs (- m-hole-i hole-i))])
+         (let loop ([i 0])
+           (unless (= i i-diff)
+             (move-one  
+              (+ m-hole-i i)
+              m-hole-j 
+              (+ m-hole-i i (if (< m-hole-i hole-i) +1 -1))
+              m-hole-j)
+             (loop (+ i 1)))))
+       (let ([j-diff (abs (- m-hole-j hole-j))])
+         (let loop ([j 0])
+           (unless (= j j-diff)
+             (move-one
+              hole-i
+              (+ m-hole-j j)
+              hole-i
+              (+ m-hole-j j (if (< m-hole-j hole-j) +1 -1)))
+             (loop (+ j 1)))))]
+      [else 
+       (let ([this-dir (get-random-number 4 no-good)])
+         (let-values ([(new-i new-j)
+                       (case this-dir
+                         ; up
+                         [(0) (values (- m-hole-i 1) m-hole-j)]
+                         [(1) (values (+ m-hole-i 1) m-hole-j)]
+                         [(2) (values m-hole-i (- m-hole-j 1))]
+                         [(3) (values m-hole-i (+ m-hole-j 1))])])
+           (if (and (<= 0 new-i)
+                    (< new-i board-width)
+                    (<= 0 new-j)
+                    (< new-j board-height))
+               (let ([next-no-good
+                      (case this-dir
+                        [(0) 1]
+                        [(1) 0]
+                        [(2) 3]
+                        [(3) 2])])
+                 (move-one new-i new-j m-hole-i m-hole-j)
+                 (loop next-no-good (- i 1) new-i new-j))
+               (loop no-good (- i 1) m-hole-i m-hole-j))))])))
+
+(define (get-random-number bound no-good)
+  (let ([raw (random (- bound 1))])
+    (cond
+      [(not no-good) raw]
+      [(< raw no-good) raw]
+      [else (+ raw 1)])))
 
 (define line-brush (send the-brush-list find-or-create-brush "black" 'transparent))
 (define line-pen (send the-pen-list find-or-create-pen "white" 1 'solid))
 (define pict-brush (send the-brush-list find-or-create-brush "black" 'solid))
 (define pict-pen (send the-pen-list find-or-create-pen "black" 1 'solid))
+(define white-brush (send the-brush-list find-or-create-brush "white" 'solid))
+(define white-pen (send the-pen-list find-or-create-pen "white" 1 'solid))
 
 (define slidey-canvas%
   (class canvas% args
     (override
-     [on-paint
-      (lambda ()
-	(board-for-each
-	 board
-	 (lambda (i j v)
-	   (when v
-	     (draw-cell v i j)))))])
+      [on-paint
+       (lambda ()
+         (if solved?
+             (send (get-dc) draw-bitmap bitmap 0 0)
+             (board-for-each
+              board
+              (lambda (i j v)
+                (draw-cell i j)))))]
+      [on-event
+       (lambda (evt)
+         (unless solved?
+           (cond
+             [(send evt button-up? 'left)
+              (let-values ([(i j) (xy->ij (send evt get-x) (send evt get-y))])
+                (slide i j))]
+             [else (void)])))])
     (inherit get-client-size get-dc)
     (private
+      [solved? #f]
+      [check-end-condition
+       (lambda ()
+         (let ([answer #t])
+           (board-for-each
+            board
+            (lambda (i j v)
+              (when v
+                (unless (and (= i (loc-x v))
+                             (= j (loc-y v)))
+                  (set! answer #f)))))
+           (when answer
+             (set! solved? #t))))]
+      [slide
+       (lambda (i j)
+         (cond
+           [(= j hole-j)
+            (let loop ([new-hole-i hole-i])
+              (cond
+                [(= new-hole-i i) (void)]
+                [else
+                 (let ([next (if (< i hole-i)
+                                sub1
+                                add1)])
+                   (move-one (next new-hole-i) hole-j new-hole-i hole-j)
+                   (draw-cell new-hole-i hole-j)
+                   (draw-cell (next new-hole-i) hole-j)
+                   (loop (next new-hole-i)))]))
+            (set! hole-i i)
+            (check-end-condition)
+            (when solved?
+              (on-paint))]
+           [(= i hole-i)
+            (let loop ([new-hole-j hole-j])
+              (cond
+                [(= new-hole-j j) (void)]
+                [else
+                 (let ([next (if (< j hole-j)
+                                sub1
+                                add1)])
+                   (move-one hole-i (next new-hole-j) hole-i new-hole-j)
+                   (draw-cell hole-i new-hole-j)
+                   (draw-cell hole-i (next new-hole-j))
+                   (loop (next new-hole-j)))]))
+            (set! hole-j j)
+            (check-end-condition)
+            (when solved?
+              (on-paint))]
+           [else (void)]))]
+
+      [xy->ij
+       (lambda (x y)
+	 (let-values ([(w h) (get-client-size)])
+           (values
+            (inexact->exact (floor (* board-width (/ x w))))
+            (inexact->exact (floor (* board-height (/ y h)))))))]
       [ij->xywh
        (lambda (i j)
 	 (let-values ([(w h) (get-client-size)])
-	   (let ([cell-w (/ w (vector-length board))]
-		 [cell-h (/ h (vector-length (vector-ref board 0)))])
+	   (let ([cell-w (/ w board-width)]
+		 [cell-h (/ h board-height)])
 	     (values (* i cell-w)
 		     (* j cell-h)
 		     cell-w
 		     cell-h))))]
       [draw-cell
-       (lambda (indicies i j)
-	 (let-values ([(xd yd wd hd) (ij->xywh i j)]
-		      [(xs ys ws hs) (ij->xywh (loc-x indicies)
-					       (loc-y indicies))])
-	   (let ([dc (get-dc)])
-	     (send dc set-pen pict-pen)
-	     (send dc set-brush pict-brush)
-	     (send dc draw-bitmap-section bitmap xd yd xs ys wd hd)
-	     (send dc set-pen line-pen)
-	     (send dc set-brush line-brush)
-	     (send dc draw-rectangle xd yd wd hd))))])
+       (lambda (i j)
+	 (let-values ([(xd yd wd hd) (ij->xywh i j)])
+           (let ([dc (get-dc)]
+                 [indicies (board-ref board i j)])
+             (if indicies
+                 (let-values ([(xs ys ws hs) (ij->xywh (loc-x indicies)
+                                                       (loc-y indicies))])
+                   (send dc set-pen pict-pen)
+                   (send dc set-brush pict-brush)
+                   (send dc draw-bitmap-section bitmap xd yd xs ys wd hd)
+                   (send dc set-pen line-pen)
+                   (send dc set-brush line-brush)
+                   (send dc draw-rectangle xd yd wd hd))
+                 (begin
+                   (send dc set-pen white-pen)
+                   (send dc set-brush white-brush)
+                   (send dc draw-rectangle xd yd wd hd))))))])
     (inherit stretchable-width stretchable-height min-client-width min-client-height)
     (sequence
       (apply super-init args)
@@ -86,6 +220,9 @@
       (min-client-width (send bitmap get-width))
       (min-client-height (send bitmap get-height)))))
 
-(define f (make-object frame% "frame"))
+(define f (make-object frame% "slidey"))
 (make-object slidey-canvas% f)
+(make-object grow-box-spacer-pane% f)
+
+(randomize-board)
 (send f show #t)
