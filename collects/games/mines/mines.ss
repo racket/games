@@ -51,7 +51,7 @@
       (define state 'covered)    ; 'covered, 'flagged, 'semi-flagged, or 'uncovered
       (define neighbor-bomb-count 0) ; 0 to 8
 
-      (define-public
+      (public*
 	[set-state
 	 (lambda (newstate)
 	   (set! state newstate))]
@@ -103,12 +103,12 @@
       (rename [super-draw draw])
       (define explode-source? #f) ; draw this bomb as the one that exploded?
 
-      (define-public
+      (public*
 	[set-explode-source
 	 (lambda (s?)
 	   (set! explode-source? s?))])
       
-      (define-override
+      (override*
 	[draw
 	 (lambda (dc x y w h hilite?)
 	   (if (eq? (get-state) 'uncovered)
@@ -193,7 +193,7 @@
   ;; Make a frame:
   (define frame (instantiate
 		 (class frame% 
-		   (define-override
+		   (override*
 		     [on-close ; stop the timer, in case it's running
 		      (lambda ()
 			(send board-canvas stop-timer))])
@@ -237,7 +237,7 @@
       (define bomb-count THE-BOMB-COUNT) ; number of bombs minus the number of flags
       (define cover-count (* B-HEIGHT B-WIDTH)) ; number of uncovered tiles
 
-      (define-public
+      (public*
 	[stop-timer      ; stop the clock
 	 (lambda ()
 	   (when timer
@@ -249,7 +249,7 @@
 	   (set! timer
 		 (make-object
 		  (class timer% ()
-		    (define-override
+		    (override*
 		      [notify
 		       (lambda ()
 			 (let ([e (- (current-seconds) start-time)])
@@ -356,7 +356,7 @@
 	     (send t draw dc xloc yloc TILE-HW TILE-HW
 		   (eq? t clicking))))])
 
-      (define-override
+      (override*
 	[on-event        ; handle a click
 	 (lambda (e)
 	   (when ready?

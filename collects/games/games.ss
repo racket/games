@@ -1,5 +1,8 @@
 (module games mzscheme
-  (require (lib "mred.ss" "mred"))
+  (require (lib "mred.ss" "mred")
+	   (lib "class.ss")
+	   (lib "class100.ss")
+	   (lib "list.ss"))
 
    (define game-mapping 
      '(("slidey" "slidey.ss" "Slidey" #f)
@@ -15,7 +18,7 @@
    
    (define f (make-object (class100 frame% (name)
 			    (override
-			      [on-close exit])
+			      [on-close (lambda () (exit))])
 			    (sequence (super-init name)))
 			  "PLT Games"))
    (define hp (make-object horizontal-panel% f))
@@ -37,7 +40,7 @@
        (when dir
 	 (make-object button% name p
 		      (lambda (b e)
-			(when cards? (require-library "cards.ss" "games" "cards"))
+			(when cards? (dynamic-require '(lib "cards.ss" "games" "cards") #f))
 			(let ([c (make-custodian)])
 			  (parameterize ([current-custodian c])
 			    (parameterize ([current-eventspace (make-eventspace)])
@@ -45,7 +48,7 @@
 			       (lambda ()
 				 (exit-handler (lambda (v) 
 						 (custodian-shutdown-all c)))
-				 (load (build-path dir file))))))))))))
+				 (dynamic-require `(file ,(build-path dir file)) #f)))))))))))
 
    (map game-button game-mapping)
 
