@@ -15,7 +15,7 @@
       [(name) "MzLib"]
       [(compile-prefix) '(begin
 			   (require-library "refer.ss")
-			   (require-library "mzlibs.ss"))]
+			   (require-library "mzlibflats.ss"))]
       [(compile-omit-files) (append elaboration-time-files
 				    (list "refer.ss" "letplsrc.ss"))]
       [(compile-elaboration-zos) elaboration-time-files]
