@@ -23,6 +23,9 @@
 (define SUBMARGIN 10)
 (define LABEL-H 15)
 
+; Randomize
+(random-seed (modulo (current-milliseconds) 10000))
+
 ; Set up the table
 (define t (make-table "Go Fish" 8 5))
 (send t create-status-line 1)
