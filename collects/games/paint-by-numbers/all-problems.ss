@@ -1,5 +1,5 @@
 (eval
- `(let ([show-missing? #t]
+ `(let ([show-missing? #f]
 	[total-missing 0])
     ,(let loop ([files
 		 (call-with-input-file (build-path (collection-path
