@@ -183,7 +183,7 @@
 		 [else (draw-line dc (- i 1))
 		       (loop (- i 1))]))))])))
 
-   (define frame (make-object frame% "Same"))
+   (define frame (make-object dialog% "Same"))
    (define panel (make-object vertical-panel% frame))
    (define hp (make-object horizontal-panel% panel))
    (define canvas (make-object same-canvas% panel))
@@ -195,8 +195,6 @@
    (send canvas min-width (* board-width cell-size))
    (send canvas min-height (* board-height cell-size))
 
-   (send frame show #t)
-
-   (yield (make-semaphore 0)))
+   (send frame show #t))
  mred^ mzlib:function^)
 
