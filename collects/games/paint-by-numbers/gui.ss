@@ -81,6 +81,12 @@ paint by numbers.
 	   (let ([dc (get-dc)])
 	     (let-values ([(width height descent ascent) 
 			   (send dc get-text-extent s)])
+	       (- height descent))))]
+	[get-string-height/descent
+	 (lambda (s)
+	   (let ([dc (get-dc)])
+	     (let-values ([(width height descent ascent) 
+			   (send dc get-text-extent s)])
 	       height)))]
 	[get-string-ascent
 	 (lambda (s)
@@ -383,11 +389,11 @@ paint by numbers.
 
 	  (set! col-label-height
 		(max
-		 (get-string-height "(0,0)")
+		 (get-string-height/descent (loc->string grid-x-size grid-y-size))
 		 (apply max
 			(map (lambda (l)
 			       (let* ([strs (get-col-label-strings l)]
-				      [margins (* (max 0 (- (length strs) 1)) y-margin)]
+				      [margins (* (length strs) y-margin)]
 				      [height (apply + (map get-string-height strs))])
 				 (+ margins height)))
 			     col-numbers))))
