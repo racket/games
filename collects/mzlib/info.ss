@@ -16,6 +16,6 @@
       [(compile-prefix) '(begin
 			   (require-library "mzlibflats.ss"))]
       [(compile-omit-files) (append elaboration-time-files
-				    (list "refer.ss" "letplsrc.ss"))]
+				    (list "make-object-kwd.ss" "refer.ss" "letplsrc.ss"))]
       [(compile-elaboration-zos) elaboration-time-files]
       [else (failure)])))
