@@ -9,7 +9,7 @@
   (provide gl-board%)
 
   (define-struct space (draw info))
-  (define-struct piece (x y z draw info))
+  (define-struct piece (x y z draw info enabled?))
   
   (define (get-info x)
     (cond
@@ -51,6 +51,9 @@
       (define spaces null)
       (define pieces null)
       
+      (define/public (get-pieces) (map piece-info pieces))
+      (define/public (get-spaces) (map space-info spaces))
+
       ;; add-space: (->) info ->
       ;; Adds a space to this board.  The draw thunk should draw the space 
       ;; when called.  The value of the info argument will be given to
@@ -64,7 +67,16 @@
       ;; the move function when the piece is selected.  The piece is translated
       ;; by the x, y and z arguments before drawing.
       (define/public (add-piece x y z draw info)
-        (set! pieces (cons (make-piece x y z draw info) pieces)))
+        (set! pieces (cons (make-piece x y z draw info #t) pieces)))
+
+      ;; enabled/disables dragging of a piece
+      (define/public (enable-piece info on?)
+	(let ([p (ormap (lambda (p)
+			  (and (equal? info (piece-info p)) p))
+			pieces)])
+	  (if p
+	      (set-piece-enabled?! p (and on? #t))
+	      (raise-mismatch-error "no matching piece: " info))))
       
       ;; remove-piece: info ->
       ;; Removes all pieces whose info is equal? to p-i from this board.
@@ -118,12 +130,14 @@
                     (cdr s)))))
         (when pieces?
           (let loop ((i (length spaces))
-                     (ps (if (and (piece? mouse-state) dragging)
+                     (ps (if (and (piece? mouse-state) 
+				  dragging)
                              (cons (make-piece (gl-vector-ref dragging 0)
                                                (gl-vector-ref dragging 1)
                                                (gl-vector-ref dragging 2)
                                                (piece-draw mouse-state)
-                                               (piece-info mouse-state))
+                                               (piece-info mouse-state)
+					       #f)
                                    pieces)
                              pieces)))
             (unless (null? ps)
@@ -231,9 +245,11 @@
           ((send e button-down? 'left)
            (with-gl-context
             (lambda ()
-              (set! mouse-state (pick (send e get-x) (send e get-y)))
-              (set! dragging (screen->world (send e get-x) (send e get-y) lift))))
-           (refresh))
+	      (let ([v (pick (send e get-x) (send e get-y))])
+		(when (and (piece? v) (piece-enabled? v))
+		  (set! mouse-state v)
+		  (set! dragging (screen->world (send e get-x) (send e get-y) lift))
+		  (refresh))))))
           ((and mouse-state
                 (or (send e button-up? 'left)
                     (and (send e moving?) (not (and (send e dragging?) (send e get-left-down))))))
@@ -277,6 +293,7 @@
       (with-gl-context
        (lambda ()
          (gl-shade-model 'smooth)
+	 (gl-enable 'multisample)
          (gl-enable 'lighting)
          (gl-enable 'light0)
          (gl-enable 'depth-test)

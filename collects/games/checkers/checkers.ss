@@ -16,11 +16,12 @@
   
   (define-struct space-info (x y))
   (define-struct piece-info (x y color king?) (make-inspector))
+  (define-struct moves (list forced-jump?))
 
   (define checkers-view@
     (unit
       (import move)
-      (export add-space add-piece remove-piece move-piece set-turn show jump-seq)
+      (export add-space add-piece remove-piece move-piece set-turn show)
 
   
       (define (add-space space color)
@@ -80,22 +81,36 @@
       (define (internal-move old move-to)
         (when (piece-info? old)
           (move old move-to)))
-      
-      (define (set-turn turn)
-        (send tf set-value (symbol->string turn)))
-      
-      (define (jump-seq p)
-        (remove-piece p)
-        (add-piece p #t))
+
+      (define (set-turn turn moves)
+	(let* ([pieces (send board get-pieces)])
+	  (for-each (lambda (p)
+		      (unless (member p (moves-list moves))
+			(remove-piece p)
+			(add-piece p #f)
+			(send board enable-piece p #f)))
+		    pieces)
+	  (for-each (lambda (p)
+		      (remove-piece p)
+		      (add-piece p #t)
+		      (send board enable-piece p #t))
+		    (moves-list moves)))
+	(send msg set-label
+	      (if (null? (moves-list moves))
+		  (format "~a wins!" (if (eq? turn 'red) "Black" "Red"))
+		  (format "~a's turn~a" 
+			  (if (eq? turn 'red) "Red" "Black")
+			  (if (moves-forced-jump? moves)
+			      " - must take jump"
+			      "")))))
       
       (define f (new frame% (label "gl-checkers") (width 800) (height 600)))
-      (define vp (new vertical-pane% (parent f)))
-      (define tf (new text-field% (parent vp) (label "turn") (enabled #f) (init-value "red")
-                      (callback void)))
       (define board
-        (new gl-board% (parent vp) (min-x 0.0) (max-x 8.0) (min-y 0.0) (max-y 8.0)
+        (new gl-board% (parent f) (min-x 0.0) (max-x 8.0) (min-y 0.0) (max-y 8.0)
              (lift .35)
              (move internal-move)))
+      (define msg
+	(new message% (label "") (parent f) (stretchable-width #t)))
       
       (define q
         (send board with-gl-context
@@ -106,11 +121,10 @@
   
   (define checkers-model@
     (unit
-      (import add-space add-piece remove-piece move-piece set-turn jump-seq)
+      (import add-space add-piece remove-piece move-piece set-turn)
       (export move)
 
       (define turn 'red)
-      (define must-jump #f)
       (define board (make-array (shape 0 8 0 8) #f))
       
       (let loop ((i 0)
@@ -140,6 +154,13 @@
       (define (single-move-ok? direction from-x from-y to-x to-y)
         (and (= to-y (+ direction from-y))
              (= 1 (abs (- from-x to-x)))))
+
+      (define (can-move? direction from-x from-y)
+	(and (<= 0 (+ from-y direction) 7)
+	     (or (and (<= 0 (+ from-x 1) 7)
+		      (not (array-ref board (+ from-x 1) (+ from-y direction))))
+		 (and (<= 0 (+ from-x -1) 7)
+		      (not (array-ref board (+ from-x -1) (+ from-y direction)))))))
       
       (define (get-jumped-piece color direction from-x from-y to-x to-y)
         (and (= to-y (+ direction direction from-y))
@@ -167,6 +188,52 @@
                                           from-x from-y
                                           to-x2 to-y))))))
       
+
+      (define (fold-board f v)
+	(let iloop ([i 0][v v])
+	  (if (= i 8)
+	      v
+	      (let jloop ([j 0][v v])
+		(if (= j 8)
+		    (iloop (add1 i) v)
+		    (jloop (add1 j) 
+			   (if (even? (+ i j)) 
+			       (f i j v)
+			       v))))))) 
+
+      (define (get-jump-moves)
+	(let ([direction (if (eq? turn 'red) 1 -1)])
+	  (fold-board
+	   (lambda (i j l)
+	     (let ([p (array-ref board i j)])
+	       (if (and p
+			(eq? (car p) turn)
+			(or (can-jump? direction turn i j)
+			    (and (cdr p)
+				 (can-jump? (- direction) turn i j))))
+		   (cons (make-piece-info i j turn (cdr p)) l)
+		   l)))
+	   null)))
+
+      (define (get-moves)
+	(let ([jumps (get-jump-moves)])
+	  (if (pair? jumps)
+	      (make-moves jumps #t)
+	      (make-moves
+	       (let ([direction (if (eq? turn 'red) 1 -1)])
+		 (fold-board
+		  (lambda (i j l)
+		    (let ([p (array-ref board i j)])
+		      (if (and p
+			       (eq? (car p) turn)
+			       (or (can-move? direction i j)
+				   (and (cdr p)
+					(can-move? (- direction) i j))))
+			  (cons (make-piece-info i j turn (cdr p)) l)
+			  l)))
+		  null))
+	       #f))))
+
       (define (move from to)
         (let* ((to-x (inexact->exact (floor (gl-vector-ref to 0))))
                (to-y (inexact->exact (floor (gl-vector-ref to 1))))
@@ -184,44 +251,41 @@
                      (<= 0 to-y 7)
                      (not (array-ref board to-x to-y)))
             (cond
-              ((and (not must-jump)
-                    (or (single-move-ok? direction from-x from-y to-x to-y)
-                        (and from-king?
-                             (single-move-ok? (- direction) from-x from-y to-x to-y))))
-               (move-piece from to-x to-y)
+              ((and (null? (get-jump-moves))
+		    (or (single-move-ok? direction from-x from-y to-x to-y)
+			(and from-king?
+			     (single-move-ok? (- direction) from-x from-y to-x to-y))))
+	       (move-piece from to-x to-y)
                (set! turn (other-color from-color))
-               (set-turn turn)
                (array-set! board to-x to-y (cons from-color to-king?))
                (array-set! board from-x from-y #f)
                (when (and to-king? (not from-king?))
                  (remove-piece (make-piece-info to-x to-y from-color from-king?))
-                 (add-piece (make-piece-info to-x to-y from-color to-king?))))
-              ((and (or (not must-jump)
-                        (and (= from-x (car must-jump))
-                             (= from-y (cdr must-jump))))
-                    (or (get-jumped-piece from-color direction from-x from-y to-x to-y)
-                        (and from-king?
-                             (get-jumped-piece from-color (- direction) from-x from-y to-x to-y))))
+                 (add-piece (make-piece-info to-x to-y from-color to-king?)))
+	       (set-turn turn (get-moves)))
+              ((or (get-jumped-piece from-color direction from-x from-y to-x to-y)
+		   (and from-king?
+			(get-jumped-piece from-color (- direction) from-x from-y to-x to-y)))
                =>
                (lambda (j)
                  (remove-piece j)
                  (move-piece from to-x to-y)
                  (array-set! board (piece-info-x j) (piece-info-y j) #f)
                  (array-set! board from-x from-y #f)
-                 (array-set! board to-x to-y (cons from-color from-king?))
+                 (array-set! board to-x to-y (cons from-color to-king?))
                  (when (and to-king? (not from-king?))
                    (remove-piece (make-piece-info to-x to-y from-color from-king?))
                    (add-piece (make-piece-info to-x to-y from-color to-king?)))
                  (cond
                    ((or (can-jump? direction from-color to-x to-y)
-                        (and to-king?
+                        (and from-king?
                              (can-jump? (- direction) from-color to-x to-y)))
-                    (jump-seq (make-piece-info to-x to-y from-color to-king?))
-                    (set! must-jump (cons to-x to-y)))
+                    (set-turn turn (make-moves (list (make-piece-info to-x to-y from-color to-king?)) #t)))
                    (else
                     (set! turn (other-color from-color))
-                    (set-turn turn)
-                    (set! must-jump #f)))))))))
+                    (set-turn turn (get-moves))))))))))
+
+      (set-turn turn (get-moves))
       ))
               
   (define game-unit
@@ -229,7 +293,7 @@
      (import)
      (link 
       (VIEW (checkers-view@ (MODEL move)))
-      (MODEL (checkers-model@ (VIEW add-space add-piece remove-piece move-piece set-turn jump-seq)))
+      (MODEL (checkers-model@ (VIEW add-space add-piece remove-piece move-piece set-turn)))
       (SHOW ((unit (import show) (export) (show)) (VIEW show))))
      (export)))
   )
