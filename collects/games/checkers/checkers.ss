@@ -178,9 +178,13 @@
               (gl-cylinder q .35 .35 height 25 1)
               (gl-push-matrix)
               (gl-translate 0.0 0.0 height)
+              
+              (glTexEnvf GL_TEXTURE_ENV GL_TEXTURE_ENV_MODE GL_DECAL)
+              ;GL_MODULATE, GL_DECAL, GL_BLEND, or GL_REPLACE.
               (gl-quadric-texture q #t)
               (gl-disk q 0.0 .35 25 1)
               (gl-quadric-texture q #f)
+              (glTexEnvf GL_TEXTURE_ENV GL_TEXTURE_ENV_MODE GL_MODULATE)
               
               (gl-pop-matrix)
               (gl-disable 'texture-2d)

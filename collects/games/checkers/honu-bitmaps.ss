@@ -353,13 +353,13 @@
   
   (define bitmap-size 128)
   
-  (define (make-honu-bitmap main-pen-color main-color left-pen-color left-color right-pen-color right-color rot dx dy)
+  (define (make-honu-bitmap bgcolor main-pen-color main-color left-pen-color left-color right-pen-color right-color rot dx dy)
     (let* ([bitmap (make-object bitmap% bitmap-size bitmap-size)]
            [dc (make-object bitmap-dc% bitmap)])
       (send dc set-smoothing 'aligned)
       (send dc set-pen pale-background-color 1 'transparent)
       (send dc set-brush pale-background-color 'solid)
-      (send dc set-brush "white" 'solid)
+      (send dc set-brush bgcolor 'solid)
       (send dc draw-rectangle 0 0 bitmap-size bitmap-size)
       (send dc set-scale 1/2 1/2)
       (send dc set-brush main-color 'solid)
@@ -380,9 +380,10 @@
       (send pth rotate rot)
       pth))
 
-  (define honu-bitmap (make-honu-bitmap "black" "black" "red" "red" "blue" "blue" (* pi 1/2 8/10) 0 143))
+  (define honu-bitmap (make-honu-bitmap (make-object color% 50 50 50)
+                                        "black" "black" "firebrick" "firebrick" "blue" "blue" (* pi 1/2 8/10) 0 143))
   (define honu-bitmap-down
-    (make-honu-bitmap "black" "black" "red" "red" "blue" "blue" (* pi -1/2 12/10) 265 116))
+    (make-honu-bitmap "firebrick" "black" "black" "red" "red" "blue" "blue" (* pi -1/2 12/10) 265 116))
   #|
   (define dx 0)
   (define dy 0)
