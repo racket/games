@@ -315,7 +315,7 @@
     (inherit stretchable-width stretchable-height min-client-width min-client-height)
     (sequence
       (apply super-init args)
-      ;(randomize-board board hole-i hole-j)
+      (randomize-board board hole-i hole-j)
       (stretchable-width #f)
       (stretchable-height #f)
       (min-client-width (send bitmap get-width))
