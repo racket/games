@@ -573,7 +573,8 @@
 	   (send pb insert card #f x y)))
         (define move-cards-callback
 	 (lambda (card x y)
-	   (send pb move-to card x y))))
+	   (send pb move-to card x y)
+	   (send card remember-location pb))))
       (begin
 	(define animate? #t)
 	(define in-sequence 0))

@@ -29,7 +29,7 @@
 	(send dc set-clipping-region r))))
 
   (define card%
-    (class100 mred:snip% (-suit-id -value -width -height -front -back -semi-front -semi-back)
+    (class100 mred:snip% (-suit-id -value -width -height -front -back -semi-front -semi-back -mk-dim-front -mk-dim-back)
       (inherit set-snipclass set-count get-admin)
       (private-field
 	[suit-id -suit-id]
@@ -40,6 +40,11 @@
 	[back -back]
 	[semi-front -semi-front]
 	[semi-back -semi-back]
+	[mk-dim-front -mk-dim-front]
+	[mk-dim-back -mk-dim-back]
+	[dim-front #f]
+	[dim-back #f]
+	[is-dim? #f]
 	[flipped? #f]
 	[semi-flipped? #f]
 	[can-flip? #t]
@@ -52,7 +57,15 @@
 	 (lambda ()
 	   (let ([a (get-admin)])
 	     (when a
-	       (send a needs-update this 0 0 width height))))])
+	       (send a needs-update this 0 0 width height))))]
+	[check-dim
+	 (lambda ()
+	   (when is-dim?
+	     (if flipped?
+		 (unless dim-back
+		   (set! dim-back (mk-dim-back)))
+		 (unless dim-front
+		   (set! dim-front (mk-dim-front))))))])
       (public
 	[face-down? (lambda () flipped?)]
 	[flip
@@ -65,6 +78,12 @@
 	   (refresh))]
 	[face-up (lambda () (when flipped? (flip)))]
 	[face-down (lambda () (unless flipped? (flip)))]
+	[dim (case-lambda 
+	      [() is-dim?]
+	      [(v)
+	       (unless (eq? is-dim? (and v #t))
+		 (set! is-dim? (and v #t))
+		 (refresh))])]
 	[get-suit-id
 	 (lambda () suit-id)]
 	[get-suit
@@ -113,14 +132,27 @@
 	   (when h (set-box! h height)))]
 	[draw
 	 (lambda (dc x y left top right bottom dx dy draw-caret)
+	   (check-dim)
 	   (if semi-flipped?
 	       (send dc draw-bitmap (if flipped? semi-back semi-front) (+ x (/ width 4)) y)
 	       (with-card-region
 		dc x y width height
 		(lambda ()
-		  (send dc draw-bitmap (if flipped? back front) x y)))))]
+		  (send dc draw-bitmap 
+			(if flipped? 
+			    (if is-dim? dim-back back)
+			    (if is-dim? dim-front front))
+			x y)))))]
 	[copy (lambda () (make-object card% suit-id value width height 
-				      front back semi-front semi-back))])
+				      front back semi-front semi-back
+				      (lambda () 
+					(unless dim-front 
+					  (set! dim-front (mk-dim-front)))
+					dim-front)
+				      (lambda () 
+					(unless dim-back 
+					  (set! dim-back (mk-dim-back)))
+					dim-back)))])
       (private-field
 	[save-x (box 0)]
 	[save-y (box 0)])
