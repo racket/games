@@ -69,6 +69,15 @@
       (define/public (add-piece x y z draw info)
         (set! pieces (cons (make-piece x y z draw info #t) pieces)))
 
+      ;; set-space-draw: info (->) ->
+      ;; Sets the drawing method of all spaces whose info is equal to space to d.
+      (define/public (set-space-draw space d)
+        (for-each
+         (lambda (s)
+           (when (equal? (space-info s) space)
+             (set-space-draw! s d)))
+         space))
+      
       ;; set-piece-draw: info (->) ->
       ;; Sets the drawing method of all pieces whose info is equal to piece to d.
       (define/public (set-piece-draw piece d)
@@ -112,8 +121,8 @@
         (let ((ld light-distance))
           (gl-double-vector ld 0 0 0
                             0 ld 0 0 
-                            0 0 ld 0
-                            0 0 (- 1) 0)))
+                            0 0 ld (- 1)
+                            0 0 0 0)))
       
       ;; Either #f or the currently selected piece.
       (define mouse-state #f)
@@ -193,7 +202,7 @@
            (gl-color 0.5 0.5 0.5)
            (gl-push-matrix)
            (gl-translate center-x center-y light-distance)
-           (gl-mult-transpose-matrix shadow-projection)
+           (gl-mult-matrix shadow-projection)
            (gl-translate (- center-x) (- center-y) (- light-distance))
            (draw-pieces #f)
            (gl-enable 'depth-test)
@@ -328,7 +337,8 @@
       (with-gl-context
        (lambda ()
          (gl-shade-model 'smooth)
-	 (gl-enable 'multisample)
+         (when (>= (gl-get-gl-version-number) 13)
+           (gl-enable 'multisample))
          (gl-enable 'lighting)
          (gl-enable 'light0)
          (gl-enable 'depth-test)
