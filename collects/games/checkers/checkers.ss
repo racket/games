@@ -4,15 +4,19 @@
            (lib "mred.ss" "mred")
            (lib "gl-vectors.ss" "sgl")
            (prefix gl- (lib "sgl.ss" "sgl"))
+           (lib "gl.ss" "sgl")
            (lib "array.ss" "srfi" "25")
-           (lib "unit.ss"))
+           (lib "unit.ss")
+           (rename (lib "gl-frame.ss" "sgl" "examples")
+                   image->gl-vector image->gl-vector))
   
   (provide game-unit)
 
-  (define red (gl-float-vector 1.0 0.0 0.0 1.0))
   (define dim-red (gl-float-vector .8 0.0 0.0 1.0))
   (define gray (gl-float-vector 0.2 0.2 0.2 1.0))
-  (define black (gl-float-vector 0.0 0.0 0.0 1.0))
+
+  (define light-img (image->gl-vector "light.jpg"))
+  (define dark-img (image->gl-vector "dark.jpg"))
   
   (define-struct space-info (x y))
   (define-struct piece-info (x y color king?) (make-inspector))
@@ -24,7 +28,7 @@
       (export add-space add-piece remove-piece move-piece set-turn show)
 
       (define (add-space space color)
-        (let ((list-id (if (eq? color 'red) red-square black-square)))
+        (let ((list-id (if (eq? color 'light) light-square dark-square)))
           (send board add-space
                 (lambda ()
                   (gl-push-matrix)
@@ -38,7 +42,7 @@
                                      (piece-info-king? piece))))
           (if glow?
               (lambda ()
-                (gl-material-v 'front 'emission (gl-float-vector 0.2 0.2 0.2 1.0))
+                (gl-material-v 'front 'emission (gl-float-vector 0.1 0.1 0.1 1.0))
                 (gl-call-list list-id)
                 (gl-material-v 'front 'emission (gl-float-vector 0.0 0.0 0.0 1.0)))
               (lambda () 
@@ -126,23 +130,53 @@
           (else
            (if king? black-king black-piece))))
       
+      (define-values (dark-tex light-tex)
+        (send board with-gl-context
+          (lambda ()
+            (let ((x (glGenTextures 2)))
+              (values
+               (gl-vector-ref x 0)
+               (gl-vector-ref x 1))))))
+
+      (define (init-tex tex img)
+        (send board with-gl-context
+          (lambda ()
+            (glBindTexture GL_TEXTURE_2D tex)
+            (glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MIN_FILTER GL_LINEAR)
+            (glTexParameteri GL_TEXTURE_2D GL_TEXTURE_MAG_FILTER GL_LINEAR)
+            (glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_S GL_CLAMP)
+            (glTexParameteri GL_TEXTURE_2D GL_TEXTURE_WRAP_T GL_CLAMP)
+            (glTexImage2D GL_TEXTURE_2D 0 GL_RGB (car img) (cadr img) 0
+                          GL_RGB GL_UNSIGNED_BYTE (caddr img)))))
+      
+      (init-tex light-tex light-img)
+      (init-tex dark-tex dark-img)
+
       (define (make-square-dl color)
         (send board with-gl-context
           (lambda ()
             (let ((list-id (gl-gen-lists 1)))
               (gl-new-list list-id 'compile)
-              (gl-material-v 'front 'ambient-and-diffuse color)
+              (gl-enable 'texture-2d)
+              (glBindTexture GL_TEXTURE_2D color)
+              (gl-material-v 'front 'ambient-and-diffuse
+                             (gl-float-vector 1 1 1 1))
               (gl-begin 'polygon)
+              (gl-tex-coord 0.0 0.0)
               (gl-vertex 0.0 0.0 0.0)
+              (gl-tex-coord 1.0 0.0)
               (gl-vertex 1.0 0.0 0.0)
+              (gl-tex-coord 1.0 1.0)
               (gl-vertex 1.0 1.0 0.0)
+              (gl-tex-coord 0.0 1.0)
               (gl-vertex 0.0 1.0 0.0)
               (gl-end)
+              (gl-disable 'texture-2d)
               (gl-end-list)
               list-id))))
       
-      (define black-square (make-square-dl black))
-      (define red-square (make-square-dl red))
+      (define dark-square (make-square-dl dark-tex))
+      (define light-square (make-square-dl light-tex))
       
       (define (show)
         (send f show #t))))
@@ -161,7 +195,7 @@
           ((and (< j 8) (< i 8))
            (cond
              ((even? (+ i j))
-              (add-space (make-space-info j i) 'black)
+              (add-space (make-space-info j i) 'dark)
               (cond
                 ((< i 3)
                  (array-set! board j i (cons 'red #f))
@@ -170,7 +204,7 @@
                  (array-set! board j i (cons 'black #f))
                  (add-piece (make-piece-info j i 'black #f)))))
              (else
-              (add-space (make-space-info j i) 'red)))
+              (add-space (make-space-info j i) 'light)))
            (loop i (add1 j)))
           ((< i 8) (loop (add1 i) 0))))
 
