@@ -22,7 +22,7 @@
                                     read)])
                         (cond
                           [(null? files) null]
-                          [(or (equal? (car files) "CVS")
+                          [(or (member (car files) '("CVS" ".svn"))
                                (not (file-exists? (build-path (collection-path "games" "paint-by-numbers")
                                                               "problems" (car files)))))
                            (loop (cdr files))]
