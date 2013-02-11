@@ -5,10 +5,10 @@ possible to remap single click (instead of double click)?
 
 |#
 
-#lang mzscheme
+#lang racket
 
-(require games/cards mred mzlib/class mzlib/list mzlib/unit string-constants
-         "../show-scribbling.ss")
+(require games/cards racket/gui racket/class racket/unit string-constants
+         "../show-scribbling.rkt")
 
 (provide game@)
 (define game@ (unit (import) (export)
@@ -29,7 +29,7 @@ possible to remap single click (instead of double click)?
 ;; space between cards in the 4 stacks
 (define card-space 30)
 
-(define-struct stack (x y cards))
+(define-struct stack (x y cards) #:mutable)
 
 (define (get-x-offset n)
   (let* ([table-width (send table table-width)]
