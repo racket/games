@@ -83,7 +83,7 @@
 ;; board = (vector-of (vector-of (union #f (make-loc n1 n2))))
 (define-type Board (Vectorof (Vectorof (U #f loc))))
 
-(: board-for-each (Board (Integer Integer loc -> Void) -> Void))
+(: board-for-each (Board (Integer Integer (U #f loc) -> Void) -> Void))
 (define (board-for-each board f)
   (let loop ([i (vector-length board)])
     (unless (zero? i)
