@@ -131,11 +131,10 @@
                (edge-connecting? (state-edges (current-state))
                                  (state-player (current-state))
                                  new-pr))
-      (begin
-        (next-state!
-         (struct-copy state (current-state)
-                      [player new-pr]))
-        (next-state! (move-computer (current-state)))))))
+      (next-state!
+       (move-computer 
+        (struct-copy state (current-state)
+                     [player new-pr]))))))
 
 (define (stay-put)
   (next-state! (move-computer (current-state))))
@@ -155,10 +154,10 @@
 
 (define (move-computer the-state)
   (cond
-    [(or (equal? (state-player (current-state)) 
-                 (state-computer1 (current-state)))
-         (equal? (state-player (current-state)) 
-                 (state-computer2 (current-state))))
+    [(or (equal? (state-player the-state) 
+                 (state-computer1 the-state))
+         (equal? (state-player the-state) 
+                 (state-computer2 the-state)))
      the-state]
     [else
      (define end (state-player the-state))
