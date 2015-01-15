@@ -131,9 +131,11 @@
                (edge-connecting? (state-edges (current-state))
                                  (state-player (current-state))
                                  new-pr))
-      (next-state!
-       (struct-copy state (move-computer (current-state))
-                    [player new-pr])))))
+      (begin
+        (next-state!
+         (struct-copy state (current-state)
+                      [player new-pr]))
+        (next-state! (move-computer (current-state)))))))
 
 (define (stay-put)
   (next-state! (move-computer (current-state))))
