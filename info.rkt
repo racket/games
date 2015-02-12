@@ -18,7 +18,7 @@
                "sgl"
                "srfi-lib"
                "string-constants-lib"
-               "data-enumerate-lib"
+               ("data-enumerate-lib" #:version "1.1")
                "typed-racket-lib"
                "typed-racket-more"))
 (define build-deps '("draw-doc"
