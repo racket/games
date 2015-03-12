@@ -15,14 +15,14 @@
          maze-count)
 
 (define (maze-count w h)
-  (enum-size (maze/e w h)))
+  (enum-count (maze/e w h)))
 
 (define (decode-maze maze-w maze-h n)
   (define mazes (maze/e maze-w maze-h))
   (unless (and (exact-nonnegative-integer? n)
-               (< n (enum-size mazes)))
+               (< n (enum-count mazes)))
     (raise-argument-error 'decode-maze 
-                          (format "number less than ~a" (enum-size mazes))
+                          (format "number less than ~a" (enum-count mazes))
                           n))
     (from-nat mazes n))
 
@@ -95,7 +95,7 @@
 (define fixed-length-list/e list/e)
 
 (define (pick-a-maze maze-w maze-h)
-  (define maze-count (enum-size (maze/e maze-w maze-h)))
+  (define maze-count (enum-count (maze/e maze-w maze-h)))
   (+ (if (zero? (random 2))
          (/ maze-count 2)
          0)
@@ -373,7 +373,7 @@
 (module+ test
   (check-equal? (for/list ([i (in-range 1 10)])
                   (for/list ([j (in-range 1 10)])
-                    (enum-size (maze/e i j))))
+                    (enum-count (maze/e i j))))
                 '((1 1 1 1 1 1 1 1 1)
                   (1 4 14 32 60 100 154 224 312)
                   (1 14 192 1592 9088 40200 144640 442024 1187712)
@@ -446,7 +446,7 @@
   ;(define maze-w 8) (define maze-h 8)
   
   (define mazes (time (maze/e maze-w maze-h)))
-  (define maze-count (enum-size mazes))
+  (define maze-count (enum-count mazes))
   (printf "~a mazes\n" maze-count)
   
   (define slider-max-value (min maze-count 10000))
