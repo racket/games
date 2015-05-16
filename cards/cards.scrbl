@@ -29,7 +29,7 @@ cards are all face-down, sorted lowest-suit then lowest-value. A card
 can only be on one table at a time.}
 
 @defproc[(make-card [front-bm (is-a?/c bitmap?)]
-                    [back-bm (or/c (is-a?/c bitmap%) false/c)]
+                    [back-bm (or/c (is-a?/c bitmap%) #f)]
                     [suit-id any/c]
                     [value any/c])
          (is-a?/c card<%>)]{
@@ -57,9 +57,9 @@ other. According to some mathematical theorem, 7 is a large enough
                    [y real?]
                    [w (and/c real? (not/c negative?))]
                    [h (and/c real? (not/c negative?))]
-                   [label (or/c string? false/c)]
+                   [label (or/c string? #f)]
                    [(callback #:mutable) (or/c ((listof (is-a?/c card<%>)) . -> . any)
-                                               false/c)])]{
+                                               #f)])]{
 
 The @racket[x], @racket[y], @racket[w], and @racket[h] fields
 determine the region's location on the table.
@@ -82,9 +82,9 @@ The only available mutator on the structure is
                              [y real?]
                              [w (and/c real? (not/c negative?))]
                              [h (and/c real? (not/c negative?))]
-                             [label (or/c string? false/c)]
+                             [label (or/c string? #f)]
                              [callback (or/c ((listof (is-a?/c card<%>)) . -> . any)
-                                             false/c)])
+                                             #f)])
          region?]{
 
 Returns a region like one made by @racket[make-region], but the is
@@ -116,7 +116,7 @@ Returns a region like one made by @racket[make-region], but the is
 @defproc[(set-region-interactive-callback! 
           [r region?]
           [callback (or/c (boolean? (listof (is-a?/c card<%>)) . -> . any)
-                          false/c)])
+                          #f)])
          void?]{
 
  Sets a callback procedure that is invoked when a region is
@@ -191,7 +191,7 @@ Removes @racket[card] from the table.}
            void?]{
 
  Moves @racket[card], which must be on the same already.  The movement
- of the cards is animated.  If the cards are in snap-back-after-move
+ of the cards is animated.  If the cards are in @method[card<%> snap-back-after-move]
  mode and a drag is active, snapping back will use the new location.}
 
 @defmethod[(move-cards [cards (listof (is-a?/c card<%>))]
@@ -477,32 +477,45 @@ Create instances with @racket[make-deck] or @racket[make-card].
 
  Assuming user can move the card interactively, gets/sets whether the
  card stays where the user dragged it or snaps back to its original
- place. Initially @racket[#f]. 
+ place. Initially @racket[#f].
 
- A region's @italic{interactive} callback can disable snap-back for a
- card so that the card can be delivered to the region. (A region's
- normal callback cannot release the card, because it's too late.)}
+ A region callback can disable snap-back for a dragged card only if
+ @method[card<%> snap-back-after-regions] mode is enabled for the card.
+ Otherwise, a region's @italic{interactive} callback can disable
+ snap-back for a card (e.g., so that the card can be delivered to the
+ region).}
 
-@defmethod*[([(stay-in-region) (or/c region? false/c)]
-             [(stay-in-region [r (or/c region? false/c)]) void?])]{
+@defmethod*[([(snap-back-after-regions) boolean?]
+             [(snap-back-after-regions [on? any/c]) void?])]{
+
+ Determines whether @method[card<%> snap-back-after-move] and
+ @method[card<%> home-region] constraints apply before or after region
+ callbacks are invoked for dragged cards. Initially @racket[#f] (i.e.,
+ constraints apply before callbacks).
+
+ @history[#:added "1.1"]}
+
+@defmethod*[([(stay-in-region) (or/c region? #f)]
+             [(stay-in-region [r (or/c region? #f)]) void?])]{
 
 
  Gets/sets a constraining region @racket[r]. If @racket[r] is not
  @racket[#f], the user cannot move the card out of @racket[r].
  Initially @racket[#f].}
 
-@defmethod*[([(home-region) (or/c region? false/c)]
-             [(home-region [r (or/c region? false/c)]) void?])]{
+@defmethod*[([(home-region) (or/c region? #f)]
+             [(home-region [r (or/c region? #f)]) void?])]{
 
  Gets/sets a home region @racket[r]. If @racket[r] is not @racket[#f],
- then the user can move the card freely within the region, but it
- snaps back if moved completely out of the region. If moved partly out
+ then the user can move the card freely, but the card
+ snaps back if moved out of the region. (If the card is moved partly out
  of the region, the card is moved enough to get completely back
- in. Initially @racket[#f]. 
+ in.) Initially @racket[#f].
 
- A region's @italic{interactive} callback can disable snap-back for a
- card so that the card can be delivered to the region. (A region's
- normal callback cannot release the card, because it's too late.)}
+ A region callback can change the snap-back home for a dragged card
+ only if @method[card<%> snap-back-after-regions] mode is enabled for
+ the card. Otherwise, a region's @italic{interactive} callback can
+ adjust snap-back for a card.}
 
 @defmethod*[([(dim) boolean?]
              [(dim [can? any/c]) void?])]{

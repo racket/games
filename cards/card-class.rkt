@@ -59,6 +59,7 @@
       (define can-move? #t)
       (define snap-back? #f)
       (define stay-region #f)
+      (define snap-back-after-regions? #f)
       (define home-reg #f)
       (define rotated-bms -rotated-bms)
       (private*
@@ -161,6 +162,10 @@
 	 (case-lambda
 	  [() home-reg]
 	  [(r) (set! home-reg r)])]
+	[snap-back-after-regions
+	 (case-lambda
+	  [() snap-back-after-regions?]
+	  [(f) (set! snap-back-after-regions? (and f #t))])]
 	[card-width (lambda () width)]
 	[card-height (lambda () height)])
       (override*
@@ -219,6 +224,14 @@
 	[remember-location
 	 (lambda (pb)
 	   (send pb get-snip-location this save-x save-y))]
+	[back-to-original-location/pre
+         (lambda (pb)
+           (unless snap-back-after-regions?
+             (back-to-original-location pb)))]
+        [back-to-original-location/post
+         (lambda (pb)
+           (when snap-back-after-regions?
+             (back-to-original-location pb)))]
 	[back-to-original-location
 	 (lambda (pb)
 	   (when snap-back?

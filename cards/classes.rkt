@@ -238,18 +238,19 @@
            (when dragging?
              (set! dragging? #f)
              (inner (void) after-interactive-move e)
-             (for-each-selected (lambda (snip) (send snip back-to-original-location this)))
-             (let ([cards (get-reverse-selected-list)])
-               (only-front-selected) ; in case overlap changed
-               (for-each
-                (lambda (region)
-                  (when (region-hilite? region)
-                    (mred:queue-callback
-                                        ; Call it outside the current edit sequence
-                     (lambda ()
+             (for-each-selected (lambda (snip) (send snip back-to-original-location/pre this)))
+             (mred:queue-callback
+              ;; Outside the current edit sequence
+              (lambda ()
+                (let ([cards (get-reverse-selected-list)])
+                  (only-front-selected) ; in case overlap changed
+                  (for-each
+                   (lambda (region)
+                     (when (region-hilite? region)
                        ((region-callback region) cards)
-                       (unhilite-region region)))))
-                regions))))])
+                       (unhilite-region region)))
+                   regions))
+                (for-each-selected (lambda (snip) (send snip back-to-original-location/post this)))))))])
       (override*
 	[on-default-event
 	 (lambda (e)

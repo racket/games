@@ -31,3 +31,5 @@
 (define pkg-desc "Games")
 
 (define pkg-authors '(mflatt robby))
+
+(define version "1.1")
