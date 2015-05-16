@@ -9,7 +9,7 @@
 (define deps '("base"
                "draw-lib"
                "drracket"
-               "gui-lib"
+               ("gui-lib" #:version "1.12")
                "net-lib"
                "htdp-lib"
                "math-lib"

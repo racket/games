@@ -21,7 +21,8 @@
 	       add-selected is-selected? no-selected set-selected remove-selected
 	       get-snip-location move-to
 	       dc-location-to-editor-location
-	       set-selection-visible)
+	       set-selection-visible
+               set-area-selectable)
       
       (define select-one? #t)
       (define select-backward? #f)
@@ -354,7 +355,13 @@
 			  (not (send click-base user-can-move)))
 		 (no-selected)))
 	     (when (and click click-base)
-	       (do-on-single-click click-base))))]
+	       (do-on-single-click click-base))))])
+      (define/augment (can-select? s on?)
+        (and (inner #t can-select? s on?)
+             (or (not on?)
+                 (and (eq? s click-base)
+                      (send click-base user-can-move)))))
+      (override*
 	[on-double-click
 	 (lambda (s e)
 	   (cond
@@ -433,7 +440,8 @@
 		    (remq (assoc button button-map)
 			  button-map)))))])
       (super-make-object)
-      (set-selection-visible #f)))
+      (set-selection-visible #f)
+      (set-area-selectable #f)))
 
   (define table%
     (class mred:frame%
