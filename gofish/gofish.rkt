@@ -119,12 +119,14 @@
 
 (define player-1 (create-player player-1-region #f))
 (define player-2 (create-player player-2-region #f))
-(define you (create-player you-region
-                           ;; Dragging to your discard pile checks to see if
-                           ;; the card makes a match:
-                           (lambda (cards)
-                             (check-hand you (car cards))
-                             (send t set-status YOUR-TURN-MESSAGE))))
+
+;; Dragging to your discard pile checks to see if
+;; the card makes a match:
+(define (check-for-match cards)
+  (check-hand you (car cards))
+  (send t set-status YOUR-TURN-MESSAGE))
+
+(define you (create-player you-region check-for-match))
 
 ;; More card setup: Opponents's cards and deck initially can't be moved
 (for-each (lambda (card) (send card user-can-move #f))
@@ -183,7 +185,10 @@
 
 ;; Function to enable/disable moving your cards
 (define (enable-your-cards on?)
-  (for-each (lambda (c) (send c user-can-move on?)) (player-hand you)))
+  (for-each (lambda (c) (send c user-can-move on?)) (player-hand you))
+  ;; Also disable your discard region, so that a draw can't
+  ;; be dragged directly to the discard:
+  (set-region-callback! (player-count-r you) (and on? check-for-match)))
 
 ;; Callbacks communicate back to the main loop via these
 (define something-happened (make-semaphore 1))
