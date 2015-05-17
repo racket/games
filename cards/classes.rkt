@@ -34,6 +34,13 @@
       (define do-on-double-click 'flip)
       (define do-on-single-click void)
       
+      (define current-can-select (make-parameter #hash()))
+      (define/private (with-selectable c thunk)
+        (parameterize ([current-can-select (hash-set (current-can-select)
+                                                     c
+                                                     #t)])
+          (thunk)))
+
       (define selecting? #f)
       (define dragging? #f)
       (define bg-click? #f)
@@ -193,7 +200,8 @@
 		 (begin
 		   (begin-edit-sequence)
 		   (let ([l (make-overlapping-list s (list s) select-backward?)])
-		     (for-each (lambda (i) (add-selected i)) l))
+		     (for-each (lambda (i) (with-selectable i (lambda () (add-selected i))))
+                               l))
 		   (when raise-to-front?
 		     (let loop ([snip (find-next-selected-snip #f)][prev #f])
 		       (when snip
@@ -316,7 +324,9 @@
 		     (when (and bg-click? (not (send e dragging?)))
 		       (set! bg-click? #f)))
 		 (unless bg-click?
-		   (super on-default-event e))
+                   (with-selectable click-base
+                     (lambda ()
+                       (super on-default-event e))))
                  (when (and bg-click? dragging?)
                    ;; We didn't call super on-default-event, so we need
                    ;;  to explicitly end the drag:
@@ -360,8 +370,7 @@
       (define/augment (can-select? s on?)
         (and (inner #t can-select? s on?)
              (or (not on?)
-                 (and (eq? s click-base)
-                      (send click-base user-can-move)))))
+                 (hash-ref (current-can-select) s #f))))
       (override*
 	[on-double-click
 	 (lambda (s e)
