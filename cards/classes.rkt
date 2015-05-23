@@ -604,15 +604,23 @@
 	   (send pb set-single-click-action a))]
 	[pause
 	 (lambda (duration)
-	   (let ([s (make-semaphore)]
-		 [a (alarm-evt (+ (current-inexact-milliseconds)
+           ;; Just sleep:
+           (sleep duration)
+           ;; In older versions of `racket/gui`, handling events
+           ;; was necessary for the screen to update. It's not
+           ;; necessary any more, and suspending events during
+           ;; animation avoids race conditions:
+           #;
+	   (let ([a (alarm-evt (+ (current-inexact-milliseconds)
 				  (* duration 1000)))]
 		 [enabled? (send c is-enabled?)])
-	     ;; Can't move the cards during this time:
-	     (send c enable #f)
-	     (mred:yield a)
-	     (when enabled?
-	       (send c enable #t))))]
+             ;; Can't move the cards during this time,
+             ;; but beware that this might not be enough
+             ;; if a game has menus, etc.
+             (send c enable #f)
+             (mred:yield a)
+             (when enabled?
+               (send c enable #t))))]
 	[animated
 	 (case-lambda 
 	  [() animate?]
