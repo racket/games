@@ -1,6 +1,7 @@
 #lang racket/base
 (require "maze.rkt" 
          "../show-scribbling.rkt"
+         "state.rkt"
          racket/gui/base
          racket/class
          racket/set
@@ -40,42 +41,11 @@
 (define game@
   (unit (import)
         (export)
-(define maze-w 12)
-(define maze-h 12)
 
-(struct state 
-  (maze-index maze edges 
-              player
-              computer1
-              computer2
-              player-icon)
-  #:transparent)
 
-(define the-maze-count (maze-count maze-w maze-h))
-
-(define (state-next-edges the-state)
-  (build-walls
-   (decode-maze maze-w maze-h
-                (modulo (+ (state-maze-index the-state) 1)
-                        the-maze-count))
-   maze-w
-   maze-h))
-
-(define (fill-in-maze the-state new-val)
-  (define current-maze (decode-maze maze-w maze-h new-val))
-  (struct-copy state the-state
-               [maze-index new-val]
-               [maze current-maze]
-               [edges (build-walls current-maze maze-w maze-h)]))
-
-(define initial-number (pick-a-maze maze-w maze-h))
 (define the-states
-  (list (fill-in-maze (state #f #f #f 
-                             (cons 0 0)
-                             (cons (- maze-w 1) (- maze-h 1))
-                             (cons (- maze-w 1) (- maze-h 1))
-                             21) 
-                      initial-number)))
+  (let ([game-size 12])
+    (list (initial-state game-size game-size (pick-a-maze game-size game-size)))))
 (define (current-state) (car the-states))
 (define (set-the-states! new-states)
   (set! the-states new-states)
@@ -87,13 +57,14 @@
 
 (define (get-player-icon the-state)
   (cond
-    [(and (= (car (state-player the-state)) (- maze-w 1))
-          (= (cdr (state-player the-state)) (- maze-h 1)))
+    [(and (= (car (state-player the-state)) (- (state-w the-state) 1))
+          (= (cdr (state-player the-state)) (- (state-h the-state) 1)))
      ;; winner
      (pick '(1))]
     [(edge-connecting? (state-edges the-state)
                        (state-player the-state)
-                       (cons (- maze-w 1) (- maze-h 1)))
+                       (cons (- (state-w the-state) 1)
+                             (- (state-h the-state) 1)))
      ;; about to win
      (pick '(19))]
     [(or (edge-connecting? (state-edges the-state)
@@ -108,8 +79,6 @@
      ;; nothing much going on
      (pick '(21 36 37))]))
 
-(define (edge-connecting? edges a b) (set-member? (hash-ref edges a) b))
-
 (define (pick args)
   (define pr (state-player (current-state)))
   (list-ref args (modulo (+ (car pr) (cdr pr))
@@ -121,95 +90,12 @@
   (when m
     (hash-set! players (string->number (cadr m)) (read-bitmap file))))
 
-(define (move dx dy)
-  (unless (game-over?)
-    (define new-x (+ dx (car (state-player (current-state)))))
-    (define new-y (+ dy (cdr (state-player (current-state)))))
-    (define new-pr (cons new-x new-y))
-    (when (and (<= 0 new-x (- maze-w 1))
-               (<= 0 new-y (- maze-w 1))
-               (edge-connecting? (state-edges (current-state))
-                                 (state-player (current-state))
-                                 new-pr))
-      (next-state!
-       (move-computer 
-        (struct-copy state (current-state)
-                     [player new-pr]))))))
-
-(define (stay-put)
-  (next-state! (move-computer (current-state))))
-
-(define (next-maze)
-  (define next-maze-state
-    (fill-in-maze (current-state)
-                  (modulo (+ (state-maze-index (current-state)) 1) the-maze-count)))
-  (next-state!
-   (if (game-over?)
-       next-maze-state
-       (move-computer next-maze-state))))
-
-(define (undo-maze)
+(define (move! dir) (next-state! (move dir (current-state))))
+(define (stay-put!) (next-state! (stay-put (current-state))))
+(define (next-maze!) (next-state! (next-maze (current-state))))
+(define (undo-maze!)
   (unless (null? (cdr the-states))
     (set-the-states! (cdr the-states))))
-
-(define (move-computer the-state)
-  (cond
-    [(or (equal? (state-player the-state) 
-                 (state-computer1 the-state))
-         (equal? (state-player the-state) 
-                 (state-computer2 the-state)))
-     the-state]
-    [else
-     (define end (state-player the-state))
-     (define this-edges (state-edges the-state))
-     (define next-edges (state-next-edges the-state))
-     
-     (define-values (this-maze-c1 this-maze-c1-dist)
-       (preferred-direction this-edges (state-computer1 the-state) end))
-     (define-values (this-maze-c2 this-maze-c2-dist)
-       (preferred-direction this-edges (state-computer2 the-state) end))
-     
-     (define-values (next-maze-c1 next-maze-c1-dist)
-       (preferred-direction next-edges (state-computer1 the-state) end))
-     (define-values (next-maze-c2 next-maze-c2-dist)
-       (preferred-direction next-edges (state-computer2 the-state) end))
-     (cond
-       [(<= this-maze-c1-dist this-maze-c2-dist)
-        (struct-copy state the-state
-                     [computer1 this-maze-c1]
-                     [computer2 (if (edge-connecting? this-edges 
-                                                      (state-computer2 the-state)
-                                                      next-maze-c2)
-                                    next-maze-c2
-                                    (state-computer2 the-state))])]
-       [else
-        (struct-copy state the-state
-                     [computer1 (if (edge-connecting? this-edges 
-                                                      (state-computer1 the-state)
-                                                      next-maze-c1)
-                                    next-maze-c1
-                                    (state-computer1 the-state))]
-                     [computer2 this-maze-c2])])]))
-
-(define (preferred-direction edges start end)
-  (define visited (make-hash))
-  (define dir
-    (let loop ([node start]
-               [dist 0])
-      (cond
-        [(hash-ref visited node #f) #f]
-        [else
-         (hash-set! visited node dist)
-         (cond
-           [(equal? node end) 
-            node]
-           [else
-            (for/or ([neighbor (in-set (hash-ref edges node))])
-              (and (loop neighbor (+ dist 1))
-                   neighbor))])])))
-  (values dir (hash-ref visited end)))
-
-(define (add1/f n) (and n (+ n 1)))
 
 (define game-number-canvas%
   (class canvas%
@@ -237,19 +123,20 @@
       (draw-a-state dc 0 0 w h (current-state) #f))
     (define/override (on-char evt) 
       (case (send evt get-key-code)
-        [(left) (move -1 0)]
-        [(up) (move 0 -1)]
-        [(right) (move 1 0)]
-        [(down) (move 0 1)]
-        [(#\space #\.) (stay-put)]
-        [(#\n) (next-maze)]
-        [(#\z) (undo-maze)]))
+        [(left) (move! 'left)]
+        [(up) (move! 'up)]
+        [(right) (move! 'right)]
+        [(down) (move! 'down)]
+        [(#\space #\.) (stay-put!)]
+        [(#\n) (next-maze!)]
+        [(#\z) (undo-maze!)]))
     (super-new)))
 
 (define (draw-a-state dc dx dy w h the-state small?)
   (draw-maze dc dx dy 
              w h (state-edges the-state)
-             maze-w maze-h
+             (state-w the-state)
+             (state-h the-state)
              #:images 
              (cons (list (if small?
                              (list small-player) 
@@ -268,20 +155,12 @@
                                    (car (state-computer2 the-state))
                                    (cdr (state-computer2 the-state))))))))
 
-(define (game-over?)
-  (or (equal? (state-player (current-state)) 
-              (state-computer1 (current-state)))
-      (equal? (state-player (current-state)) 
-              (state-computer2 (current-state)))
-      (and (= (car (state-player (current-state))) (- maze-w 1))
-           (= (cdr (state-player (current-state))) (- maze-h 1)))))
-  
 (define min-cell-size 55)
 (define f (new frame% [label "Tally Maze"] [width 600] [height 600]))
 (define game-canvas (new game-canvas% 
                          [parent f]
-                         [min-width (* maze-w min-cell-size)]
-                         [min-height (* maze-h min-cell-size)]))
+                         [min-width (* (state-w (current-state)) min-cell-size)]
+                         [min-height (* (state-h (current-state)) min-cell-size)]))
 (define hp (new horizontal-panel% [parent f] [alignment '(right center)] [stretchable-height #f]))
 (define game-number-canvas (new game-number-canvas% [parent hp] [stretchable-height #f]))
 (void (new vertical-panel% [parent hp] [stretchable-width #f]))
