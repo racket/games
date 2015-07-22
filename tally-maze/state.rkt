@@ -199,4 +199,6 @@
           (state-computer1 state)
           (state-computer2 state)))
 
-  (check-true (try-to-win 7 (random-natural (maze-count 7 7)))))
+  (check-true
+   (let ([size 12])
+     (try-to-win size (random-natural (maze-count size size))))))
