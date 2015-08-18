@@ -37,7 +37,8 @@
 
   (define gl-board%
     (class canvas%
-      (inherit with-gl-context swap-gl-buffers refresh get-width get-height get-dc focus)
+      (inherit with-gl-context swap-gl-buffers refresh get-width get-height get-dc
+               focus get-gl-client-size)
       
       ;; min-x, max-x, min-y, max-y, lift: real
       ;; move: info gl-double-vector ->
@@ -286,9 +287,15 @@
       (define/override (on-size w h)
         (with-gl-context
          (lambda ()
-           (gl-viewport 0 0 w h)
+           (define-values (glw glh) (get-gl-client-size))
+           (gl-viewport 0 0 glw glh)
            (setup-view/proj)))
         (refresh))
+      
+      (define/private (get-world-scale)
+        (define-values (w h) (get-client-size))
+        (define-values (glw glh) (get-gl-client-size))
+        (exact->inexact (/ glw w)))
       
       (define/private (setup-view/proj)
         (gl-matrix-mode 'projection)
@@ -307,13 +314,14 @@
       ;; is no such object.
       (define/private (pick x y)
         (let ((vp (get-viewport))
+              (s (get-world-scale))
               (proj (get-projection))
               (selection (glSelectBuffer 512)))
           (gl-render-mode 'select)
           (gl-matrix-mode 'projection)
           (gl-push-matrix)
           (gl-load-identity)
-          (gl-pick-matrix x (- (gl-vector-ref vp 3) y 1) 1.0 1.0 vp)
+          (gl-pick-matrix (* s x) (- (gl-vector-ref vp 3) (* s y) 1) 1.0 1.0 vp)
           (gl-mult-matrix proj)
           (gl-matrix-mode 'modelview)
           (gl-init-names)
@@ -348,10 +356,11 @@
         (let* ((v (get-viewport))
                (m (get-modelview))
                (p (get-projection))
-               (real-y (- (gl-vector-ref v 3) y 1)))
+               (s (get-world-scale))
+               (real-y (- (gl-vector-ref v 3) (* s y) 1)))
           (interpolate z
-                       (gl-un-project x real-y 0.0 m p v)
-                       (gl-un-project x real-y 1.0 m p v))))
+                       (gl-un-project (* s x) real-y 0.0 m p v)
+                       (gl-un-project (* s x) real-y 1.0 m p v))))
               
       (define/private (drag x y)
         (with-gl-context
@@ -427,6 +436,7 @@
       (let ([cfg (new gl-config%)])
 	(send cfg set-multisample-size 4)
 	(send cfg set-stencil-size 1)
+	(send cfg set-hires-mode #t)
 	(super-new (style '(gl no-autoclear)) (gl-config cfg)))
       
       (unless (send (get-dc) get-gl-context)

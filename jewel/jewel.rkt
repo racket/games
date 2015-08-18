@@ -194,7 +194,7 @@
 ;; defines a new OpenGL canvas, handling mouse and rendering, etc
 (define jewel-canvas%
   (class* canvas% ()
-    (inherit with-gl-context swap-gl-buffers)
+    (inherit with-gl-context swap-gl-buffers get-gl-client-size)
 
     (define initialised #f)
 
@@ -237,11 +237,13 @@
       (with-gl-context
         (lambda ()
           (unless initialised (realize) (set! initialised #t))
-          (configure width height))))
+          (define-values (gl-width gl-height) (get-gl-client-size))
+          (configure gl-width gl-height))))
 
     (let ([cfg (new gl-config%)])
       (send cfg set-multisample-size 4)
       (send cfg set-stencil-size 1)
+      (send cfg set-hires-mode #t)
       (super-new (style '(gl no-autoclear)) (gl-config cfg)))
 
     (inherit get-dc)
