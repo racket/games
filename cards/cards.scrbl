@@ -47,8 +47,8 @@ Shuffles the given @racket[lst] @racket[n] times, returning the new
 list. Shuffling simulates an actual shuffle: the list is split into
 halves which are merged back together by repeatedly pulling the top
 card off one of the halves, randomly selecting one half or the
-other. According to some mathematical theorem, 7 is a large enough
-@racket[n] to get a perfect shuffle.}
+other. According to @cite["some mathematical theorem"], 7 is a large
+ enough @racket[n] to get a perfect shuffle.}
 
 @; ----------------------------------------------------------------------
 @section{Regions and Buttons}
@@ -528,3 +528,8 @@ Create instances with @racket[make-deck] or @racket[make-card].
  Makes a new card with the same suit and value.}
 
 }
+
+@(bibliography (bib-entry #:key "some mathematical theorem"
+                          #:title "Trailing the Dovetail Shuffle to its Lair"
+                          #:author "Bayer, Dave; Diaconis, Persi"
+                          #:url "http://projecteuclid.org/euclid.aoap/1177005705"))
