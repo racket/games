@@ -362,7 +362,7 @@ Removes @racket[card] from the table.}
  Creates a pane with a status message (initially empty) and returns
  the pane so that you can add additional controls.}
 
-@defmethod[(set-status [str sring]) void?]{
+@defmethod[(set-status [str string]) void?]{
 
  Sets the text message in the status pane.}
 
