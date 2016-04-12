@@ -46,14 +46,17 @@ Chat Noir is implemented using @link["http://www.htdp.org/"]{HtDP}'s universe
 library:  @racketmodname[2htdp/universe] 
 (although it only uses the ``world'' portions of that library). 
 The program is divided up into
-six parts: the world data definition, an implementation of breadth-first search,
-code that handles drawing of the world, code that handles user input,
+a number of parts: the world data definition, an implementation of breadth-first search,
+constructing a graph of where the possible cat moves are on a specific board,
+finding the best paths for the cat to take,
+code that handles drawing of the world and the drawing of the cat,
+code that handles user input,
 and some code that builds an initial world and starts the game.
 
 @chunk[<main>
        (require racket/list racket/math
                 (for-syntax racket/base))
-       (require 2htdp/universe htdp/image lang/posn racket/contract)
+       (require 2htdp/universe 2htdp/image lang/posn racket/contract)
        <world>
        <breadth-first-search>
        <board->graph>
@@ -84,12 +87,13 @@ which accepts two lists and compares them as if they were sets.
 
 In general, most of the test cases are left to the end of the document, organized
 in a series of chunks that match the functions being tested. Some of the test cases,
-however, provide nice illustrations of the behavior of the function and so are
+however, provide illustrations of the behavior of the function and so are
 included in the function's description.
 
 @section{The World}
 
-The main data structure for Chat Noir is @tt{world}. It comes with a few functions that 
+The main data structure for Chat Noir is @tt{world}. It represents
+the current state of a game of Chat Noir, and comes with a few functions that 
 construct empty worlds and test cases for them.
 
 @chunk[<world> 
@@ -218,10 +222,10 @@ flattens the nested lists and the
            append
            (build-list
             board-size
-            (lambda (i)
+            (λ (i)
               (build-list
                board-size
-               (lambda (j)
+               (λ (j)
                  (make-cell (make-posn i j)
                             #f))))))))
        
@@ -291,22 +295,21 @@ calling @racket[block-cell] to actually block that cell.
          (cond
            [(zero? n) all-cells]
            [else
-            (let* ([unblocked-cells
-                    (filter (lambda (x)
-                              (let ([cat-cell? (and (= (posn-x (cell-p x))
-                                                       (quotient board-size 2))
-                                                    (= (posn-y (cell-p x))
-                                                       (quotient board-size 2)))])
-                                
-                                (and (not (cell-blocked? x))
-                                     (not cat-cell?))))
-                            all-cells)]
-                   [to-block (list-ref unblocked-cells
-                                       (random (length unblocked-cells)))])
-              (add-n-random-blocked-cells
-               (sub1 n)
-               (block-cell (cell-p to-block) all-cells)
-               board-size))]))]
+            (define unblocked-cells
+              (filter (λ (x)
+                        (define cat-cell?
+                          (and (= (posn-x (cell-p x))
+                                  (quotient board-size 2))
+                               (= (posn-y (cell-p x))
+                                  (quotient board-size 2))))
+                        (and (not (cell-blocked? x))
+                             (not cat-cell?)))
+                      all-cells))
+            (define to-block (list-ref unblocked-cells (random (length unblocked-cells))))
+            (add-n-random-blocked-cells
+             (sub1 n)
+             (block-cell (cell-p to-block) all-cells)
+             board-size)]))]
 
 
 The @racket[block-cell] function accepts a @racket[posn]
@@ -316,10 +319,10 @@ relevant cell, setting its @tt{blocked?} field to @racket[#t].
 @chunk[<block-cell>
        (define/contract (block-cell to-block board)
          (-> posn? (listof cell?) (listof cell?))
-         (map (lambda (c) (if (equal? to-block (cell-p c))
-                              (make-cell to-block #t)
-                              c))
-              board))]
+         (for/list ([c (in-list board)])
+           (if (equal? to-block (cell-p c))
+               (make-cell to-block #t)
+               c)))]
 
 @section{Breadth-first Search}
 
@@ -418,17 +421,17 @@ and that @racket[posn]'s  distance.
          (cond
            [(empty? queue) dist-table]
            [else
-            (let* ([p (vector-ref (first queue) 0)]
-                   [dist (vector-ref (first queue) 1)])
-              (cond
-                [(hash-ref dist-table p #f)
-                 (bfs (rest queue) dist-table)]
-                [else
-                 (bfs
-                  (append (rest queue)
-                          (map (λ (p) (vector p (+ dist 1)))
-                               (neighbors/w p)))
-                  (hash-set dist-table p dist))]))]))]
+            (define p (vector-ref (first queue) 0))
+            (define dist (vector-ref (first queue) 1))
+            (cond
+              [(hash-ref dist-table p #f)
+               (bfs (rest queue) dist-table)]
+              [else
+               (bfs
+                (append (rest queue)
+                        (map (λ (p) (vector p (+ dist 1)))
+                             (neighbors/w p)))
+                (hash-set dist-table p dist))])]))]
 
 If the @racket[queue] is empty, then the accumulator contains
 bindings for all of the (reachable) nodes in the graph, so
@@ -539,12 +542,12 @@ returns a function that is specialized to those values.
           (listof (or/c 'boundary posn?))))
   (define blocked
     (map cell-p
-         (filter (lambda (c)
+         (filter (λ (c)
                    (or (cell-blocked? c)
                        (equal? (cell-p c) (world-mouse-posn w))))
                  (world-board w))))
   (define boundary-cells
-    (filter (lambda (p)
+    (filter (λ (p)
               (and (not (member p blocked))
                    (on-boundary? p (world-size w))))
             (map cell-p (world-board w))))
@@ -583,18 +586,18 @@ we know that @racket[p] must have been on the boundary, so we add
     [(equal? p 'boundary)
      boundary-cells]
     [else
-     (let* ([x (posn-x p)]
-            [adjacent-posns 
-             (filter (λ (x) (not (member x blocked)))
-                     (adjacent p))]
-            [in-bounds
-             (filter (λ (x) (in-bounds? x size))
-                     adjacent-posns)])
-       (cond
-         [(equal? in-bounds adjacent-posns)
-          in-bounds]
-         [else
-          (cons 'boundary in-bounds)]))]))]
+     (define x (posn-x p))
+     (define adjacent-posns 
+       (filter (λ (x) (not (member x blocked)))
+               (adjacent p)))
+     (define in-bounds
+       (filter (λ (x) (in-bounds? x size))
+               adjacent-posns))
+     (cond
+       [(equal? in-bounds adjacent-posns)
+        in-bounds]
+       [else
+        (cons 'boundary in-bounds)])]))]
 
 
 There are the three functions that build the basic graph structure
@@ -628,24 +631,24 @@ of looking at the board and calculating coordinate offsets.
        (define/contract (adjacent p)
          (-> posn? 
              (and/c (listof posn?)
-                    (lambda (l) (= 6 (length l)))))
-         (let ([x (posn-x p)]
-               [y (posn-y p)])
-           (cond
-             [(even? y)
-              (list (make-posn (- x 1) (- y 1))
-                    (make-posn x (- y 1))
-                    (make-posn (- x 1) y)
-                    (make-posn (+ x 1) y)
-                    (make-posn (- x 1) (+ y 1))
-                    (make-posn x (+ y 1)))]
-             [else
-              (list (make-posn x (- y 1))
-                    (make-posn (+ x 1) (- y 1))
-                    (make-posn (- x 1) y)
-                    (make-posn (+ x 1) y)
-                    (make-posn x (+ y 1))
-                    (make-posn (+ x 1) (+ y 1)))])))]
+                    (λ (l) (= 6 (length l)))))
+         (define x (posn-x p))
+         (define y (posn-y p))
+         (cond
+           [(even? y)
+            (list (make-posn (- x 1) (- y 1))
+                  (make-posn x (- y 1))
+                  (make-posn (- x 1) y)
+                  (make-posn (+ x 1) y)
+                  (make-posn (- x 1) (+ y 1))
+                  (make-posn x (+ y 1)))]
+           [else
+            (list (make-posn x (- y 1))
+                  (make-posn (+ x 1) (- y 1))
+                  (make-posn (- x 1) y)
+                  (make-posn (+ x 1) y)
+                  (make-posn x (+ y 1))
+                  (make-posn (+ x 1) (+ y 1)))]))]
 
 The @racket[on-boundary?] function returns @racket[#t] when 
 the posn would be on the boundary of a board of size
@@ -732,21 +735,20 @@ lost the game.
          (-> world? (-> posn? boolean?))
          (cond
            [(world-help? w)
-            (let ()
-              (define edge-distance-map (build-bfs-table w 'boundary))
-              (define cat-distance-map (build-bfs-table w (world-cat w)))
-              (define cat-distance
-                (lookup-in-table edge-distance-map (world-cat w)))
-              (cond
-                [(equal? cat-distance '∞)
-                 (lambda (p) #f)]
-                [else
-                 (lambda (p)
-                   (equal? (+/f (lookup-in-table cat-distance-map p)
-                                (lookup-in-table edge-distance-map p))
-                           cat-distance))]))]
+            (define edge-distance-map (build-bfs-table w 'boundary))
+            (define cat-distance-map (build-bfs-table w (world-cat w)))
+            (define cat-distance
+              (lookup-in-table edge-distance-map (world-cat w)))
+            (cond
+              [(equal? cat-distance '∞)
+               (λ (p) #f)]
+              [else
+               (λ (p)
+                 (equal? (+/f (lookup-in-table cat-distance-map p)
+                              (lookup-in-table edge-distance-map p))
+                         cat-distance))])]
            [else
-            (lambda (p) #f)]))]
+            (λ (p) #f)]))]
 
 Finally, the helper function @racket[+/f] is just like @racket[+], except that
 it returns @racket['∞] if either argument is @racket['∞].
@@ -785,64 +787,82 @@ except it has a smile.
              [else 'lightgray]))
          
          (define left-ear 
-           (regular-polygon 3 8 'solid 'black (/ pi -3)))
+           (rotate 34 (regular-polygon 8 3 'solid 'black)))
          (define right-ear
-           (regular-polygon 3 8 'solid 'black 0))
+           (rotate -34 (regular-polygon 8 3 'solid 'black)))
          (define ear-x-offset 14)
-         (define ear-y-offset 9)
+         (define ear-y-offset -8)
          
-         (define eye (overlay (ellipse 12 8 'solid 'black)
-                              (ellipse 6 4 'solid 'limegreen)))
+         (define eye (underlay (ellipse 12 8 'solid 'black)
+                               (ellipse 6 4 'solid 'limegreen)))
          (define eye-x-offset 8)
-         (define eye-y-offset 3)
+         (define eye-y-offset -3)
          
          (define nose
-           (regular-polygon 3 5 'solid 'black (/ pi 2)))
+           (regular-polygon 5 3 'solid 'black))
          
          (define mouth-happy
-           (overlay (ellipse 8 8 'solid face-color)
-                    (ellipse 8 8 'outline 'black)
-                    (move-pinhole
-                     (rectangle 10 5 'solid face-color)
-                     0
-                     4)))
+           (overlay/align "center" "bottom"
+                          (rectangle 0 8 'solid 'black)
+                          (crop -1/2 4 9 5 (ellipse 8 8 'outline 'black))))
+         
          (define mouth-no-expression
-           (overlay (ellipse 8 8 'solid face-color)
-                    (ellipse 8 8 'outline face-color)
-                    (rectangle 10 5 'solid face-color)))
+           (overlay/align "center" "bottom"
+                          (rectangle 0 6 'solid 'black)
+                          (rectangle 8 1 'solid 'black)))
          
          (define mouth
            (cond
              [(eq? mode 'happy) mouth-happy]
              [else mouth-no-expression]))
-         (define mouth-x-offset 4)
-         (define mouth-y-offset -5)
+         (define mouth-x-offset 0)
+         (define mouth-y-offset 5)
          
          (define (whiskers img)
+           (define img-with-space
+             (overlay img (rectangle (+ (image-width img) 20)
+                                     (image-height img)
+                                     "outline" "transparent")))
+           (define whisker-start-y 17)
+           (define whisker-start-right-x 32)
+           (define whisker-start-left-x 24)
+           (define whisker-width 23)
+           (define whisker-y-delta 5)
            (add-line
             (add-line
              (add-line
               (add-line
                (add-line
                 (add-line
-                 img
-                 6 4 30 12 'black)
-                6 4 30 4 'black)
-               6 4 30 -4 'black)
-              -6 4 -30 12 'black)
-             -6 4 -30 4 'black)
-            -6 4 -30 -4 'black))
+                 img-with-space
+                 whisker-start-left-x whisker-start-y
+                 (- whisker-start-left-x whisker-width)
+                 (- whisker-start-y whisker-y-delta) 'black)
+                whisker-start-left-x whisker-start-y
+                (- whisker-start-left-x whisker-width) whisker-start-y 'black)
+               whisker-start-left-x whisker-start-y
+               (- whisker-start-left-x whisker-width) (+ whisker-start-y whisker-y-delta) 'black)
+              whisker-start-right-x whisker-start-y
+              (+ whisker-start-right-x whisker-width) (- whisker-start-y whisker-y-delta) 'black)
+             whisker-start-right-x whisker-start-y
+             (+ whisker-start-right-x whisker-width) whisker-start-y 'black)
+            whisker-start-right-x whisker-start-y
+            (+ whisker-start-right-x whisker-width) (+ whisker-start-y whisker-y-delta) 'black))
+         
          (whiskers
-          (overlay
-           (move-pinhole left-ear (- ear-x-offset) ear-y-offset)
-           (move-pinhole right-ear (- ear-x-offset 1) ear-y-offset)
-           (ellipse (+ face-width 4) (+ face-height 4) 'solid 'black)
-           (ellipse face-width face-height 'solid face-color)
-           (move-pinhole mouth (- mouth-x-offset) mouth-y-offset)
-           (move-pinhole mouth mouth-x-offset mouth-y-offset)
-           (move-pinhole eye (- eye-x-offset) eye-y-offset)
-           (move-pinhole eye eye-x-offset eye-y-offset)
-           (move-pinhole nose -1 -4))))
+          (underlay/offset
+           (underlay/offset
+            (underlay/offset
+             (underlay/offset
+              (underlay/offset
+               (underlay/offset
+                (ellipse face-width face-height 'solid face-color)
+                mouth-x-offset mouth-y-offset mouth)
+               0 0 nose)
+              (- eye-x-offset) eye-y-offset eye)
+             eye-x-offset eye-y-offset eye)
+            ear-x-offset ear-y-offset right-ear)
+           (- ear-x-offset) ear-y-offset left-ear)))
        
        (define thinking-cat (cat 'thinking))
        (define happy-cat (cat 'happy))
@@ -854,9 +874,9 @@ except it has a smile.
 @chunk[<drawing>
        <constants>
        <render-world>
-       <chop-whiskers>
        <render-board>
        <render-cell>
+       <crop-whiskers>
        <world-width>
        <world-height>
        <cell-center-x>
@@ -865,11 +885,7 @@ except it has a smile.
 @chunk[<drawing-tests>
        <cell-center-x-tests>
        <cell-center-y-tests>
-       <world-size-tests>
-       <render-cell-tests>
-       <render-board-tests>
-       <chop-whiskers-tests>
-       <render-world-tests>]
+       <world-size-tests>]
 
 There are a number of constants
 that are given names to make the code
@@ -907,40 +923,22 @@ and that the pinhole is always in the upper-left corner of the window.
 @chunk[<render-world>
        (define/contract (render-world w)
          (-> world? image?)
-         (chop-whiskers
-          (overlay/xy (render-board (world-board w)
-                                    (world-size w)
-                                    (on-cats-path? w)
-                                    (world-mouse-posn w))
-                      (cell-center-x (world-cat w))
-                      (cell-center-y (world-cat w))
-                      (cond
-                        [(equal? (world-state w) 'cat-won) happy-cat]
-                        [(equal? (world-state w) 'cat-lost) mad-cat]
-                        [else thinking-cat]))))]
-
-Trimming the cat's whiskers amounts to removing any extra
-space in the image that appears to the left or above the pinhole.
-For example, the @racket[rectangle] function returns
-an image with a pinhole in the middle. So trimming 5x5
-rectangle results in a 3x3 rectangle with the pinhole
-at (0,0).
-
-@chunk[<chop-whiskers-tests>
-       (test (chop-whiskers (rectangle 5 5 'solid 'black))
-             (put-pinhole (rectangle 3 3 'solid 'black) 0 0))]
-
-The function uses @racket[shrink] to remove all of the material above
-and to the left of the pinhole.
-
-@chunk[<chop-whiskers>
-(define/contract (chop-whiskers img)
-  (-> image? image?)
-  (shrink img
-          0
-          0
-          (- (image-width img) (pinhole-x img) 1)
-          (- (image-height img) (pinhole-y img) 1)))]
+         (define the-cat
+           (cond
+             [(equal? (world-state w) 'cat-won) happy-cat]
+             [(equal? (world-state w) 'cat-lost) mad-cat]
+             [else thinking-cat]))
+         (crop-whiskers
+          w
+          (underlay/xy (render-board (world-board w)
+                                     (world-size w)
+                                     (on-cats-path? w)
+                                     (world-mouse-posn w))
+                       (- (cell-center-x (world-cat w))
+                          (/ (image-width the-cat) 2))
+                       (- (cell-center-y (world-cat w))
+                          (/ (image-height the-cat) 2))
+                       the-cat)))]
 
 The @racket[render-board] function uses @racket[for/fold] to iterate
 over all of the @racket[cell]s in @racket[cs]. It starts with
@@ -954,16 +952,18 @@ an empty rectangle and, one by one, puts the cells on @racket[image].
              (-> posn? boolean?)
              (or/c #f posn?)
              image?)
-         (for/fold ([image (nw:rectangle (world-width world-size)
-                                         (world-height world-size)
-                                         'solid
-                                         'white)])
-                   ([c cs])
-           (overlay image
-                    (render-cell c
-                                 (on-cat-path? (cell-p c))
-                                 (and (posn? mouse)
-                                      (equal? mouse (cell-p c)))))))]
+         (for/fold ([image (rectangle (world-width world-size)
+                                      (world-height world-size)
+                                      'solid
+                                      'white)])
+                   ([c (in-list cs)])
+           (underlay/xy image
+                        (- (cell-center-x (cell-p c)) circle-radius)
+                        (- (cell-center-y (cell-p c)) circle-radius)
+                        (render-cell c
+                                     (on-cat-path? (cell-p c))
+                                     (and (posn? mouse)
+                                          (equal? mouse (cell-p c)))))))]
 
 The @racket[render-cell] function accepts a @racket[cell], 
 a boolean indicating if the cell is on the shortest path between
@@ -976,27 +976,47 @@ results in the cell being placed in the right place.
 @chunk[<render-cell>
        (define/contract (render-cell c on-short-path? under-mouse?)
          (-> cell? boolean? boolean? image?)
-         (let ([x (cell-center-x (cell-p c))]
-               [y (cell-center-y (cell-p c))]
-               [main-circle
-                (cond
-                  [(cell-blocked? c)
-                   (circle circle-radius 'solid blocked-color)]
-                  [else
-                   (circle circle-radius 'solid normal-color)])])
-           (move-pinhole
-            (cond
-              [under-mouse?
-               (overlay main-circle
-                        (circle (quotient circle-radius 2) 'solid under-mouse-color))]
-              [on-short-path?
-               (overlay main-circle
-                        (circle (quotient circle-radius 2) 'solid
-                                on-shortest-path-color))]
-              [else
-               main-circle])
-            (- x)
-            (- y))))]
+         (define x (cell-center-x (cell-p c)))
+         (define y (cell-center-y (cell-p c)))
+         (define main-circle
+           (cond
+             [(cell-blocked? c)
+              (circle circle-radius 'solid blocked-color)]
+             [else
+              (circle circle-radius 'solid normal-color)]))
+         (cond
+           [under-mouse?
+            (underlay main-circle
+                      (circle (quotient circle-radius 2) 'solid under-mouse-color))]
+           [on-short-path?
+            (underlay main-circle
+                      (circle (quotient circle-radius 2) 'solid
+                              on-shortest-path-color))]
+           [else
+            main-circle]))]
+
+The @racket[chop-whiskers] function ensures that when the cat is near the
+edge of the board (and its whiskers would hang off) that the image that
+the board produces still has the same size (by clipping away the cat's
+whiskers).
+
+@chunk[<crop-whiskers>
+       (define/contract (crop-whiskers w img)
+         (-> world? image? image?)
+         (define cat-posn (world-cat w))
+         (define cat-x (posn-x cat-posn))
+         (define cat-y (posn-y cat-posn))
+         (define left-edge? (and (even? cat-y) (= cat-x 0)))
+         (define right-edge? (and (odd? cat-y) (= cat-x (- board-size 1))))
+         (define width (world-width (world-size w)))
+         (define height (world-height (world-size w)))
+         (cond
+           [left-edge?
+            (crop (- (/ (image-width happy-cat) 2) circle-radius)
+                  0
+                  width height img)]
+           [right-edge? (crop 0 0 width height img)]
+           [else img]))]
 
 The @racket[world-width] function computes the width of the rendered world,
 given the world's size by finding the center of the rightmost posn,
@@ -1005,9 +1025,9 @@ and then adding an additional radius.
 @chunk[<world-width>
        (define/contract (world-width board-size)
          (-> natural-number/c number?)
-         (let ([rightmost-posn
-                (make-posn (- board-size 1) (- board-size 2))])
-           (+ (cell-center-x rightmost-posn) circle-radius)))]
+         (define rightmost-posn
+           (make-posn (- board-size 1) (- board-size 2)))
+         (+ (cell-center-x rightmost-posn) circle-radius))]
 
 Similarly, the @racket[world-height] function computest the 
 height of the rendered world, given the world's size.
@@ -1015,10 +1035,10 @@ height of the rendered world, given the world's size.
 @chunk[<world-height>
        (define/contract (world-height board-size)
          (-> natural-number/c number?)
-         (let ([bottommost-posn
-                (make-posn (- board-size 1) (- board-size 1))])
-           (ceiling (+ (cell-center-y bottommost-posn) 
-                       circle-radius))))]
+         (define bottommost-posn
+           (make-posn (- board-size 1) (- board-size 1)))
+         (ceiling (+ (cell-center-y bottommost-posn) 
+                     circle-radius)))]
 
 The @racket[cell-center-x] function returns the
 @tt{x} coordinate of the center of the cell specified
@@ -1056,13 +1076,13 @@ the entire line over.
 @chunk[<cell-center-x>
        (define/contract (cell-center-x p)
          (-> posn? number?)
-         (let ([x (posn-x p)]
-               [y (posn-y p)])
-           (+ circle-radius
-              (* x circle-spacing 2)
-              (if (odd? y)
-                  circle-spacing
-                  0))))]
+         (define x (posn-x p))
+         (define y (posn-y p))
+         (+ circle-radius
+            (* x circle-spacing 2)
+            (if (odd? y)
+                circle-spacing
+                0)))]
 
 The @racket[cell-center-y] function computes the
 @racket[y] coordinate of a cell's location on
@@ -1156,19 +1176,19 @@ player's move (via the @racket[player-moved?] function.
        (define/contract (clack world x y evt)
          (-> world? integer? integer? any/c 
              world?)
-         (let ([moved-world
-                (cond
-                  [(player-moved? world x y evt)
-                   => 
-                   (λ (circle)
-                     (move-cat
-                      (block-cell/world circle world)))]
-                  [else world])])
-           (update-world-posn
-            moved-world
-            (and (eq? (world-state moved-world) 'playing)
-                 (not (equal? evt "leave"))
-                 (make-posn x y)))))]
+         (define moved-world
+           (cond
+             [(player-moved? world x y evt)
+              => 
+              (λ (circle)
+                (move-cat
+                 (block-cell/world circle world)))]
+             [else world]))
+         (update-world-posn
+          moved-world
+          (and (eq? (world-state moved-world) 'playing)
+               (not (equal? evt "leave"))
+               (make-posn x y))))]
 
 The @racket[player-moved?] predicate returns
 a @racket[posn] indicating where the player chose
@@ -1244,12 +1264,12 @@ other and extracting the magnitude from that vector.
 @chunk[<point-in-this-circle?>
        (define/contract (point-in-this-circle? p x y)
          (-> posn? real? real? boolean?)
-         (let ([center (+ (cell-center-x p)
-                          (* (sqrt -1)
-                             (cell-center-y p)))]
-               [mp (+ x (* (sqrt -1) y))])
-           (<= (magnitude (- center mp)) 
-               circle-radius)))]
+         (define center (+ (cell-center-x p)
+                           (* (sqrt -1)
+                              (cell-center-y p))))
+         (define mp (+ x (* (sqrt -1) y)))
+         (<= (magnitude (- center mp)) 
+             circle-radius))]
 
 In the event that @racket[player-moved?] returns a @racket[posn],
 the @racket[clack] function blocks the clicked on cell using
@@ -1275,21 +1295,20 @@ is @racket[#f], and otherwise, it is a random element from that list.
 @chunk[<move-cat>
        (define/contract (move-cat world)
          (-> world? world?)
-         (let* ([cat-position (world-cat world)]
-                [table (build-bfs-table world 'boundary)]
-                [neighbors (adjacent cat-position)]
-                [next-cat-positions
-                 (find-best-positions neighbors
-                                      (map (lambda (p) (lookup-in-table table p))
-                                           neighbors))]
-                [next-cat-position
-                 (cond
-                   [(boolean? next-cat-positions) #f]
-                   [else
-                    (list-ref next-cat-positions
-                              (random (length next-cat-positions)))])])
-           
-           <moved-cat-world>))]
+         (define cat-position (world-cat world))
+         (define table (build-bfs-table world 'boundary))
+         (define neighbors (adjacent cat-position))
+         (define next-cat-positions
+           (find-best-positions neighbors
+                                (map (λ (p) (lookup-in-table table p))
+                                     neighbors)))
+         (define next-cat-position
+           (cond
+             [(boolean? next-cat-positions) #f]
+             [else
+              (list-ref next-cat-positions
+                        (random (length next-cat-positions)))]))
+         <moved-cat-world>)]
 
 Once @racket[next-cat-position] has been computed, it is used to update
 the @tt{cat} and @tt{state} fields of the world, recording the cat's new
@@ -1325,20 +1344,19 @@ returns @racket[#f], if the best score is
          (-> (cons/c posn? (listof posn?))
              (cons/c (or/c number? '∞) (listof (or/c number? '∞)))
              (or/c (cons/c posn? (listof posn?)) #f))
-         (let ([best-score
-                (foldl (lambda (x sofar)
-                         (if (<=/f x sofar)
-                             x
-                             sofar))
-                       (first scores)
-                       (rest scores))])
-           (cond
-             [(symbol? best-score) #f]
-             [else
-              (map
-               second
-               (filter (lambda (x) (equal? (first x) best-score))
-                       (map list scores posns)))])))]
+         (define best-score
+           (for/fold ([sofar (first scores)])
+                     ([x (in-list (rest scores))])
+             (if (<=/f x sofar)
+                 x
+                 sofar)))
+         (cond
+           [(symbol? best-score) #f]
+           [else
+            (map
+             second
+             (filter (λ (x) (equal? (first x) best-score))
+                     (map list scores posns)))]))]
 
 This is a helper function that behaves like
 @racket[<=], but is extended to deal properly with
@@ -1369,20 +1387,20 @@ is just updated to @racket[#f].
              world?)
          (cond
            [(posn? p)
-            (let ([mouse-spot
-                   (circle-at-point (world-board w)
-                                    (posn-x p)
-                                    (posn-y p))])
-              (make-world (world-board w)
-                          (world-cat w)
-                          (world-state w)
-                          (world-size w)
-                          (cond
-                            [(equal? mouse-spot (world-cat w))
-                             #f]
-                            [else
-                             mouse-spot])
-                          (world-help? w)))]
+            (define mouse-spot
+              (circle-at-point (world-board w)
+                               (posn-x p)
+                               (posn-y p)))
+            (make-world (world-board w)
+                        (world-cat w)
+                        (world-state w)
+                        (world-size w)
+                        (cond
+                          [(equal? mouse-spot (world-cat w))
+                           #f]
+                          [else
+                           mouse-spot])
+                        (world-help? w))]
            [else
             (make-world (world-board w)
                         (world-cat w)
@@ -1433,21 +1451,20 @@ and reports the results.
 
 (define (test/proc actual-thunk expected-thunk cmp line sexp)
   (set! test-count (+ test-count 1))
-  (let ([actual (actual-thunk)]
-        [expected (expected-thunk)])
-    (unless (cmp actual expected)
-      (error 'check-expect "test #~a~a\n  ~s\n  ~s\n"
-             test-count
-             (if line
-                 (format " on line ~a failed:" line)
-                 (format " failed: ~s" sexp))
-             actual
-             expected))))
-
+  (define actual (actual-thunk))
+  (define expected (expected-thunk))
+  (unless (cmp actual expected)
+    (error 'check-expect "test #~a~a\n  ~s\n  ~s\n"
+           test-count
+           (if line
+               (format " on line ~a failed:" line)
+               (format " failed: ~s" sexp))
+           actual
+           expected)))
 
 (define (same-sets? l1 l2)
-  (and (andmap (lambda (e1) (member e1 l2)) l1)
-       (andmap (lambda (e2) (member e2 l1)) l2)
+  (and (andmap (λ (e1) (member e1 l2)) l1)
+       (andmap (λ (e2) (member e2 l1)) l2)
        #t))
 
 (test (same-sets? (list) (list)) #t)
@@ -1756,250 +1773,6 @@ and reports the results.
        (test (+/f '∞ 1) '∞)
        (test (+/f 1 '∞) '∞)
        (test (+/f 1 2) 3)]
-
-@chunk[<render-world-tests>
-
-       (test
-        (render-world
-         (make-world (list (make-cell (make-posn 0 1) #f))
-                     (make-posn 0 1)
-                     'playing
-                     3
-                     (make-posn 0 0)
-                     #f))
-        (overlay
-         (render-board (list (make-cell (make-posn 0 1) #f))
-                       3
-                       (lambda (x) #t)
-                       #f)
-         (move-pinhole thinking-cat
-                       (- (cell-center-x (make-posn 0 1)))
-                       (- (cell-center-y (make-posn 0 1))))))
-       
-       (test
-        (render-world
-         (make-world (list (make-cell (make-posn 0 1) #f))
-                     (make-posn 0 1)
-                     'cat-won
-                     3
-                     #f
-                     #f))
-        (overlay
-         (render-board (list (make-cell (make-posn 0 1) #f))
-                       3
-                       (lambda (x) #t)
-                       #f)
-         (move-pinhole happy-cat
-                       (- (cell-center-x (make-posn 0 1)))
-                       (- (cell-center-y (make-posn 0 1))))))
-       
-       (test
-        (render-world
-         (make-world (list (make-cell (make-posn 0 1) #f))
-                     (make-posn 0 1)
-                     'cat-lost
-                     3
-                     #f
-                     #f))
-        (overlay
-         (render-board (list (make-cell (make-posn 0 1) #f))
-                       3
-                       (lambda (x) #t)
-                       #f)
-         (move-pinhole mad-cat
-                       (- (cell-center-x (make-posn 0 1)))
-                       (- (cell-center-y (make-posn 0 1))))))
-       
-       (test
-        (render-world
-         (make-world (list
-                      (make-cell (make-posn 0 1) #t)
-                      (make-cell (make-posn 1 0) #t)
-                      (make-cell (make-posn 1 1) #f)
-                      (make-cell (make-posn 1 2) #t)
-                      (make-cell (make-posn 2 0) #t)
-                      (make-cell (make-posn 2 1) #t)
-                      (make-cell (make-posn 2 2) #t))
-                     (make-posn 1 1)
-                     'cat-lost
-                     3
-                     #f
-                     #f))
-        (overlay
-         (render-board (list
-                        (make-cell (make-posn 0 1) #t)
-                        (make-cell (make-posn 1 0) #t)
-                        (make-cell (make-posn 1 1) #f)
-                        (make-cell (make-posn 1 2) #t)
-                        (make-cell (make-posn 2 0) #t)
-                        (make-cell (make-posn 2 1) #t)
-                        (make-cell (make-posn 2 2) #t))
-                       3
-                       (lambda (x) #f)
-                       #f)
-         (move-pinhole mad-cat
-                       (- (cell-center-x (make-posn 1 1)))
-                       (- (cell-center-y (make-posn 1 1))))))
-       
-       (test
-        (render-world
-         (make-world (list
-                      (make-cell (make-posn 0 1) #f)
-                      (make-cell (make-posn 1 0) #f)
-                      (make-cell (make-posn 1 1) #f)
-                      (make-cell (make-posn 1 2) #f)
-                      (make-cell (make-posn 2 0) #f)
-                      (make-cell (make-posn 2 1) #f)
-                      (make-cell (make-posn 2 2) #f))
-                     (make-posn 1 1)
-                     'cat-lost
-                     3
-                     (make-posn (cell-center-x (make-posn 0 1))
-                                (cell-center-y (make-posn 0 1)))
-                     #t))
-        
-        (overlay
-         (render-board (list
-                        (make-cell (make-posn 0 1) #f)
-                        (make-cell (make-posn 1 0) #f)
-                        (make-cell (make-posn 1 1) #f)
-                        (make-cell (make-posn 1 2) #f)
-                        (make-cell (make-posn 2 0) #f)
-                        (make-cell (make-posn 2 1) #f)
-                        (make-cell (make-posn 2 2) #f))
-                       3
-                       (lambda (x) #t)
-                       (make-posn (cell-center-x (make-posn 0 1))
-                                  (cell-center-y (make-posn 0 1))))
-         (move-pinhole mad-cat
-                       (- (cell-center-x (make-posn 1 1)))
-                       (- (cell-center-y (make-posn 1 1))))))]
-
-@chunk[<chop-whiskers-tests>
-       (test (chop-whiskers (rectangle 6 6 'solid 'black))
-             (put-pinhole (rectangle 3 3 'solid 'black) 0 0))
-
-       (test
-        (pinhole-x
-         (render-world
-          (make-world
-           (empty-board 3)
-           (make-posn 0 0)
-           'playing
-           3
-           (make-posn 0 0)
-           #f)))
-        0)
-       (test
-        (pinhole-x
-         (render-world
-          (make-world
-           (empty-board 3)
-           (make-posn 0 1)
-           'playing
-           3
-           (make-posn 0 0)
-           #f)))
-        0)]
-
-@chunk[<render-board-tests>
-       (test (render-board (list (make-cell (make-posn 0 0) #f))
-                           3
-                           (lambda (x) #f)
-                           #f)
-             (overlay
-              (nw:rectangle (world-width 3)
-                            (world-height 3)
-                            'solid
-                            'white)
-              (render-cell (make-cell (make-posn 0 0) #f)
-                           #f
-                           #f)))
-       
-       (test (render-board (list (make-cell (make-posn 0 0) #f))
-                           3
-                           (lambda (x) #t)
-                           #f)
-             (overlay
-              (nw:rectangle (world-width 3)
-                            (world-height 3)
-                            'solid
-                            'white)
-              (render-cell (make-cell (make-posn 0 0) #f)
-                           #t
-                           #f)))
-       
-       
-       (test (render-board (list (make-cell (make-posn 0 0) #f))
-                           3
-                           (lambda (x) #f)
-                           #f)
-             (overlay
-              (nw:rectangle (world-width 3)
-                            (world-height 3)
-                            'solid
-                            'white)
-              (render-cell (make-cell (make-posn 0 0) #f)
-                           #f
-                           #f)))
-       
-       (test (render-board (list (make-cell (make-posn 0 0) #f)
-                                 (make-cell (make-posn 0 1) #f))
-                           3
-                           (lambda (x) (equal? x (make-posn 0 1)))
-                           #f)
-             (overlay
-              (nw:rectangle (world-width 3)
-                            (world-height 3)
-                            'solid
-                            'white)
-              (render-cell (make-cell (make-posn 0 0) #f)
-                           #f
-                           #f)
-              (render-cell (make-cell (make-posn 0 1) #f)
-                           #t
-                           #f)))
-       
-       (test (render-board (list (make-cell (make-posn 0 0) #f)
-                                 (make-cell (make-posn 0 1) #f))
-                           3
-                           (lambda (x) (equal? x (make-posn 0 1)))
-                           (make-posn 0 0))
-             (overlay
-              (nw:rectangle (world-width 3)
-                            (world-height 3)
-                            'solid
-                            'white)
-              (render-cell (make-cell (make-posn 0 0) #f)
-                           #f
-                           #t)
-              (render-cell (make-cell (make-posn 0 1) #f)
-                           #t
-                           #f)))]
-
-
-@chunk[<render-cell-tests>
-       (test (render-cell (make-cell (make-posn 0 0) #f) #f #f)
-             (move-pinhole (circle circle-radius 'solid normal-color)
-                           (- circle-radius)
-                           (- circle-radius)))
-       (test (render-cell (make-cell (make-posn 0 0) #t) #f #f)
-             (move-pinhole (circle circle-radius 'solid 'black)
-                           (- circle-radius)
-                           (- circle-radius)))
-       (test (render-cell (make-cell (make-posn 0 0) #f) #t #f)
-             (move-pinhole (overlay (circle circle-radius 'solid normal-color)
-                                    (circle (quotient circle-radius 2) 'solid
-                                            on-shortest-path-color))
-                           (- circle-radius)
-                           (- circle-radius)))
-       (test (render-cell (make-cell (make-posn 0 0) #f) #t #t)
-             (move-pinhole (overlay (circle circle-radius 'solid normal-color)
-                                    (circle (quotient circle-radius 2) 'solid
-                                            under-mouse-color))
-                           (- circle-radius)
-                           (- circle-radius)))]
-
 
 @chunk[<world-size-tests>
        (test (world-width 3) 150)
@@ -2353,7 +2126,7 @@ and reports the results.
 This section contains expressions that start
 the Chat Noir game going.
 
-First, here is a function to compute state of the world at the start of a game.
+First, here is a function to compute the state of the world at the start of a game.
 
 @chunk[<initial-world>
        (define board-size 11)

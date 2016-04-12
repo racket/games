@@ -65,7 +65,8 @@
   ;; start up the game
   
   (parameterize ([current-custodian sub-custodian])
-    (parameterize ([current-namespace (make-base-namespace)])
+    (parameterize ([current-eventspace (make-eventspace)]
+                   [current-namespace (make-base-namespace)])
       (namespace-attach-module orig-namespace 'racket/gui)
       (namespace-attach-module orig-namespace 'racket/class)
       ((dynamic-require chat-noir 'main)))))
