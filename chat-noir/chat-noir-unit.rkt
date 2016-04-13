@@ -69,4 +69,6 @@
                    [current-namespace (make-base-namespace)])
       (namespace-attach-module orig-namespace 'racket/gui)
       (namespace-attach-module orig-namespace 'racket/class)
-      ((dynamic-require chat-noir 'main)))))
+      (queue-callback
+       (λ ()
+         ((dynamic-require chat-noir 'main)))))))
