@@ -76,7 +76,9 @@
             (assert (- (send bitmap get-width) horizontal-cutoff) positive?)
             (assert (- (send bitmap get-height) vertical-cutoff) positive?))
       (send bdc set-bitmap #f)
-      (values nb (send sw get-value) (send sh get-value)))))
+      (values nb
+              (assert (send sw get-value) exact-nonnegative-integer?)
+              (assert (send sh get-value) exact-nonnegative-integer?)))))
 
 (define-struct: loc ([x : Integer] [y : Integer]))
 
