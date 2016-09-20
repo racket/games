@@ -141,7 +141,7 @@
     (define delay-loss? #t)
     
     ;; Discourage loops:
-    (define LOOP-TIE `((-1000.0 loop!)))
+    (define LOOP-TIE `((-1000.0 . loop!)))
     
     ;; Translates a plan into the given coordinate xform
     (define (xlate m xform)
