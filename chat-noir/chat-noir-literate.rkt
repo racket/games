@@ -945,7 +945,6 @@ over all of the @racket[cell]s in @racket[cs]. It starts with
 an empty rectangle and, one by one, puts the cells on @racket[image].
 
 @chunk[<render-board>
-       ;; render-board : board number (posn -> boolean) posn-or-#f -> image
        (define/contract (render-board cs world-size on-cat-path? mouse)
          (-> (listof cell?) 
              natural-number/c
@@ -1146,8 +1145,8 @@ game is over, then restart the game. If the input is @litchar{h} then turn on th
 and otherwise do nothing.
 
 @chunk[<change>
-       ;; change : world key-event -> world
-       (define (change w ke)
+       (define/contract (change w ke)
+         (-> world? key-event? world?)
          (cond
            [(key=? ke "n")
             (if (equal? (world-state w) 'playing)
