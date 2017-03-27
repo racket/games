@@ -1,10 +1,11 @@
+#lang racket/base
 
-(module snipclass racket
-  (require racket/gui
-	   racket/class)
-  (provide sc)
+(require racket/gui/base
+         racket/class)
 
-  (define sc (make-object snip-class%))
-  (send sc set-classname "card")
-  (send (get-the-snip-class-list) add sc))
+(provide sc)
+
+(define sc (make-object snip-class%))
+(send sc set-classname "card")
+(send (get-the-snip-class-list) add sc)
 
