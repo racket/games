@@ -12,8 +12,8 @@
 @section{Creating Tables and Cards}
 
 @defproc[(make-table [title string? "Cards"] 
-                     [w exact-nonnegative-integer? 7]
-                     [h exact-nonnegative-integer? 3]
+                     [w real? 7]
+                     [h real? 3]
                      [#:mixin mixin (make-mixin-contract table<%>) values])
          table<%>]{
 
@@ -62,7 +62,9 @@
                    [h (and/c real? (not/c negative?))]
                    [label (or/c string? #f)]
                    [(callback #:mutable)
-                    (or/c #f (-> (listof (is-a?/c card<%>)) any))]
+                    (or/c #f (if button?
+                                 (-> any)
+                                 (-> (listof (is-a?/c card<%>)) any)))]
                    [(interactive-callback #:auto #:mutable)
                     (or/c #f (-> any/c (listof (is-a?/c card<%>)) any))]
                    [(paint-callback #:auto #:mutable)
@@ -117,8 +119,7 @@
                              [w (and/c real? (not/c negative?))]
                              [h (and/c real? (not/c negative?))]
                              [label (or/c string? #f)]
-                             [callback (or/c (-> (listof (is-a?/c card<%>)) any)
-                                             #f)])
+                             [callback (or/c #f (-> any))])
          region?]{
 
  Returns a region like one made by @racket[make-region], but the is

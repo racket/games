@@ -14,8 +14,8 @@
           [make-table
            (->* {}
                 {string?
-                 natural-number/c
-                 natural-number/c
+                 real?
+                 real?
                  #:mixin (make-mixin-contract table<%>)}
                 any)]
           ))
