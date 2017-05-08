@@ -137,7 +137,9 @@
                  (new animation-frame% (label "Parcheesi") (eventspace esp))))
     (send game set-observer af)
     (for-each (lambda (player) (send game register player)) players)
-    (send af show #t)
+    (parameterize ([current-eventspace esp])
+      (queue-callback
+       (λ () (send af show #t))))
     (send game start))
 
   #;
