@@ -1,17 +1,22 @@
-(module test racket
-  (require racket/pretty)
-  (provide test test-list test-err test-results)
+#lang racket
+  (require racket/pretty
+           games/parcheesi/moves
+           racket/runtime-path
+           xml)
+
+  (provide test test-list test-err test-results
+           test-take-turn)
   
-  (define show-tests? #t)
+  (define show-tests? #f)
   
   (define test-count (box 0))
   (define failure-count  (box 0))
   (define (test-results)
     (cond
       [(= 0 (unbox failure-count))
-       (eprintf "All ~a tests passed." (unbox test-count))]
+       (printf "All ~a tests passed.\n" (unbox test-count))]
       [else
-       (eprintf "~a tests failed, ~a tests total"
+       (eprintf "~a tests failed, ~a tests total\n"
                 (unbox failure-count)
                 (unbox test-count))]))
   
@@ -86,4 +91,14 @@
            [else (loop (cdr lst)
                        (list* (format "~e" (car lst))
                               " "
-                              ss))]))])))
+                              ss))]))]))
+
+  (define-syntax (test-take-turn stx)
+    (syntax-case stx ()
+      [(_ color original-board original-dice original-moves new-board)
+       (syntax/loc stx
+         (test (take-turn color original-board original-dice original-moves)
+               new-board))]
+      [(_ color original-board original-dice original-moves)
+       #`(test-err #,(syntax/loc stx (take-turn color original-board original-dice original-moves))
+                   exn:bad-move?)]))

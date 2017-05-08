@@ -61,198 +61,202 @@
   
   (define draw-board
     (lambda (board dc w h dx dy draw-pieces?)
-      (let ([smoothing (send dc get-smoothing)])
-        (send dc set-smoothing 'aligned)
-        (set-color dc 'track-background)
-        (send dc draw-rectangle (+ dx 0) (+ dy (* h 1/3)) w (* h 1/3))
-        (send dc draw-rectangle (+ dx (* w 1/3)) (+ dy 0) (* w 1/3) h)
+      (define smoothing (send dc get-smoothing))
+      (define old-pen (send dc get-pen))
+      (define old-brush (send dc get-brush))
+      (send dc set-smoothing 'aligned)
+      (set-color dc 'track-background)
+      (send dc draw-rectangle (+ dx 0) (+ dy (* h 1/3)) w (* h 1/3))
+      (send dc draw-rectangle (+ dx (* w 1/3)) (+ dy 0) (* w 1/3) h)
         
-        (set-color dc 'blue)
-        (send dc draw-ellipse
-              (+ dx (* w circle-gap)) (+ dy (* h circle-gap 1/2))
-              (- (/ w 3) (* w circle-gap)) (- (/ h 3) (* h circle-gap)))
-        (send dc draw-rectangle (+ dx (* w (- 1/2 1/18))) (+ dy 0) (* w 1/9) (/ h 3))
-        (send dc draw-polygon 
-              (list (make-object point% (* w 1/3) (* h 1/3))
-                    (make-object point% (* w 2/3) (* h 1/3))
-                    (make-object point% (* w 1/2) (* h 1/2)))
-              dx
-              dy)
+      (set-color dc 'blue)
+      (send dc draw-ellipse
+            (+ dx (* w circle-gap)) (+ dy (* h circle-gap 1/2))
+            (- (/ w 3) (* w circle-gap)) (- (/ h 3) (* h circle-gap)))
+      (send dc draw-rectangle (+ dx (* w (- 1/2 1/18))) (+ dy 0) (* w 1/9) (/ h 3))
+      (send dc draw-polygon 
+            (list (make-object point% (* w 1/3) (* h 1/3))
+                  (make-object point% (* w 2/3) (* h 1/3))
+                  (make-object point% (* w 1/2) (* h 1/2)))
+            dx
+            dy)
         
-        (set-color dc 'red)
-        (send dc draw-ellipse 
-              (+ dx (* w 2/3) (* h circle-gap 1/2)) 
-              (+ dy (* h circle-gap))
-              (- (/ w 3) (* w circle-gap)) 
-              (- (/ h 3) (* h circle-gap)))
-        (send dc draw-rectangle (+ dx (* w 2/3)) (+ dy (* h (- 1/2 1/18))) (/ w 3) (* h 1/9))
-        (send dc draw-polygon 
-              (list (make-object point% (* w 2/3) (* h 1/3))
-                    (make-object point% (* w 2/3) (* h 2/3))
-                    (make-object point% (* w 1/2) (* h 1/2)))
-              dx
-              dy)
+      (set-color dc 'red)
+      (send dc draw-ellipse 
+            (+ dx (* w 2/3) (* h circle-gap 1/2)) 
+            (+ dy (* h circle-gap))
+            (- (/ w 3) (* w circle-gap)) 
+            (- (/ h 3) (* h circle-gap)))
+      (send dc draw-rectangle (+ dx (* w 2/3)) (+ dy (* h (- 1/2 1/18))) (/ w 3) (* h 1/9))
+      (send dc draw-polygon 
+            (list (make-object point% (* w 2/3) (* h 1/3))
+                  (make-object point% (* w 2/3) (* h 2/3))
+                  (make-object point% (* w 1/2) (* h 1/2)))
+            dx
+            dy)
         
-        (set-color dc 'yellow)
-        (send dc draw-ellipse 
-              (+ dx (* w circle-gap 1/2)) (+ dy (* h 2/3))
-              (- (/ w 3) (* w circle-gap)) (- (/ h 3) (* h circle-gap)))
-        (send dc draw-rectangle (+ dx 0) (+ dy (* h (- 1/2 1/18))) (/ w 3) (* h 1/9))
-        (send dc draw-polygon 
-              (list (make-object point% (* w 1/3) (* h 1/3))
-                    (make-object point% (* w 1/3) (* h 2/3))
-                    (make-object point% (* w 1/2) (* h 1/2)))
-              dx
-              dy)
+      (set-color dc 'yellow)
+      (send dc draw-ellipse 
+            (+ dx (* w circle-gap 1/2)) (+ dy (* h 2/3))
+            (- (/ w 3) (* w circle-gap)) (- (/ h 3) (* h circle-gap)))
+      (send dc draw-rectangle (+ dx 0) (+ dy (* h (- 1/2 1/18))) (/ w 3) (* h 1/9))
+      (send dc draw-polygon 
+            (list (make-object point% (* w 1/3) (* h 1/3))
+                  (make-object point% (* w 1/3) (* h 2/3))
+                  (make-object point% (* w 1/2) (* h 1/2)))
+            dx
+            dy)
         
-        (set-color dc 'green)
-        (send dc draw-ellipse 
-              (+ dx (* w 2/3)) (+ dy (* h 2/3) (* h circle-gap 1/2))
-              (- (/ w 3) (* w circle-gap)) (- (/ h 3) (* h circle-gap)))
-        (send dc draw-rectangle (+ dx (* w (- 1/2 1/18))) (+ dy (* h 2/3)) (* w 1/9) (/ h 3))
-        (send dc draw-polygon 
-              (list (make-object point% (* w 1/3) (* h 2/3))
-                    (make-object point% (* w 2/3) (* h 2/3))
-                    (make-object point% (* w 1/2) (* h 1/2)))
-              dx
-              dy)
+      (set-color dc 'green)
+      (send dc draw-ellipse 
+            (+ dx (* w 2/3)) (+ dy (* h 2/3) (* h circle-gap 1/2))
+            (- (/ w 3) (* w circle-gap)) (- (/ h 3) (* h circle-gap)))
+      (send dc draw-rectangle (+ dx (* w (- 1/2 1/18))) (+ dy (* h 2/3)) (* w 1/9) (/ h 3))
+      (send dc draw-polygon 
+            (list (make-object point% (* w 1/3) (* h 2/3))
+                  (make-object point% (* w 2/3) (* h 2/3))
+                  (make-object point% (* w 1/2) (* h 1/2)))
+            dx
+            dy)
         
-        (set-color dc 'safety)
+      (set-color dc 'safety)
         
-        (send dc draw-rectangle 
-              (+ dx (* w 4/9))
-              (+ dy 0)
-              (* w 1/9)
-              (* h 1/3 1/8))
-        (send dc draw-rectangle 
-              (+ dx (* w 4/9))
-              (+ dy (* h (- 1 (* 1/3 1/8))))
-              (* w 1/9)
-              (* h 1/3 1/8))
-        (send dc draw-rectangle 
-              (+ dx (* w 5/9))
-              (+ dy (* h 1/3 4/8))
-              (* w 1/9)
-              (* h 1/3 1/8))
-        (send dc draw-rectangle 
-              (+ dx (* w 3/9))
-              (+ dy (* h 19/24))
-              (* w 1/9)
-              (* h 1/3 1/8))
+      (send dc draw-rectangle 
+            (+ dx (* w 4/9))
+            (+ dy 0)
+            (* w 1/9)
+            (* h 1/3 1/8))
+      (send dc draw-rectangle 
+            (+ dx (* w 4/9))
+            (+ dy (* h (- 1 (* 1/3 1/8))))
+            (* w 1/9)
+            (* h 1/3 1/8))
+      (send dc draw-rectangle 
+            (+ dx (* w 5/9))
+            (+ dy (* h 1/3 4/8))
+            (* w 1/9)
+            (* h 1/3 1/8))
+      (send dc draw-rectangle 
+            (+ dx (* w 3/9))
+            (+ dy (* h 19/24))
+            (* w 1/9)
+            (* h 1/3 1/8))
         
-        (send dc draw-rectangle 
-              (+ dx (* w (- 1 (* 1/3 1/8))))
-              (+ dy (* h 4/9))
-              (* w 1/3 1/8)
-              (* h 1/9))
-        (send dc draw-rectangle 
-              (+ dx 0)
-              (+ dy (* h 4/9))
-              (* w 1/3 1/8)
-              (* h 1/9))
-        (send dc draw-rectangle 
-              (+ dx (* w 4/24))
-              (+ dy (* h 1/3))
-              (* w 1/3 1/8)
-              (* h 1/3 1/3))
-        (send dc draw-rectangle 
-              (+ dx (* w 19/24))
-              (+ dy (* h 5/9))
-              (* w 1/3 1/8)
-              (* h 1/3 1/3))
+      (send dc draw-rectangle 
+            (+ dx (* w (- 1 (* 1/3 1/8))))
+            (+ dy (* h 4/9))
+            (* w 1/3 1/8)
+            (* h 1/9))
+      (send dc draw-rectangle 
+            (+ dx 0)
+            (+ dy (* h 4/9))
+            (* w 1/3 1/8)
+            (* h 1/9))
+      (send dc draw-rectangle 
+            (+ dx (* w 4/24))
+            (+ dy (* h 1/3))
+            (* w 1/3 1/8)
+            (* h 1/3 1/3))
+      (send dc draw-rectangle 
+            (+ dx (* w 19/24))
+            (+ dy (* h 5/9))
+            (* w 1/3 1/8)
+            (* h 1/3 1/3))
         
-        ;; blue entry
-        (send dc draw-rectangle 
-              (+ dx (* w 3/9))
-              (+ dy (* h 1/3 4/8))
-              (* w 1/9)
-              (* h 1/3 1/8))
+      ;; blue entry
+      (send dc draw-rectangle 
+            (+ dx (* w 3/9))
+            (+ dy (* h 1/3 4/8))
+            (* w 1/9)
+            (* h 1/3 1/8))
         
-        ;; green entry
-        (send dc draw-rectangle 
-              (+ dx (* w 5/9))
-              (+ dy (* h 19/24))
-              (* w 1/9)
-              (* h 1/24))
+      ;; green entry
+      (send dc draw-rectangle 
+            (+ dx (* w 5/9))
+            (+ dy (* h 19/24))
+            (* w 1/9)
+            (* h 1/24))
         
-        ;; yellow entry
-        (send dc draw-rectangle 
-              (+ dx (* w 4/24))
-              (+ dy (* h 5/9))
-              (* w 1/24)
-              (* h 1/9))
+      ;; yellow entry
+      (send dc draw-rectangle 
+            (+ dx (* w 4/24))
+            (+ dy (* h 5/9))
+            (* w 1/24)
+            (* h 1/9))
         
-        ;; red entry
-        (send dc draw-rectangle 
-              (+ dx (* w 19/24))
-              (+ dy (* h 1/3))
-              (* w 1/24)
-              (* h 1/9))
+      ;; red entry
+      (send dc draw-rectangle 
+            (+ dx (* w 19/24))
+            (+ dy (* h 1/3))
+            (* w 1/24)
+            (* h 1/9))
         
-        (set-color dc 'blue)
-        (send dc draw-polygon
-              (list (make-object point% (* w 3/9) (* h 4/24))
-                    (make-object point% (* w 2/9) (* h 5/24))
-                    (make-object point% (* w 4/9) (* h 5/24)))
-              dx
-              dy)
+      (set-color dc 'blue)
+      (send dc draw-polygon
+            (list (make-object point% (* w 3/9) (* h 4/24))
+                  (make-object point% (* w 2/9) (* h 5/24))
+                  (make-object point% (* w 4/9) (* h 5/24)))
+            dx
+            dy)
         
-        (set-color dc 'green)
-        (send dc draw-polygon 
-              (list (make-object point% (* w 5/9) (* h 19/24))
-                    (make-object point% (* w 6/9) (* h 20/24))
-                    (make-object point% (* w 7/9) (* h 19/24)))
-              dx
-              dy)
-        
-        
-        (set-color dc 'yellow)
-        (send dc draw-polygon 
-              (list (make-object point% (* w 4/24) (* h 6/9))
-                    (make-object point% (* w 5/24) (* h 5/9))
-                    (make-object point% (* w 5/24) (* h 7/9)))
-              dx
-              dy)
+      (set-color dc 'green)
+      (send dc draw-polygon 
+            (list (make-object point% (* w 5/9) (* h 19/24))
+                  (make-object point% (* w 6/9) (* h 20/24))
+                  (make-object point% (* w 7/9) (* h 19/24)))
+            dx
+            dy)
         
         
-        (set-color dc 'red)
-        (send dc draw-polygon
-              (list (make-object point% (* w 20/24) (* h 3/9))
-                    (make-object point% (* w 19/24) (* h 4/9))
-                    (make-object point% (* w 19/24) (* h 2/9)))
-              dx
-              dy)
+      (set-color dc 'yellow)
+      (send dc draw-polygon 
+            (list (make-object point% (* w 4/24) (* h 6/9))
+                  (make-object point% (* w 5/24) (* h 5/9))
+                  (make-object point% (* w 5/24) (* h 7/9)))
+            dx
+            dy)
         
-        (set-color dc 'black)
         
-        (let loop ([i 7])
-          (unless (zero? i)
-            (send dc draw-line 
-                  (+ dx (* w 1/3))
-                  (+ dy (+ (* h 2/3) (* (* h 1/3) (/ i 8))))
-                  (+ dx (* w 2/3))
-                  (+ dy (+ (* h 2/3) (* (* h 1/3) (/ i 8)))))
-            (send dc draw-line 
-                  (+ dx (* w 1/3))
-                  (+ dy (* (* h 1/3) (/ i 8)))
-                  (+ dx (* w 2/3))
-                  (+ dy (* (* h 1/3) (/ i 8))))
-            (send dc draw-line 
-                  (+ dx (+ (* w 2/3) (* (* w 1/3) (/ i 8))))
-                  (+ dy (* h 1/3))
-                  (+ dx (+ (* w 2/3) (* (* w 1/3) (/ i 8))))
-                  (+ dy (* h 2/3)))
-            (send dc draw-line 
-                  (+ dx (* (* w 1/3) (/ i 8)))
-                  (+ dy (* h 1/3))
-                  (+ dx (* (* w 1/3) (/ i 8)))
-                  (+ dy (* h 2/3)))
-            (loop (- i 1))))
+      (set-color dc 'red)
+      (send dc draw-polygon
+            (list (make-object point% (* w 20/24) (* h 3/9))
+                  (make-object point% (* w 19/24) (* h 4/9))
+                  (make-object point% (* w 19/24) (* h 2/9)))
+            dx
+            dy)
         
-        (when draw-pieces?
-          (draw-pieces board dc w h dx dy))
+      (set-color dc 'black)
         
-        (send dc set-smoothing smoothing))))
+      (let loop ([i 7])
+        (unless (zero? i)
+          (send dc draw-line 
+                (+ dx (* w 1/3))
+                (+ dy (+ (* h 2/3) (* (* h 1/3) (/ i 8))))
+                (+ dx (* w 2/3))
+                (+ dy (+ (* h 2/3) (* (* h 1/3) (/ i 8)))))
+          (send dc draw-line 
+                (+ dx (* w 1/3))
+                (+ dy (* (* h 1/3) (/ i 8)))
+                (+ dx (* w 2/3))
+                (+ dy (* (* h 1/3) (/ i 8))))
+          (send dc draw-line 
+                (+ dx (+ (* w 2/3) (* (* w 1/3) (/ i 8))))
+                (+ dy (* h 1/3))
+                (+ dx (+ (* w 2/3) (* (* w 1/3) (/ i 8))))
+                (+ dy (* h 2/3)))
+          (send dc draw-line 
+                (+ dx (* (* w 1/3) (/ i 8)))
+                (+ dy (* h 1/3))
+                (+ dx (* (* w 1/3) (/ i 8)))
+                (+ dy (* h 2/3)))
+          (loop (- i 1))))
+        
+      (when draw-pieces?
+        (draw-pieces board dc w h dx dy))
+        
+      (send dc set-smoothing smoothing)
+      (send dc set-pen old-pen)
+      (send dc set-brush old-brush)))
   
   ;; piece : color left top coordinate -> void
   (define (for-each-piece/position board w h piece)
@@ -354,7 +358,6 @@
          (send dc set-brush (send the-brush-list find-or-create-brush (pawn-drawn-color (pawn-color pawn)) 'solid))
          (send dc draw-ellipse (+ dx x) (+ dy y) size size)
          (send dc set-font font)
-         (send dc set-text-foreground (get-number-color (pawn-color pawn)))
          (send dc set-pen old-pen)
          (send dc set-brush old-brush)
          (send dc set-font old-font)))))
@@ -569,7 +572,7 @@
       
       (define/private (resize-bitmap)
         (let-values ([(w h) (get-client-size)])
-          (set! buffer (make-object bitmap% w h))
+          (set! buffer (make-bitmap w h))
           (redraw-bitmap)))
       
       (define/private (redraw-bitmap)

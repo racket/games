@@ -14,7 +14,7 @@ careful charlie
   (require "board.rkt"
            "moves.rkt"
            "interfaces.rkt"
-           "test.rkt"
+           "test/test.rkt"
            racket/class
            racket/pretty)
   
