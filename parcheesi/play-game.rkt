@@ -130,11 +130,11 @@
        (stretchable-width #f)
        (stretchable-height #f))))
   
-  (define (play-game players)
+  (define (play-game players #:name [name #f])
     (define game (new game%))
     (define esp (make-eventspace))
     (define af (parameterize ([current-eventspace esp])
-                 (new animation-frame% (label "Parcheesi") (eventspace esp))))
+                 (new animation-frame% (label (or name "Parcheesi")) (eventspace esp))))
     (send game set-observer af)
     (for-each (lambda (player) (send game register player)) players)
     (parameterize ([current-eventspace esp])
