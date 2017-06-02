@@ -121,7 +121,10 @@ careful charlie
       (define/override (score board) 
         (let ([dist (- 500 (find-distance board color))]
               [bop-chance (- 36 (find-bop-chance board color))])
-          (+ (* dist 100) bop-chance)))
+          (define blockades (find-blockades/color board color))
+          (+ (* dist 2)
+             bop-chance
+             (* (length blockades) 10))))
       (super-new [name "Amazing Grace"])))
   
   (define reckless-player%
