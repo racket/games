@@ -1721,7 +1721,27 @@
               [(board5 bonus5) (board-move-piece-main board4 (make-pawn 'green 1) 5 17)])
   (test-take-turn 'red board5 '(1 4) '()
                   board5))
+
+(let ()
+  (define board (new-board))
+  (define-syntax-rule (move-it t) (begin (define-values (new-board _) t) (set! board new-board)))
+  (move-it (board-enter-piece board (make-pawn 'green 0)))
+  (move-it (board-move-piece-main board (make-pawn 'green 0) 5 63))
+  (move-it (board-move-piece-main board (make-pawn 'green 0) 0 8))
+
+  (move-it (board-enter-piece board (make-pawn 'green 1)))
+  (move-it (board-move-piece-main board (make-pawn 'green 1) 5 63))
+  (move-it (board-move-piece-main board (make-pawn 'green 1) 0 5))
+
+  (move-it (board-enter-piece board (make-pawn 'green 2)))
+  (move-it (board-move-piece-main board (make-pawn 'green 2) 5 63))
+  (move-it (board-move-piece-main board (make-pawn 'green 2) 0 5))
   
+  (move-it (board-enter-piece board (make-pawn 'green 3)))
+  (move-it (board-move-piece-main board (make-pawn 'green 3) 5 63))
+
+  (test-take-turn 'green board '(6 5) '() board))
+
 (test-take-turn 'green
                 (make-board (list blue0 blue2 blue1 blue3
                                   green0

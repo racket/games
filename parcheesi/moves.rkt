@@ -410,7 +410,7 @@
   (define (next-pos color pos)
     (cond
       [(= pos (get-exit-pos color))
-       (make-home-row-loc color 0)]
+       (make-home-row-loc 0 color)]
       [else
        (modulo (+ pos 1) board-main-size)]))
 
