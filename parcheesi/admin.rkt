@@ -112,7 +112,7 @@
       
       (define/public (start-game observer) 
         (unless cheated?
-          (with-handlers ([exn? (lambda (x) (cheated "start-game error ~a" (exn-message x)))])
+          (with-handlers ([exn:fail? (lambda (x) (cheated "start-game error ~a" (exn-message x)))])
             (let ([res-name (send player start-game color)])
               (cond
                 [(string? res-name)
@@ -130,7 +130,7 @@
                             (lambda (x)
                               (cheated "~s" (exn-message x))
                               (remove-player board))])
-             (let ([moves (with-handlers ([exn? (lambda (x) (list 'error (exn-message x)))])
+             (let ([moves (with-handlers ([exn:fail? (lambda (x) (list 'error (exn-message x)))])
                             (send player do-move board dice))])
                (cond
                  [(and (list? moves) (andmap move? moves))
@@ -152,9 +152,9 @@
         (cond
           [cheated? board]
           [else
-           (with-handlers ([exn? (lambda (x) 
-                                   (cheated "doubles-penalty: ~a\n" (exn-message x))
-                                   (void))])
+           (with-handlers ([exn:fail? (lambda (x)
+                                        (cheated "doubles-penalty: ~a\n" (exn-message x))
+                                        (void))])
              (send player doubles-penalty))
            (board-doubles-penalty board color)]))
       
