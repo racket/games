@@ -1,4 +1,5 @@
-(module moves racket
+#lang racket
+
   (require "board.rkt")
 
   ;; a move is either:
@@ -36,6 +37,11 @@
            has-entering-roll?
            entering-blockade?
            exn:bad-move?
+           exn:bad-move-with-info?
+           exn:bad-move-with-info-color
+           exn:bad-move-with-info-board
+           exn:bad-move-with-info-dice
+           exn:bad-move-with-info-moves
            
            board-all-in?
            <=/m
@@ -86,42 +92,44 @@
   ;; take-turn : color board (listof number) (listof move) -> board
   ;; raises an exception if the turn is illegal
   (define (take-turn color original-board original-dice original-moves)
-    (unless (andmap (lambda (x) (eq? color (get-move-color x))) original-moves)
-      (bad-move "attempted to move two different colors"))
-    (let loop ([moves original-moves]
-               [board original-board]
-               [dice original-dice])
-      (cond
-        [(null? moves) 
+    (parameterize ([current-color/board/dice/moves
+                    (list color original-board original-dice original-moves)])
+      (unless (andmap (lambda (x) (eq? color (get-move-color x))) original-moves)
+        (bad-move "attempted to move two different colors"))
+      (let loop ([moves original-moves]
+                 [board original-board]
+                 [dice original-dice])
+        (cond
+          [(null? moves) 
          
-         (when (and (has-entering-roll? dice)
-                    (memf (lambda (pawn) (eq? (pawn-color pawn) color))
-                          (board-start board)) ;; has pieces in start
-                    (not (entering-blockade? board color)))
-           (bad-move "can still enter a pawn"))
+           (when (and (has-entering-roll? dice)
+                      (memf (lambda (pawn) (eq? (pawn-color pawn) color))
+                            (board-start board)) ;; has pieces in start
+                      (not (entering-blockade? board color)))
+             (bad-move "can still enter a pawn"))
          
-         (let ([used-dice (moves-dice original-moves)])
-           (for-each (lambda (die) 
-                       (let ([potential-board (possible-to-move color board die)])
-                         (when potential-board
-                           (unless (blockade-moved? original-board potential-board color)
-                             (bad-move "die roll ~a can still be used" die)))))
-                     dice)
+           (let ([used-dice (moves-dice original-moves)])
+             (for-each (lambda (die) 
+                         (let ([potential-board (possible-to-move color board die)])
+                           (when potential-board
+                             (unless (blockade-moved? original-board potential-board color)
+                               (bad-move "die roll ~a can still be used" die)))))
+                       dice)
            
-           (when (blockade-moved? original-board board color)
-             (bad-move "cannot move blockade together")))
+             (when (blockade-moved? original-board board color)
+               (bad-move "cannot move blockade together")))
          
-         board]
-        [else 
-         (let ([move (car moves)])
-           (let-values ([(new-board bonus new-dice)
-                         (make-move/dice board move dice)])
-             (let ([new-new-dice (if bonus
-                                     (cons bonus new-dice)
-                                     new-dice)])
-               (loop (cdr moves)
-                     new-board
-                     new-new-dice))))])))
+           board]
+          [else 
+           (let ([move (car moves)])
+             (let-values ([(new-board bonus new-dice)
+                           (make-move/dice board move dice)])
+               (let ([new-new-dice (if bonus
+                                       (cons bonus new-dice)
+                                       new-dice)])
+                 (loop (cdr moves)
+                       new-board
+                       new-new-dice))))]))))
   
   ;; get-move-color : move -> symbol
   ;; extracts the moved color from the move
@@ -440,9 +448,16 @@
         (<= three one two)))
   
   (define-struct (exn:bad-move exn) ())
+  (define-struct (exn:bad-move-with-info exn:bad-move) (color board dice moves))
   
-  (define bad-move
-    (case-lambda
-      [(str) (raise (make-exn:bad-move str (current-continuation-marks)))]
-      [args (raise (make-exn:bad-move (apply format args)
-                                      (current-continuation-marks)))])))
+  (define current-color/board/dice/moves (make-parameter #f))
+    
+  (define (bad-move _str . args)
+    (define str (if (null? args) _str (apply format _str args)))
+    (raise
+     (cond
+       [(current-color/board/dice/moves)
+        (define-values (color board dice moves) (apply values (current-color/board/dice/moves)))
+        (make-exn:bad-move-with-info str (current-continuation-marks) color board dice moves)]
+       [else
+        (make-exn:bad-move str (current-continuation-marks))])))

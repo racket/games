@@ -128,6 +128,17 @@
           [else
            (with-handlers ([exn:bad-move? 
                             (lambda (x)
+                              (when (exn:bad-move-with-info? x)
+                                (let ([l (current-logger)])
+                                  (when (log-level? parcheesi-bad-move-information-logger
+                                                    'info
+                                                    'parcheesi-bad-move-information)
+                                    (log-message l 'info 'parcheesi-bad-move-information
+                                                 (exn-message x)
+                                                 (vector (exn:bad-move-with-info-color x)
+                                                         (exn:bad-move-with-info-board x)
+                                                         (exn:bad-move-with-info-dice x)
+                                                         (exn:bad-move-with-info-moves x))))))
                               (cheated "~s" (exn-message x))
                               (remove-player board))])
              (let ([moves (with-handlers ([exn:fail? (lambda (x) (list 'error (exn-message x)))])
@@ -159,6 +170,8 @@
            (board-doubles-penalty board color)]))
       
       (super-new)))
+
+  (define-logger parcheesi-bad-move-information)
   
   (define die%
     (class object%
