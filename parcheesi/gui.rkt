@@ -565,21 +565,28 @@
       (define/override (on-paint)
         (unless buffer
           (resize-bitmap))
-        (send (get-dc) draw-bitmap buffer 0 0))
+        (define-values (cw ch) (get-client-size))
+        (define bw (send buffer get-width))
+        (define bh (send buffer get-height))
+        (send (get-dc) draw-bitmap buffer
+              (- (/ cw 2) (/ bw 2))
+              (- (/ ch 2) (/ bh 2))))
       
       (define/override (on-size w h)
         (resize-bitmap))
       
       (define/private (resize-bitmap)
         (let-values ([(w h) (get-client-size)])
-          (set! buffer (make-bitmap w h))
+          (define s (min w h))
+          (set! buffer (make-bitmap s s))
           (redraw-bitmap)))
       
       (define/private (redraw-bitmap)
-        (let-values ([(w h) (get-client-size)])
-          (send bdc set-bitmap buffer)
-          (draw-board board bdc w h 0 0 #t)
-          (send bdc set-bitmap #f)))
+        (define w (send buffer get-width))
+        (define h (send buffer get-height))
+        (send bdc set-bitmap buffer)
+        (draw-board board bdc w h 0 0 #t)
+        (send bdc set-bitmap #f))
       
       (super-new)
      
