@@ -8,6 +8,11 @@
 (require racket/gui "../show-scribbling.rkt" racket/unit)
 (provide game@)
 
+(define game@ (unit (import) (export)
+
+;;;============================================================================
+;;; Customizations etc
+
 (define customs '())
 (define (add-custom! name get set type desc)
   (set! customs (append customs (list (make-custom name get set type desc)))))
@@ -18,10 +23,6 @@
      (begin (define var default)
             (add-custom! 'var (λ() var) (λ(v) (set! var v))
                          type description))]))
-(define game@ (unit (import) (export)
-
-;;;============================================================================
-;;; Customizations etc
 
 (defcustom EVAL-NOW    #t 'bool      "Evaluate immediately on application")
 (defcustom EVAL-DEPTH  18 '(int 100) "Evaluation depth limit")
