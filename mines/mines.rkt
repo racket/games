@@ -352,7 +352,9 @@
                 (if (zero? nc)
                   (autoclick-surrounding x y)
                   (set-near-hilite t x y))))
-            (when (and ready? (= cover-count THE-BOMB-COUNT)) (win)))))]
+            (when (and ready? (= cover-count THE-BOMB-COUNT))
+              (clear-area-hilite)
+              (win)))))]
      [paint-one        ; draw one tile
       (lambda (t x y)
         (let ([xloc (* x TILE-HW)]
