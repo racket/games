@@ -74,7 +74,7 @@
 		    [(random)
 		     (random-board (send random-slider get-value))]
 		    [(empty)
-		     (build-vector 
+		     (build-vector
 		      (send random-slider get-value)
 		      (lambda (x) (make-vector (send random-slider get-value) 'o)))]
 		    [(prebuilt)
@@ -83,13 +83,6 @@
   
   (define (to-vectors lsts)
     (apply vector (map (λ (x) (apply vector x)) lsts)))
-  
-  '(define (build-vector n f)
-    (list->vector
-     (let loop ([n n])
-       (cond
-	[(zero? n) null]
-	[else (cons (f (- n 1)) (loop (- n 1)))]))))
   
   (define (random-board n)
     (let* ([choices
@@ -138,7 +131,7 @@
 		  (let loop ([choices choices]
 			     [n choice])
 		    (cond
-		     [(zero? n) 
+		     [(zero? n)
 					;(printf "choose: ~a\n" (car choices))
 		      (set! choice-coordinates (car choices))
 		      (cdr choices)]
