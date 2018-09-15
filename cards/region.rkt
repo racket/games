@@ -56,7 +56,7 @@
     (lambda (x y w h label callback)
       (unless (not (or (negative? w) (negative? h)))
 	(error 'make-region "bad region size: ~a x ~a" w h))
-      (make-region x y w h label callback #f #f #f #f #f #f)))
+      (make-region x y w h label callback)))
 
   (define make-background-region
     (lambda (x y w h paint-callback)
