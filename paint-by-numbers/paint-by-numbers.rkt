@@ -280,31 +280,16 @@
     
     [define/private set-entry
       (lambda (i j nv)
-        (send canvas set-rect i j nv)
-        (send canvas paint-rect i j))]
-    
-    [define/private really-solve?
-      (lambda ()
-        (gui-utils:get-choice
-         (format "~
-           Solving can be a very computationally intense task;~
-           \nyou may run out of memory and crash. ~
-           \nReally continue? (Be sure to save your work!)")
-         "Yes"
-         "No"
-         "Really Solve?"
-         #f))]
-    
-    [define/private solve
-      (lambda ()
-        (when (really-solve?)
-          (send canvas all-unknown)
-          (send canvas on-paint)
-          (solve:solve
-           (problem-rows problem)
-           (problem-cols problem)
-           (lambda (i j nv) (set-entry i j nv))
-           setup-progress)))]
+        (send canvas set-and-paint-rect i j nv))]
+
+    (define/private (solve)
+      (send canvas all-unknown)
+      (send canvas on-paint)
+      (solve:solve
+       (problem-rows problem)
+       (problem-cols problem)
+       (lambda (i j nv) (set-entry i j nv))
+       setup-progress))
     
     (super-new (label game-name))
     

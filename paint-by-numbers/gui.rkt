@@ -315,6 +315,12 @@ paint by numbers.
     [define/public set-rect
       (lambda (i j sym)
         (set-raw-rect i j (sym->brush sym)))]
+
+    (define/public (set-and-paint-rect i j nv)
+      (define prev (get-rect i j))
+      (unless (equal? nv prev)
+        (set-rect i j nv)
+        (paint-rect i j)))
     
     
     ;; (int int -> void)
