@@ -1,16 +1,33 @@
-(module base racket
-  (require racket/class
-           "make-cards.rkt" "classes.rkt" "card-class.rkt")
+#lang racket/base
 
-  (provide make-table make-deck make-card
-           table<%> card<%>)
+(require racket/class
+         racket/contract
+         "make-cards.rkt"
+         "classes.rkt"
+         "card-class.rkt")
 
-  (define table<%> (class->interface table%))
-  (define card<%> (class->interface card%))
+(provide make-card
+         table<%>
+         card<%>
+         make-deck
+         (contract-out
+          [make-table
+           (->* {}
+                {string?
+                 real?
+                 real?
+                 #:mixin (make-mixin-contract table<%>)}
+                any)]
+          ))
 
-  (define make-table
-    (lambda ([title "Cards"][w 7][h 3])
-      (make-object table% title w h)))
+(define table<%> (class->interface table%))
+(define card<%> (class->interface card%))
 
-  (define (make-deck)
-    (map (lambda (l) (send l copy)) deck-of-cards)))
+(define (make-table [title "Cards"]
+                    [w 7]
+                    [h 3]
+                    #:mixin [mixin values])
+  (make-object (mixin table%) title w h))
+
+(define (make-deck)
+  (map (lambda (l) (send l copy)) deck-of-cards))
