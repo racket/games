@@ -7,7 +7,7 @@
            (contract-out
             [make-card (->i ([front-bm (back-bm)
                                        (and/c (is-a?/c mred:bitmap%)
-                                              (same-size back-bm))]
+                                              (same-size (or back-bm back)))]
                              [back-bm (or/c #f (is-a?/c mred:bitmap%))]
                              [suit-id any/c]
                              [value any/c])
@@ -88,8 +88,8 @@
 			  (vloop (sub1 value))))))))))
   
   (define (make-card front-bm back-bm suit-id value)
-    (let ([w (send back get-width)]
-	  [h (send back get-height)])
+    (let ([w (send front-bm get-width)]
+	  [h (send front-bm get-height)])
       (make-object card-class:card%
 		   suit-id
 		   value
@@ -98,6 +98,6 @@
 		   (lambda () (make-dim front-bm))
 		   (lambda ()
 		     (if back-bm 
-			 (make-dim back)
+			 (make-dim back-bm)
 			 dim-back))
                    (make-hash)))))
