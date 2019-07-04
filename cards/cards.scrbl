@@ -37,8 +37,9 @@ can only be on one table at a time.}
 Returns a single card given a bitmap for the front, an optional bitmap
 for the back, and arbitrary values for the card's suit and value
 (which are returned by the card's @method[card<%> get-value] and
-@method[card<%> get-suit-id] methods). All provided bitmaps should be
-the same size.}
+@method[card<%> get-suit-id] methods). If @racket[back-bm] is @racket[#f],
+then the back defaults to a standard 71 by 96 bitmap. The front and back
+must be the same size.}
 
 @defproc[(shuffle-list [lst list?] [n exact-nonnegative-integer?])
          list?]{
