@@ -121,7 +121,7 @@ of cells the blob occupied, so removing bigger blobs is better. Second, if there
 are fewer than 50 cells occupied on the board, you get a bonus.
 Specifically if you have 49 cells left, you
 get a 100 point bonus, 48 cells left yields a 200 point bonus, 
-47 cells a 200 point bonus etc., and if there
+47 cells a 300 point bonus etc., and if there
 are no cells left, you get a 5000 point bonus.
 
 Click the @onscreen{New Game} button to play again.
