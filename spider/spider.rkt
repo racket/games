@@ -285,6 +285,7 @@
                  (for-each (lambda (c) (send c user-can-move #f)) a)
                  (vector-set! stacks i l)]
                 [(and (pair? l)
+                      (not (send (car l) face-down?))
                       (= j (send (car l) get-value))
                       (equal? suit (send (car l) get-suit)))
                  (loop (add1 j) (cons (car l) a) (cdr l))]
