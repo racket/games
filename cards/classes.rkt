@@ -366,7 +366,10 @@
                        (not (send click-base user-can-move)))
               (no-selected)))
           (when (and click click-base)
-            (do-on-single-click click-base))))])
+            (do-on-single-click click-base))))]
+     [on-default-char
+      (lambda (e)
+        (void))])
     (define/augment (can-select? s on?)
       (and (inner #t can-select? s on?)
            (or (not on?)
