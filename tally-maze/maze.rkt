@@ -5,7 +5,8 @@
          racket/set
          racket/list
          racket/contract
-         math/base)
+         math/base
+         mrlib/panel-wob)
 (module+ test (require rackunit))
 
 (provide pick-a-maze
@@ -133,8 +134,16 @@
       (send dc set-pen color 1 'transparent)
       (send dc set-brush color 'solid)
       (send dc draw-rectangle dx dy cell-size cell-size)))
+
+  (define lightweight-line-color (if (white-on-black-panel-scheme?) "navy" "lightblue"))
+  (define thick-wall-color (if (white-on-black-panel-scheme?) "gray" "black"))
+  (define background-color (if (white-on-black-panel-scheme?) "black" "white"))
+
+  (send dc set-pen "black" 1 'transparent)
+  (send dc set-brush background-color 'solid)
+  (send dc draw-rectangle 0 0 w h)
   
-  (send dc set-pen "lightblue" 1 'solid)
+  (send dc set-pen lightweight-line-color 1 'solid)
   (for ([x (in-range 1 maze-w)])
     (define e (mx->dcx x))
     (send dc draw-line (+ dx e) (+ dy y-margin) (+ dx e) (+ dy y-margin tot-maze-h)))
@@ -142,7 +151,7 @@
     (define e (my->dcy y))
     (send dc draw-line (+ dx x-margin) (+ dy e) (+ dx x-margin tot-maze-w) (+ dy e)))
   
-  (send dc set-pen "black" wall-pen-size 'solid)
+  (send dc set-pen thick-wall-color wall-pen-size 'solid)
   (send dc draw-line
         (+ dx x-margin) (+ dy y-margin cell-size)
         (+ dx x-margin) (+ dy y-margin tot-maze-h))
@@ -173,7 +182,7 @@
         (when (<= 0 to-y (- maze-h 1))
           (define k (cons to-x to-y))
           (unless (set-member? neighbors k)
-            (send dc set-pen "black"
+            (send dc set-pen thick-wall-color
                   wall-pen-size
                   'solid)
             (cond

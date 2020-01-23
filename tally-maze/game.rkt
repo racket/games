@@ -8,7 +8,8 @@
          racket/list
          racket/path
          racket/runtime-path
-         racket/unit)
+         racket/unit
+         mrlib/panel-wob)
 
 (provide game@)
 
@@ -105,6 +106,8 @@
       (define dc (get-dc))
       (define s (str (state-maze-index (current-state))))
       (define-values (tw _1 _2 _3) (send dc get-text-extent s))
+      (send dc set-text-foreground
+            (if (white-on-black-panel-scheme?) "white" "black"))
       (send dc draw-text s (/ (- w tw) 2) 0))
     (define/private (str n) (format "Board #~a" n))
     (super-new [style '(transparent)])
