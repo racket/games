@@ -91,8 +91,9 @@
                                             steps (min max-depth one-step-depth)
                                             (play->string v))
                                 v))
-                        ;; We have at least one result, now.
-                        (semaphore-post once-sema)
+                        (when (list? (cdr result))
+                          ;; We have at least one result, now.
+                          (semaphore-post once-sema))
                         ;; If we could learn more by searching deeper, then
                         ;;  do so.
                         (unless (or (and (= steps max-steps)
