@@ -84,3 +84,8 @@
    [((HEURISTICS : heuristics^)) heuristics-unit@]
    [((EXPLORE : explore^)) explore-unit@]
    [() robot-unit@])))
+
+
+(module+ test
+  (module config info
+    (define timeout 300)))
