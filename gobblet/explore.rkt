@@ -81,6 +81,7 @@
                               (let ([v (multi-step-minmax
                                         steps
                                         3 ; span
+                                        #t ; must move
                                         (make-config 
                                          (min max-depth one-step-depth)
                                          memory canonicalize rate-board canned-moves)
@@ -91,9 +92,8 @@
                                             steps (min max-depth one-step-depth)
                                             (play->string v))
                                 v))
-                        (when (list? (cdr result))
-                          ;; We have at least one result, now.
-                          (semaphore-post once-sema))
+                        ;; We have at least one result, now.
+                        (semaphore-post once-sema)
                         ;; If we could learn more by searching deeper, then
                         ;;  do so.
                         (unless (or (and (= steps max-steps)
@@ -243,7 +243,7 @@
     ;; ...state and search params... -> (values (listof (cons num plan)) xform)
     ;; Minimax search up to the given max-depth, returning up to span
     ;; choices of move.
-    (define (minmax depth span config me board last-to-i last-to-j)
+    (define (minmax depth span config me board last-to-i last-to-j must-move?)
       (set! hit-count (add1 hit-count))
       (let* ([board-key+xform ((config-canonicalize config) board me)]
              [board-key (car board-key+xform)]
@@ -252,7 +252,8 @@
         (let ([choices
                (cond
                  ;; Check for known win/loss/tie at arbitrary depth:
-                 [(hash-ref (config-memory config) board-key (lambda () #f)) 
+                 [((if must-move? skip-tie values)
+                   (hash-ref (config-memory config) board-key (lambda () #f))) 
                   => (lambda (x) x)]
                  ;; Check for known result at specific remaining depth:
                  [(hash-ref (config-memory config) key (lambda () #f)) 
@@ -362,7 +363,8 @@
               (let-values ([(his-choices sxform)
                             (minmax (add1 depth) 1 config
                                     (other me) new-board
-                                    to-i to-j)])
+                                    to-i to-j
+                                    #f)])
                 #;
                 (when (zero? depth)
                   (show-recur (piece-size p) from-i from-j to-i to-j his-choices))
@@ -405,6 +407,11 @@
                    choices
                    (f i j))))
        choices))
+
+    (define (skip-tie v)
+      (if (and (pair? v) (eq? (cdar v) 'loop!))
+          #f
+          v))
     
     ;; --- TESTS ---
     #;
@@ -459,7 +466,7 @@
     ;; Apply minmax, and if steps > 1, rate resulting moves by applying
     ;; minmax to them. Meanwhile, in learning mode, record any resulting
     ;; move that is known to lead to winning or losing.
-    (define (multi-step-minmax steps span config indent init-memory me board)
+    (define (multi-step-minmax steps span must-move? config indent init-memory me board)
       (define first-move? 
         ((fold-board (lambda (i j v) (+ v (length (board-ref board i j)))) 0) . < . 2))
       (define now (current-inexact-milliseconds))
@@ -476,7 +483,8 @@
                                 span)
                             config
                             me
-                            board #f #f)])
+                            board #f #f
+                            must-move?)])
         (log-printf 2 indent "~a>> Done ~a ~a ~a ~a+~a [~a secs]\n" 
                     (make-string indent #\space) 
                     hit-count depth-count explore-count enter-count move-count
@@ -508,7 +516,7 @@
           
           (cond
            [(null? plays)
-            ;; No moves because it was a tie due to a repeat.
+            ;; No moves because it was a tie due to a repeat
             (car LOOP-TIE)]
            [(or (steps . <= . 1) first-move?)
             (first plays)]
@@ -533,7 +541,7 @@
                              play]
                             [else
                              (let ([r (cons (- (car (multi-step-minmax 
-                                                     (sub1 steps) span config 
+                                                     (sub1 steps) span #f config 
                                                      (+ 3 indent) init-memory
                                                      (other me)
                                                      (apply-play board (cdr play)))))
