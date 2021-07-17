@@ -63,7 +63,7 @@
     (define IMMEDIATE-LOSER-GOODNESS (cons LOSER-GOODNESS 1))
     
     (define get-goodness 
-      (invoke-unit counter@ (import params^)))
+      (invoke-unit counter@ (import params^ up-to^)))
     
     ;;  Pick a move ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     

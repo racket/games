@@ -9,6 +9,7 @@
          "utils.rkt")
 
 (provide params^
+         up-to^
          counter@)
 
 (define-signature params^
