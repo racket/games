@@ -1,5 +1,6 @@
 #lang typed/racket
-(require typed/racket/gui)
+(require typed/racket/gui
+         racket/runtime-path)
 (provide start-game)
 
 (: get-bitmap ((Instance Bitmap%) -> (Values (U (Instance Bitmap%) #f)
@@ -314,6 +315,7 @@
     (min-client-width (send bitmap get-width))
     (min-client-height (send bitmap get-height))))
 
+(define-runtime-path 11.jpg "11.jpg")
 
 (define (start-game)
   (define f (make-object frame% "Slidey"))
@@ -323,8 +325,7 @@
 
   (define slidey-canvas
     (make-object slidey-canvas%
-      (make-object bitmap%
-        (build-path (collection-file-path "11.jpg" "games" "slidey")))
+      (make-object bitmap% 11.jpg)
       6 6 p))
 
   (define bp (make-object horizontal-panel% f))
