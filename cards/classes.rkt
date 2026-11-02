@@ -127,7 +127,7 @@
      [update-region 
       (lambda (region)
         (let-values ([(sx sy sw sh) (get-region-box region)])
-          (invalidate-bitmap-cache sx sy sw sh)))])
+          (invalidate-bitmap-cache (- sx 0.5) (- sy 0.5) (+ sw 1.0) (+ sh 1.0))))])
     (public*
      [only-front-selected
       (lambda ()
